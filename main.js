@@ -60,3 +60,25 @@ function updateProgress() {
     counter.innerHTML = `<span style="color:#3fb950">${done}</span>/${total} completados  <span style="font-family:monospace;letter-spacing:-1px">${bar}</span>  ${pct}%`;
 }
 updateProgress();
+
+// Tooltips: create .tip elements from data-tip attributes
+document.querySelectorAll('.tt[data-tip]').forEach(el => {
+    const tip = document.createElement('span');
+    tip.className = 'tip';
+    tip.textContent = el.getAttribute('data-tip');
+    el.appendChild(tip);
+    el.setAttribute('tabindex', '0');
+    el.setAttribute('role', 'term');
+    // Mobile: tap to toggle
+    el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        document.querySelectorAll('.tt.active').forEach(t => {
+            if (t !== el) t.classList.remove('active');
+        });
+        el.classList.toggle('active');
+    });
+});
+// Close tooltips on outside click
+document.addEventListener('click', () => {
+    document.querySelectorAll('.tt.active').forEach(t => t.classList.remove('active'));
+});

@@ -287,4 +287,77 @@ input[type="checkbox"] {
     a { color: #0969da; }
     h1 { color: #0969da; border-bottom-color: #0969da; }
     h4 { color: #8250df; }
+    .tt { border-bottom: none; }
+    .tt::after { display: none; }
+}
+
+/* Tooltips */
+.tt {
+    border-bottom: 1px dashed var(--accent-orange);
+    cursor: help;
+    position: relative;
+    white-space: normal;
+}
+
+.tt::after {
+    content: ' ⓘ';
+    font-size: 0.65em;
+    vertical-align: super;
+    color: var(--accent-blue);
+    opacity: 0.6;
+}
+
+.tt .tip {
+    display: none;
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--bg-card);
+    border: 1px solid var(--accent-blue);
+    color: var(--text);
+    padding: 0.5rem 0.7rem;
+    border-radius: 6px;
+    font-size: 0.82rem;
+    line-height: 1.4;
+    width: max-content;
+    max-width: 320px;
+    z-index: 200;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+    pointer-events: none;
+    font-weight: normal;
+    font-style: normal;
+    white-space: normal;
+}
+
+.tt .tip::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-top-color: var(--accent-blue);
+}
+
+.tt:hover .tip,
+.tt:focus .tip,
+.tt.active .tip {
+    display: block;
+}
+
+@media (max-width: 768px) {
+    .tt .tip {
+        position: fixed;
+        bottom: auto;
+        top: auto;
+        left: 1rem;
+        right: 1rem;
+        bottom: 1rem;
+        transform: none;
+        max-width: none;
+        width: auto;
+        font-size: 0.85rem;
+    }
+    .tt .tip::after { display: none; }
 }

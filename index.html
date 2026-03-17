@@ -32,8 +32,8 @@
 </ul>
 </li>
 <li><a href="#nivel-3-prioridad-media-40-70-probabilidad">🟡 NIVEL 3 — PRIORIDAD MEDIA (40-70% probabilidad)</a><ul>
-<li><a href="#nx-monorepo">NX Monorepo</a></li>
-<li><a href="#webpack-y-build-tools">Webpack y Build Tools</a></li>
+<li><a href="#nx-monorepo"><span class="tt" data-tip="Framework para monorepos: build, testing, generación de código. Builds incrementales.">NX</span> Monorepo</a></li>
+<li><a href="#webpack-y-build-tools"><span class="tt" data-tip="Bundler que empaqueta código, estilos y assets. Angular lo usó por defecto hasta v16.">Webpack</span> y Build Tools</a></li>
 <li><a href="#responsive-design-y-cross-browser">Responsive Design y Cross-Browser</a></li>
 <li><a href="#git-y-flujos-de-trabajo">Git y Flujos de Trabajo</a></li>
 </ul>
@@ -78,7 +78,7 @@
 <li><a href="#tema-15-cloud-platforms-awsazure">🟢 TEMA 15: Cloud Platforms (AWS/Azure)</a></li>
 <li><a href="#tema-16-ai-coding-tools">🟢 TEMA 16: AI Coding Tools</a></li>
 <li><a href="#tema-17-accessibility-a11y">🟢 TEMA 17: Accessibility (a11y)</a></li>
-<li><a href="#tema-18-preguntas-comportamentales-usa-metodo-star">💬 TEMA 18: Preguntas Comportamentales (usa método STAR)</a><ul>
+<li><a href="#tema-18-preguntas-comportamentales-usa-metodo-star">💬 TEMA 18: Preguntas Comportamentales (usa método <span class="tt" data-tip="Situación, Tarea, Acción, Resultado: método para respuestas behavioral en entrevistas.">STAR</span>)</a><ul>
 <li><a href="#star-situacion-tarea-accion-resultado">STAR = Situación → Tarea → Acción → Resultado</a></li>
 </ul>
 </li>
@@ -106,55 +106,55 @@
 <h3 id="ngrx-state-management">NgRx — State Management</h3>
 <ol>
 <li>¿Qué es NgRx y cuáles son sus conceptos fundamentales?</li>
-<li>¿Cuál es la diferencia entre NgRx Store y un simple servicio con BehaviorSubject?</li>
+<li>¿Cuál es la diferencia entre NgRx <span class="tt" data-tip="Objeto centralizado que contiene todo el estado de la aplicación. Solo se modifica mediante Actions + Reducers.">Store</span> y un simple servicio con <span class="tt" data-tip="Subject con valor actual. Nuevos suscriptores reciben el último valor emitido. Ideal para estado.">BehaviorSubject</span>?</li>
 <li>¿Cómo estructurarías el state en una aplicación grande?</li>
-<li>Explica las best practices para Actions en NgRx</li>
-<li>¿Cómo implementas Effects para llamadas HTTP?</li>
-<li>¿Qué son los Selectors y cómo los optimizas?</li>
+<li>Explica las best practices para <span class="tt" data-tip="Objetos que describen un evento que ocurrió (ej: usuario hizo login). Solo comunican intención al Store.">Actions</span> en NgRx</li>
+<li>¿Cómo implementas <span class="tt" data-tip="Clases que manejan side effects (HTTP, timers, navegación). Escuchan Actions y emiten nuevas Actions.">Effects</span> para llamadas HTTP?</li>
+<li>¿Qué son los <span class="tt" data-tip="Funciones puras que extraen porciones del estado. Usan memoización para evitar recálculos innecesarios.">Selectors</span> y cómo los optimizas?</li>
 <li>¿Cómo manejas Entity State con @ngrx/entity?</li>
-<li>¿Cómo implementarías NgRx con Standalone Components (Angular 14+)?</li>
+<li>¿Cómo implementarías NgRx con <span class="tt" data-tip="Componentes Angular 14+ sin NgModule. standalone: true y gestionan sus propias dependencias.">Standalone Components</span> (Angular 14+)?</li>
 </ol>
 <h3 id="rxjs-programacion-reactiva">RxJS — Programación Reactiva</h3>
 <ol>
-<li>¿Cuál es la diferencia entre Observable, Subject, BehaviorSubject y ReplaySubject?</li>
-<li>Explica los operadores de flattening: switchMap, mergeMap, concatMap, exhaustMap</li>
-<li>¿Cómo evitas memory leaks con Observables?</li>
+<li>¿Cuál es la diferencia entre <span class="tt" data-tip="Flujo de datos asíncrono. Es lazy: no hace nada hasta que alguien se suscribe con .subscribe().">Observable</span>, <span class="tt" data-tip="Observable multicast: comparte datos entre múltiples suscriptores. Emite valores con .next().">Subject</span>, BehaviorSubject y <span class="tt" data-tip="Subject que guarda los últimos N valores y los reproduce para nuevos suscriptores.">ReplaySubject</span>?</li>
+<li>Explica los <span class="tt" data-tip="switchMap, mergeMap, concatMap, exhaustMap — transforman Observables anidados en flujo plano.">operadores de flattening</span>: <span class="tt" data-tip="Cancela la suscripción anterior cuando llega un nuevo valor. Ideal para búsquedas en tiempo real.">switchMap</span>, <span class="tt" data-tip="Ejecuta todas las suscripciones en paralelo sin cancelar. Para operaciones independientes.">mergeMap</span>, <span class="tt" data-tip="Ejecuta suscripciones en secuencia, esperando que termine cada una. Cuando el orden importa.">concatMap</span>, <span class="tt" data-tip="Ignora nuevos valores mientras hay suscripción activa. Evita doble-click en login/submit.">exhaustMap</span></li>
+<li>¿Cómo evitas <span class="tt" data-tip="Fugas de memoria por suscripciones nunca canceladas. El componente muere pero el Observable sigue.">memory leaks</span> con Observables?</li>
 <li>¿Cuáles son los operadores RxJS más importantes para Angular?</li>
-<li>¿Qué es shareReplay y cuándo lo usarías?</li>
+<li>¿Qué es <span class="tt" data-tip="Comparte un Observable entre suscriptores y cachea los últimos N valores. Evita HTTP duplicados.">shareReplay</span> y cuándo lo usarías?</li>
 <li>¿Cómo combinarías múltiples Observables?</li>
 </ol>
 <h3 id="angular-core-avanzado">Angular Core Avanzado</h3>
 <ol>
-<li>¿Qué es Change Detection y cómo lo optimizas?</li>
-<li>¿Qué son los Angular Signals y cómo se relacionan con RxJS?</li>
-<li>¿Cómo implementas Lazy Loading correctamente?</li>
-<li>¿Cómo implementas HTTP Interceptors?</li>
-<li>¿Qué son los Route Guards y cómo los implementas?</li>
+<li>¿Qué es <span class="tt" data-tip="Mecanismo de Angular para detectar cambios y actualizar el DOM. Default revisa todo; OnPush solo si @Input cambia.">Change Detection</span> y cómo lo optimizas?</li>
+<li>¿Qué son los Angular <span class="tt" data-tip="Primitiva reactiva de Angular 17+ para estado. Síncronos, simples, integrados con Change Detection.">Signals</span> y cómo se relacionan con RxJS?</li>
+<li>¿Cómo implementas <span class="tt" data-tip="Cargar módulos/componentes solo cuando se necesitan. Reduce el bundle inicial y tiempo de carga.">Lazy Loading</span> correctamente?</li>
+<li>¿Cómo implementas <span class="tt" data-tip="Funciones que interceptan peticiones/respuestas HTTP. Agregan headers, manejan errores, cachean.">HTTP Interceptors</span>?</li>
+<li>¿Qué son los <span class="tt" data-tip="Funciones que protegen rutas: canActivate (acceder), canDeactivate (salir), canLoad (cargar).">Route Guards</span> y cómo los implementas?</li>
 <li>¿Qué son los Standalone Components y por qué son importantes?</li>
 <li>¿Cómo manejas formularios reactivos complejos?</li>
 </ol>
 <h3 id="typescript-avanzado">TypeScript Avanzado</h3>
 <ol>
 <li>¿Cuáles son los tipos utilitarios más importantes de TypeScript?</li>
-<li>¿Cómo usas Generics en Angular?</li>
-<li>Explica Type Guards y Discriminated Unions</li>
+<li>¿Cómo usas <span class="tt" data-tip="Parámetros de tipo para crear funciones/clases reutilizables con cualquier tipo. Ej: Array&amp;lt;T&amp;gt;.">Generics</span> en Angular?</li>
+<li>Explica <span class="tt" data-tip="Funciones que estrechan el tipo en un bloque condicional. TypeScript sabe el tipo exacto.">Type Guards</span> y <span class="tt" data-tip="Uniones con campo discriminante (status: loading | success). TypeScript estrecha por ese campo.">Discriminated Unions</span></li>
 </ol>
 <h2 id="nivel-2-prioridad-alta-70-90-probabilidad">🟠 NIVEL 2 — PRIORIDAD ALTA (70-90% probabilidad)</h2>
 <h3 id="arquitectura-de-aplicaciones">Arquitectura de Aplicaciones</h3>
 <ol>
 <li>¿Cómo estructurarías una aplicación Angular enterprise?</li>
-<li>¿Cómo implementarías Smart/Dumb components pattern?</li>
+<li>¿Cómo implementarías <span class="tt" data-tip="Smart maneja lógica/Store; Dumb solo recibe @Input y emite @Output.">Smart/Dumb components</span> pattern?</li>
 <li>¿Cómo manejas la comunicación entre componentes?</li>
 </ol>
 <h3 id="performance-optimization">Performance Optimization</h3>
 <ol>
 <li>¿Cuáles son las principales técnicas de optimización de performance en Angular?</li>
-<li>¿Cómo usarías @defer blocks (Angular 17+)?</li>
+<li>¿Cómo usarías <span class="tt" data-tip="Angular 17+: carga diferida de componentes con triggers (on viewport, on idle, on hover).">@defer</span> blocks (Angular 17+)?</li>
 </ol>
 <h3 id="testing">Testing</h3>
 <ol>
 <li>¿Cómo testeas componentes Angular con Jest?</li>
-<li>¿Cómo testeas NgRx Reducers, Effects y Selectors?</li>
+<li>¿Cómo testeas NgRx <span class="tt" data-tip="Funciones puras que reciben el estado actual y una Action, y retornan un nuevo estado sin mutar el original.">Reducers</span>, Effects y Selectors?</li>
 </ol>
 <h3 id="integracion-con-apis-restful">Integración con APIs RESTful</h3>
 <ol>
@@ -165,7 +165,7 @@
 <h3 id="nx-monorepo">NX Monorepo</h3>
 <ol>
 <li>¿Qué es NX y cuáles son sus ventajas para Angular?</li>
-<li>¿Qué es Module Federation y para qué se usa?</li>
+<li>¿Qué es <span class="tt" data-tip="Webpack 5: apps comparten código en runtime. Base de micro-frontends.">Module Federation</span> y para qué se usa?</li>
 </ol>
 <h3 id="webpack-y-build-tools">Webpack y Build Tools</h3>
 <ol>
@@ -201,7 +201,7 @@
 <hr>
 <h2 id="informacion-de-la-vacante">Información de la Vacante</h2>
 <ul>
-<li><strong>Empresa:</strong> Worldly (plataforma de inteligencia de impacto ESG para cadenas de suministro)</li>
+<li><strong>Empresa:</strong> Worldly (plataforma de inteligencia de impacto <span class="tt" data-tip="Environmental, Social, Governance: marco de sostenibilidad empresarial.">ESG</span> para cadenas de suministro)</li>
 <li><strong>Puesto:</strong> Senior Front-End Developer (Angular)</li>
 <li><strong>Compensación:</strong> $45K–$75K USD + 10% bono anual</li>
 <li><strong>Modalidad:</strong> Remoto (Colombia elegible)</li>
@@ -214,10 +214,10 @@
 <li>Plataforma de inteligencia de <strong>impacto ESG</strong> (Environmental, Social, Governance)</li>
 <li>Más de <strong>40,000 marcas y fabricantes</strong> confían en ella</li>
 <li>Industrias: textil, calzado, bienes de consumo, muebles, juguetes</li>
-<li>Licensiatario exclusivo del <strong>Higg Index</strong> (de Cascale/Sustainable Apparel Coalition)</li>
+<li>Licensiatario exclusivo del <strong><span class="tt" data-tip="Herramientas para medir impacto ambiental y social en cadena de suministro textil.">Higg Index</span></strong> (de Cascale/Sustainable Apparel Coalition)</li>
 <li>CTO: <strong>John Armstrong</strong> | CEO: <strong>Scott Raskin</strong></li>
 <li>Financiada por Silversmith Capital Partners y Galvanize Climate Solutions</li>
-<li>Trabajan con <strong>Angular a gran escala</strong>, NgRx, y arquitectura monorepo</li>
+<li>Trabajan con <strong>Angular a gran escala</strong>, NgRx, y arquitectura <span class="tt" data-tip="Repositorio único con múltiples proyectos/librerías. NX lo gestiona con builds incrementales.">monorepo</span></li>
 </ul>
 <blockquote>
 <p><strong>Tip:</strong> Mencionar en la entrevista que conoces la misión de Worldly y cómo la tecnología habilita la sostenibilidad demuestra interés genuino.</p>
@@ -243,13 +243,13 @@
 <h3 id="preguntas-que-debes-dominar">Preguntas que DEBES dominar:</h3>
 <h4 id="p1-que-es-ngrx-y-cuales-son-sus-conceptos-fundamentales">P1: ¿Qué es NgRx y cuáles son sus conceptos fundamentales?</h4>
 <p><strong>Respuesta esperada:</strong>
-NgRx es una librería de state management para Angular basada en el patrón Redux. Implementa un flujo de datos unidireccional usando:</p>
+NgRx es una librería de state management para Angular basada en el patrón <span class="tt" data-tip="Patrón de arquitectura: Action → Reducer → Store → Vista. NgRx es su implementación para Angular.">Redux</span>. Implementa un <span class="tt" data-tip="Vista despacha Actions → Reducer actualiza Store → Store notifica a la Vista. Nunca al revés.">flujo de datos unidireccional</span> usando:</p>
 <ul>
-<li><strong>Store:</strong> Contenedor inmutable del estado global de la aplicación (single source of truth)</li>
+<li><strong>Store:</strong> Contenedor <span class="tt" data-tip="Que no puede ser modificado después de crearse. En NgRx, cada cambio produce un nuevo objeto de estado.">inmutable</span> del estado global de la aplicación (<span class="tt" data-tip="Principio donde toda la información de la app vive en un solo lugar (el Store), evitando datos desincronizados.">single source of truth</span>)</li>
 <li><strong>Actions:</strong> Eventos que describen algo que ocurrió (ej: <code>[User] Login Success</code>)</li>
 <li><strong>Reducers:</strong> Funciones puras que toman el estado actual + una acción y retornan un nuevo estado</li>
 <li><strong>Selectors:</strong> Funciones puras para extraer porciones específicas del estado (memoizadas)</li>
-<li><strong>Effects:</strong> Manejan side effects (llamadas HTTP, navegación, logs) — escuchan acciones y pueden emitir nuevas acciones</li>
+<li><strong>Effects:</strong> Manejan <span class="tt" data-tip="Operaciones que interactúan con el mundo exterior: HTTP, localStorage, navegación. No son funciones puras.">side effects</span> (llamadas HTTP, navegación, logs) — escuchan acciones y pueden emitir nuevas acciones</li>
 </ul>
 <div class="highlight"><pre><span></span><code><span class="n">Flujo</span><span class="o">:</span><span class="w"> </span><span class="n">Component</span><span class="w"> </span><span class="err">→</span><span class="w"> </span><span class="n">dispatch</span><span class="o">(</span><span class="n">Action</span><span class="o">)</span><span class="w"> </span><span class="err">→</span><span class="w"> </span><span class="n">Reducer</span><span class="w"> </span><span class="err">→</span><span class="w"> </span><span class="n">Store</span><span class="w"> </span><span class="err">→</span><span class="w"> </span><span class="n">Selector</span><span class="w"> </span><span class="err">→</span><span class="w"> </span><span class="n">Component</span>
 <span class="w">                                         </span><span class="err">↓</span>
@@ -262,10 +262,10 @@ NgRx es una librería de state management para Angular basada en el patrón Redu
 |---|---|---|
 | Complejidad | Baja | Alta |
 | Inmutabilidad | No garantizada | Garantizada |
-| Debugging | Limitado | Redux DevTools, time travel |
+| Debugging | Limitado | <span class="tt" data-tip="Extensión de navegador para inspeccionar estado, historial de acciones, y time-travel debugging.">Redux DevTools</span>, <span class="tt" data-tip="Retroceder y avanzar en el historial de estados en Redux DevTools. Útil para reproducir bugs.">time travel</span> |
 | Side effects | Mezclados en el servicio | Separados en Effects |
 | Escalabilidad | Problemática en apps grandes | Excelente |
-| Testing | Requiere mocking | Reducers son funciones puras |
+| Testing | Requiere mocking | Reducers son <span class="tt" data-tip="Siempre retornan lo mismo para mismos inputs, sin side effects. Predecibles y testeables.">funciones puras</span> |
 | Boilerplate | Mínimo | Considerable |</p>
 <p><strong>Cuándo usar cada uno:</strong>
 - <strong>BehaviorSubject:</strong> Estado local, apps pequeñas/medianas, features aisladas
@@ -289,7 +289,7 @@ NgRx es una librería de state management para Angular basada en el patrón Redu
 <span class="p">}</span>
 </code></pre></div>
 
-<p>Usar <strong>feature states</strong> con <code>StoreModule.forFeature()</code> para mantener estado modular y permitir lazy loading.</p>
+<p>Usar <strong><span class="tt" data-tip="Porciones del estado global para un módulo/feature. Se registran con provideState() y permiten lazy loading.">feature states</span></strong> con <code>StoreModule.forFeature()</code> para mantener estado modular y permitir lazy loading.</p>
 <h4 id="p4-explica-las-best-practices-para-actions-en-ngrx">P4: Explica las best practices para Actions en NgRx</h4>
 <p><strong>Respuesta esperada:</strong></p>
 <div class="highlight"><pre><span></span><code><span class="c1">// ✅ CORRECTO: Actions descriptivas con source</span>
@@ -368,7 +368,7 @@ NgRx es una librería de state management para Angular basada en el patrón Redu
 <span class="p">);</span>
 </code></pre></div>
 
-<p>Los selectors usan <strong>memoización</strong>: solo recalculan cuando las entradas cambian. Esto es crucial para performance.</p>
+<p>Los selectors usan <strong><span class="tt" data-tip="Caché de resultados: se reutiliza si inputs no cambiaron. Selectors y computed() la usan.">memoización</span></strong>: solo recalculan cuando las entradas cambian. Esto es crucial para performance.</p>
 <h4 id="p7-como-manejas-entity-state-con-ngrxentity">P7: ¿Cómo manejas Entity State con @ngrx/entity?</h4>
 <p><strong>Respuesta esperada:</strong></p>
 <div class="highlight"><pre><span></span><code><span class="c1">// Entity adapter simplifica operaciones CRUD en el store</span>
@@ -426,7 +426,7 @@ NgRx es una librería de state management para Angular basada en el patrón Redu
 <h3 id="ejercicio-practico-ngrx-prepara-esto">Ejercicio Práctico NgRx (prepara esto):</h3>
 <p>Implementa un CRUD completo de productos con:
 - Actions para Load, Create, Update, Delete (con Success/Failure)
-- Reducer con EntityAdapter
+- Reducer con <span class="tt" data-tip="Utilidad de @ngrx/entity con operaciones CRUD predefinidas (addOne, updateOne, removeOne, setAll).">EntityAdapter</span>
 - Effects con llamadas HTTP
 - Selectors memoizados
 - Componente que consuma el store</p>
@@ -443,7 +443,7 @@ NgRx es una librería de state management para Angular basada en el patrón Redu
 | Subject | Sí (hot) | Sí | No | Solo valores futuros |
 | BehaviorSubject | Sí (hot) | Sí | Sí (requerido) | Último valor + futuros |
 | ReplaySubject(n) | Sí (hot) | Sí | No | Últimos n valores + futuros |
-| AsyncSubject | Sí (hot) | Sí | No | Solo el último al completar |</p>
+| <span class="tt" data-tip="Subject que solo emite el último valor cuando se completa. Poco usado, para resultados únicos.">AsyncSubject</span> | Sí (hot) | Sí | No | Solo el último al completar |</p>
 <div class="highlight"><pre><span></span><code><span class="c1">// BehaviorSubject - ideal para estado</span>
 <span class="kd">const</span><span class="w"> </span><span class="nx">user$</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nx">BehaviorSubject</span><span class="o">&lt;</span><span class="nx">User</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="o">&gt;</span><span class="p">(</span><span class="kc">null</span><span class="p">);</span>
 <span class="nx">user$</span><span class="p">.</span><span class="nx">next</span><span class="p">(</span><span class="nx">loggedInUser</span><span class="p">);</span><span class="w"> </span><span class="c1">// cualquier subscriber recibe el último valor</span>
@@ -586,10 +586,10 @@ NgRx es una librería de state management para Angular basada en el patrón Redu
 <p><strong>Respuesta esperada:</strong>
 Angular tiene dos estrategias:</p>
 <p><strong>Default:</strong> Verifica TODO el árbol de componentes en cada evento (click, HTTP response, setTimeout, etc.)</p>
-<p><strong>OnPush:</strong> Solo verifica el componente cuando:
+<p><strong><span class="tt" data-tip="Estrategia que solo revisa cuando @Input cambia por referencia, se dispara un evento, o async pipe emite.">OnPush</span>:</strong> Solo verifica el componente cuando:
 1. Un <code>@Input()</code> recibe una nueva referencia (inmutabilidad obligatoria)
 2. Se dispara un evento del template del componente
-3. Se usa <code>async</code> pipe y el Observable emite
+3. Se usa <code>async</code> <span class="tt" data-tip="Método de Observable para encadenar operadores: obs$.pipe(filter(...), map(...)).">pipe</span> y el Observable emite
 4. Se llama manualmente <code>ChangeDetectorRef.markForCheck()</code> o <code>detectChanges()</code></p>
 <div class="highlight"><pre><span></span><code><span class="kd">@Component</span><span class="p">({</span>
 <span class="w">  </span><span class="nx">selector</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;app-product-list&#39;</span><span class="p">,</span>
@@ -653,7 +653,7 @@ Angular tiene dos estrategias:</p>
 | Signals | RxJS |
 |---|---|
 | Estado síncrono | Streams asíncronos |
-| No necesita subscribe | Requiere subscribe/async pipe |
+| No necesita subscribe | Requiere subscribe/<span class="tt" data-tip="Pipe de Angular (| async) que suscribe en template y se desuscribe al destruir el componente.">async pipe</span> |
 | Estado local del componente | Flujos complejos, HTTP, WebSockets |
 | Más simple | Más poderoso |</p>
 <h4 id="p17-como-implementas-lazy-loading-correctamente">P17: ¿Cómo implementas Lazy Loading correctamente?</h4>
@@ -767,7 +767,7 @@ Angular tiene dos estrategias:</p>
 <span class="p">}</span>
 </code></pre></div>
 
-<p>Ventajas: Menos boilerplate, tree-shakable, mejor lazy loading, más fácil de entender y testear.</p>
+<p>Ventajas: Menos <span class="tt" data-tip="Código repetitivo para configurar algo. NgRx tiene bastante por cada feature.">boilerplate</span>, tree-shakable, mejor lazy loading, más fácil de entender y testear.</p>
 <h4 id="p21-como-manejas-formularios-reactivos-complejos">P21: ¿Cómo manejas formularios reactivos complejos?</h4>
 <p><strong>Respuesta esperada:</strong></p>
 <div class="highlight"><pre><span></span><code><span class="kd">@Component</span><span class="p">({...})</span>
@@ -914,11 +914,11 @@ Angular tiene dos estrategias:</p>
 </code></pre></div>
 
 <p>Principios:
-- <strong>Core module:</strong> Se importa UNA vez en AppModule (singleton services)
-- <strong>Shared module:</strong> Se importa en CUALQUIER módulo que lo necesite
-- <strong>Feature modules:</strong> Lazy loaded, encapsulan una feature completa
-- <strong>SCAM pattern:</strong> Single Component Angular Module (un componente por módulo)
-- <strong>Barrel exports:</strong> <code>index.ts</code> para exportaciones limpias</p>
+- <strong><span class="tt" data-tip="Módulo con servicios singleton, guards e interceptors. Se importa UNA vez en raíz.">Core module</span>:</strong> Se importa UNA vez en AppModule (<span class="tt" data-tip="Una sola instancia del servicio en toda la app. En Angular: providedIn: root.">singleton</span> services)
+- <strong><span class="tt" data-tip="Módulo con componentes, pipes y directivas reutilizables para cualquier módulo.">Shared module</span>:</strong> Se importa en CUALQUIER módulo que lo necesite
+- <strong><span class="tt" data-tip="Módulos autocontenidos por funcionalidad. Se cargan con lazy loading.">Feature modules</span>:</strong> Lazy loaded, encapsulan una feature completa
+- <strong><span class="tt" data-tip="Single Component Angular Module: un componente por módulo. Reemplazado por Standalone.">SCAM pattern</span>:</strong> Single Component Angular Module (un componente por módulo)
+- <strong><span class="tt" data-tip="Archivos index.ts que re-exportan lo público de una carpeta. Simplifican imports.">Barrel exports</span>:</strong> <code>index.ts</code> para exportaciones limpias</p>
 <h4 id="p26-como-implementarias-smartdumb-components-pattern">P26: ¿Cómo implementarías Smart/Dumb components pattern?</h4>
 <p><strong>Respuesta esperada:</strong></p>
 <div class="highlight"><pre><span></span><code><span class="c1">// SMART (Container) Component — conectado al store</span>
@@ -980,7 +980,7 @@ Angular tiene dos estrategias:</p>
 <ol>
 <li><strong>Change Detection:</strong></li>
 <li>OnPush strategy en todos los componentes</li>
-<li>trackBy en *ngFor</li>
+<li><span class="tt" data-tip="Función con *ngFor que identifica items por ID, evitando re-renderizar toda la lista.">trackBy</span> en *ngFor</li>
 <li>
 <p>Detach change detection donde sea necesario</p>
 </li>
@@ -998,7 +998,7 @@ Angular tiene dos estrategias:</p>
 </li>
 <li>Virtual scrolling (<code>cdk-virtual-scroll-viewport</code>) para listas largas</li>
 <li><code>runOutsideAngular()</code> para animaciones/timers que no necesitan CD</li>
-<li>Web Workers para cómputos pesados</li>
+<li><span class="tt" data-tip="Threads del navegador en segundo plano sin bloquear la UI. Para cálculos pesados.">Web Workers</span> para cómputos pesados</li>
 <li>Memoización con <code>computed()</code> (Signals) o selectors (NgRx)</li>
 <li>
 <p><code>@defer</code> blocks (Angular 17+) para carga diferida de componentes</p>
@@ -1008,15 +1008,15 @@ Angular tiene dos estrategias:</p>
 </li>
 <li>HTTP caching con interceptors</li>
 <li><code>shareReplay()</code> para evitar llamadas duplicadas</li>
-<li>Preloading strategies para rutas</li>
+<li><span class="tt" data-tip="Pre-cargar módulos lazy-loaded en segundo plano después de la carga inicial.">Preloading strategies</span> para rutas</li>
 <li>
 <p>Image optimization (lazy loading de imágenes, NgOptimizedImage)</p>
 </li>
 <li>
-<p><strong>SSR + Hydration:</strong></p>
+<p><strong><span class="tt" data-tip="Server-Side Rendering: renderizar en servidor. Mejora SEO y tiempo de primera pintura.">SSR</span> + Hydration:</strong></p>
 </li>
 <li>Angular Universal / SSR nativo (Angular 17+)</li>
-<li>Non-destructive hydration para mejor TTI</li>
+<li>Non-destructive <span class="tt" data-tip="Angular toma el HTML del servidor y lo activa en el cliente sin destruirlo y recrearlo.">hydration</span> para mejor <span class="tt" data-tip="Time To Interactive: cuánto tarda la página en responder a clicks y scroll.">TTI</span></li>
 </ol>
 <h4 id="p29-como-usarias-defer-blocks-angular-17">P29: ¿Cómo usarías @defer blocks (Angular 17+)?</h4>
 <p><strong>Respuesta esperada:</strong></p>
@@ -1216,10 +1216,10 @@ Angular tiene dos estrategias:</p>
 <p><strong>Respuesta esperada:</strong>
 NX es un build system inteligente para monorepos. Ventajas:</p>
 <ul>
-<li><strong>Computation caching:</strong> Solo reconstruye/retesta lo que cambió</li>
+<li><strong><span class="tt" data-tip="NX almacena resultados de builds/tests previos y reutiliza si código no cambió.">Computation caching</span>:</strong> Solo reconstruye/retesta lo que cambió</li>
 <li><strong>Affected commands:</strong> <code>nx affected:test</code> solo ejecuta tests de proyectos afectados</li>
 <li><strong>Code generators:</strong> Schematics para crear libs, componentes, etc.</li>
-<li><strong>Dependency graph:</strong> Visualización de dependencias entre proyectos</li>
+<li><strong><span class="tt" data-tip="Visualización NX de relaciones entre proyectos. Permite builds selectivos.">Dependency graph</span>:</strong> Visualización de dependencias entre proyectos</li>
 <li><strong>Module boundaries:</strong> Reglas lint para prevenir importaciones incorrectas</li>
 </ul>
 <div class="highlight"><pre><span></span><code><span class="nx">workspace</span><span class="o">/</span>
@@ -1289,9 +1289,9 @@ Module Federation (Webpack 5) permite cargar código de otro build/aplicación e
 <h4 id="p36-como-funciona-el-build-process-de-angular">P36: ¿Cómo funciona el build process de Angular?</h4>
 <p><strong>Respuesta esperada:</strong>
 1. <strong>TypeScript → JavaScript</strong> (tsc compiler)
-2. <strong>AOT Compilation</strong> (templates → JavaScript en build time)
-3. <strong>Tree Shaking</strong> (elimina código no usado via ES modules)
-4. <strong>Bundling</strong> (Webpack/esbuild agrupa archivos)
+2. <strong><span class="tt" data-tip="Ahead-Of-Time: compila templates a JS durante build. Más rápido, detecta errores antes.">AOT Compilation</span></strong> (templates → JavaScript en build time)
+3. <strong><span class="tt" data-tip="El bundler elimina código no usado (dead code). Reduce el tamaño del bundle final.">Tree Shaking</span></strong> (elimina código no usado via ES modules)
+4. <strong>Bundling</strong> (Webpack/<span class="tt" data-tip="Bundler ultrarrápido (Go) usado por Angular 17+. 10-100x más rápido que Webpack.">esbuild</span> agrupa archivos)
 5. <strong>Minification</strong> (Uglify/Terser reduce tamaño)
 6. <strong>Code Splitting</strong> (chunks separados por lazy loaded modules)</p>
 <p>Angular CLI usa <strong>esbuild</strong> desde Angular 16+ (mucho más rápido que Webpack puro):</p>
@@ -1398,7 +1398,7 @@ npx<span class="w"> </span>source-map-explorer<span class="w"> </span>dist/**/*.
 - Branches cortos (&lt; 2-3 días de trabajo)
 - PRs pequeños y enfocados
 - Code review obligatorio
-- CI/CD ejecuta tests y lint en cada PR
+- <span class="tt" data-tip="Continuous Integration/Deployment: automatización de build, test y despliegue en cada push.">CI/CD</span> ejecuta tests y lint en cada PR
 - Squash merge o rebase para historial limpio</p>
 <hr>
 <div class="section-banner">
@@ -1518,7 +1518,7 @@ Opciones populares:
 <span class="p">}</span>
 </code></pre></div>
 
-<p>Principios WCAG:
+<p>Principios <span class="tt" data-tip="Web Content Accessibility Guidelines: estándar con niveles A, AA, AAA para web accesible.">WCAG</span>:
 - Perceptible, Operable, Comprensible, Robusto
 - <code>tabindex</code> para navegación por teclado
 - <code>aria-live</code> para anuncios dinámicos
@@ -1534,9 +1534,9 @@ Opciones populares:
 <h4 id="p46-cuentame-sobre-un-desafio-tecnico-que-resolviste">P46: "Cuéntame sobre un desafío técnico que resolviste"</h4>
 <p><strong>Estructura:</strong>
 - <strong>S:</strong> "En mi proyecto anterior, la app Angular tenía un tiempo de carga inicial de 8+ segundos"
-- <strong>T:</strong> "Necesitaba reducir el bundle size y mejorar el TTI significativamente"
-- <strong>A:</strong> "Identifiqué 3 módulos eagerly loaded usando webpack-bundle-analyzer, implementé lazy loading, migré a OnPush CD, y agregué virtual scrolling para listas de 10K+ items"
-- <strong>R:</strong> "Reduje el tiempo de carga a 2.1 segundos (74% mejora) y el LCP pasó de 5.2s a 1.8s"</p>
+- <strong>T:</strong> "Necesitaba reducir el <span class="tt" data-tip="Tamaño total de JS descargado. Menor = más rápido. Lazy loading y tree shaking lo reducen.">bundle size</span> y mejorar el TTI significativamente"
+- <strong>A:</strong> "Identifiqué 3 módulos eagerly loaded usando webpack-bundle-analyzer, implementé lazy loading, migré a OnPush CD, y agregué <span class="tt" data-tip="Solo renderiza elementos visibles en pantalla. Mejora rendimiento con miles de items.">virtual scrolling</span> para listas de 10K+ items"
+- <strong>R:</strong> "Reduje el tiempo de carga a 2.1 segundos (74% mejora) y el <span class="tt" data-tip="Largest Contentful Paint: cuándo el elemento visible más grande termina de renderizarse.">LCP</span> pasó de 5.2s a 1.8s"</p>
 <h4 id="p47-como-mentorearias-a-un-desarrollador-junior">P47: "¿Cómo mentorearías a un desarrollador junior?"</h4>
 <p>Worldly busca: <em>"Provide guidance to junior developers"</em></p>
 <ul>
@@ -1558,7 +1558,7 @@ Opciones populares:
 <li>Escuchar primero, entender la perspectiva del otro</li>
 <li>Datos &gt; opiniones (benchmarks, métricas, POCs)</li>
 <li>PRs con prototipos de ambas opciones cuando hay duda</li>
-<li>Documentar la decisión y el razonamiento (ADRs)</li>
+<li>Documentar la decisión y el razonamiento (<span class="tt" data-tip="Architecture Decision Records: documentos cortos con decisiones técnicas y su razonamiento.">ADRs</span>)</li>
 <li>Compromiso: "disagree and commit"</li>
 </ul>
 <h4 id="p50-describe-tu-proceso-cuando-recibes-un-nuevo-feature-complejo">P50: "Describe tu proceso cuando recibes un nuevo feature complejo"</h4>
@@ -1796,7 +1796,7 @@ Opciones populares:
 <tr>
 <td>L</td>
 <td>Testing Componentes</td>
-<td>P30, escribir tests con Jest + TestBed</td>
+<td>P30, escribir tests con Jest + <span class="tt" data-tip="Configura un módulo de testing aislado para compilar componentes con dependencias mock.">TestBed</span></td>
 <td>3</td>
 </tr>
 <tr>
@@ -1820,7 +1820,7 @@ Opciones populares:
 <tr>
 <td>V</td>
 <td>Module Federation</td>
-<td>P35, implementar micro-frontend básico</td>
+<td>P35, implementar <span class="tt" data-tip="UI dividida en apps independientes que se despliegan por separado.">micro-frontend</span> básico</td>
 <td>3</td>
 </tr>
 <tr>
