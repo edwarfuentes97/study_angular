@@ -257,19 +257,58 @@ NgRx es una librería de state management para Angular basada en el patrón <spa
 </code></pre></div>
 
 <h4 id="p2-cual-es-la-diferencia-entre-ngrx-store-y-un-simple-servicio-con-behaviorsubject">P2: ¿Cuál es la diferencia entre NgRx Store y un simple servicio con BehaviorSubject?</h4>
-<p><strong>Respuesta esperada:</strong>
-| Característica | Service + BehaviorSubject | NgRx Store |
-|---|---|---|
-| Complejidad | Baja | Alta |
-| Inmutabilidad | No garantizada | Garantizada |
-| Debugging | Limitado | <span class="tt" data-tip="Extensión de navegador para inspeccionar estado, historial de acciones, y time-travel debugging.">Redux DevTools</span>, <span class="tt" data-tip="Retroceder y avanzar en el historial de estados en Redux DevTools. Útil para reproducir bugs.">time travel</span> |
-| Side effects | Mezclados en el servicio | Separados en Effects |
-| Escalabilidad | Problemática en apps grandes | Excelente |
-| Testing | Requiere mocking | Reducers son <span class="tt" data-tip="Siempre retornan lo mismo para mismos inputs, sin side effects. Predecibles y testeables.">funciones puras</span> |
-| Boilerplate | Mínimo | Considerable |</p>
+<p><strong>Respuesta esperada:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Característica</th>
+<th>Service + BehaviorSubject</th>
+<th>NgRx Store</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Complejidad</td>
+<td>Baja</td>
+<td>Alta</td>
+</tr>
+<tr>
+<td>Inmutabilidad</td>
+<td>No garantizada</td>
+<td>Garantizada</td>
+</tr>
+<tr>
+<td>Debugging</td>
+<td>Limitado</td>
+<td><span class="tt" data-tip="Extensión de navegador para inspeccionar estado, historial de acciones, y time-travel debugging.">Redux DevTools</span>, <span class="tt" data-tip="Retroceder y avanzar en el historial de estados en Redux DevTools. Útil para reproducir bugs.">time travel</span></td>
+</tr>
+<tr>
+<td>Side effects</td>
+<td>Mezclados en el servicio</td>
+<td>Separados en Effects</td>
+</tr>
+<tr>
+<td>Escalabilidad</td>
+<td>Problemática en apps grandes</td>
+<td>Excelente</td>
+</tr>
+<tr>
+<td>Testing</td>
+<td>Requiere mocking</td>
+<td>Reducers son <span class="tt" data-tip="Siempre retornan lo mismo para mismos inputs, sin side effects. Predecibles y testeables.">funciones puras</span></td>
+</tr>
+<tr>
+<td>Boilerplate</td>
+<td>Mínimo</td>
+<td>Considerable</td>
+</tr>
+</tbody>
+</table>
 <p><strong>Cuándo usar cada uno:</strong>
-- <strong>BehaviorSubject:</strong> Estado local, apps pequeñas/medianas, features aisladas
-- <strong>NgRx:</strong> Apps enterprise, estado compartido entre muchos componentes, debugging complejo necesario</p>
+<ul>
+<li><strong>BehaviorSubject:</strong> Estado local, apps pequeñas/medianas, features aisladas</li>
+<li><strong>NgRx:</strong> Apps enterprise, estado compartido entre muchos componentes, debugging complejo necesario</li>
+</ul>
 <h4 id="p3-como-estructurarias-el-state-en-una-aplicacion-grande">P3: ¿Cómo estructurarías el state en una aplicación grande?</h4>
 <p><strong>Respuesta esperada:</strong></p>
 <div class="highlight"><pre><span></span><code><span class="c1">// Feature state pattern</span>
@@ -436,14 +475,55 @@ NgRx es una librería de state management para Angular basada en el patrón <spa
 <p>La vacante dice: <em>"RxJS for reactive programming"</em>. Es el corazón de Angular.</p>
 <h3 id="preguntas-que-debes-dominar_1">Preguntas que DEBES dominar:</h3>
 <h4 id="p9-cual-es-la-diferencia-entre-observable-subject-behaviorsubject-y-replaysubject">P9: ¿Cuál es la diferencia entre Observable, Subject, BehaviorSubject y ReplaySubject?</h4>
-<p><strong>Respuesta esperada:</strong>
-| Tipo | Multicast | Necesita subscribe | Valor inicial | Late subscribers |
-|---|---|---|---|---|
-| Observable | No (cold) | Sí | No | Reciben desde inicio |
-| Subject | Sí (hot) | Sí | No | Solo valores futuros |
-| BehaviorSubject | Sí (hot) | Sí | Sí (requerido) | Último valor + futuros |
-| ReplaySubject(n) | Sí (hot) | Sí | No | Últimos n valores + futuros |
-| <span class="tt" data-tip="Subject que solo emite el último valor cuando se completa. Poco usado, para resultados únicos.">AsyncSubject</span> | Sí (hot) | Sí | No | Solo el último al completar |</p>
+<p><strong>Respuesta esperada:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Tipo</th>
+<th>Multicast</th>
+<th>Necesita subscribe</th>
+<th>Valor inicial</th>
+<th>Late subscribers</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Observable</td>
+<td>No (cold)</td>
+<td>Sí</td>
+<td>No</td>
+<td>Reciben desde inicio</td>
+</tr>
+<tr>
+<td>Subject</td>
+<td>Sí (hot)</td>
+<td>Sí</td>
+<td>No</td>
+<td>Solo valores futuros</td>
+</tr>
+<tr>
+<td>BehaviorSubject</td>
+<td>Sí (hot)</td>
+<td>Sí</td>
+<td>Sí (requerido)</td>
+<td>Último valor + futuros</td>
+</tr>
+<tr>
+<td>ReplaySubject(n)</td>
+<td>Sí (hot)</td>
+<td>Sí</td>
+<td>No</td>
+<td>Últimos n valores + futuros</td>
+</tr>
+<tr>
+<td><span class="tt" data-tip="Subject que solo emite el último valor cuando se completa. Poco usado, para resultados únicos.">AsyncSubject</span></td>
+<td>Sí (hot)</td>
+<td>Sí</td>
+<td>No</td>
+<td>Solo el último al completar</td>
+</tr>
+</tbody>
+</table>
 <div class="highlight"><pre><span></span><code><span class="c1">// BehaviorSubject - ideal para estado</span>
 <span class="kd">const</span><span class="w"> </span><span class="nx">user$</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nx">BehaviorSubject</span><span class="o">&lt;</span><span class="nx">User</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="o">&gt;</span><span class="p">(</span><span class="kc">null</span><span class="p">);</span>
 <span class="nx">user$</span><span class="p">.</span><span class="nx">next</span><span class="p">(</span><span class="nx">loggedInUser</span><span class="p">);</span><span class="w"> </span><span class="c1">// cualquier subscriber recibe el último valor</span>
@@ -453,7 +533,7 @@ NgRx es una librería de state management para Angular basada en el patrón <spa
 </code></pre></div>
 
 <h4 id="p10-explica-los-operadores-de-flattening-switchmap-mergemap-concatmap-exhaustmap">P10: Explica los operadores de flattening: switchMap, mergeMap, concatMap, exhaustMap</h4>
-<p><strong>Respuesta esperada:</strong></p>
+<p><strong>Respuesta esperada:</strong>
 <div class="highlight"><pre><span></span><code><span class="nx">switchMap</span><span class="w">  </span><span class="err">→</span><span class="w"> </span><span class="nx">Cancela</span><span class="w"> </span><span class="nx">la</span><span class="w"> </span><span class="nx">anterior</span><span class="w"> </span><span class="nx">cuando</span><span class="w"> </span><span class="nx">llega</span><span class="w"> </span><span class="nx">una</span><span class="w"> </span><span class="nx">nueva</span>
 <span class="w">             </span><span class="nx">Uso</span><span class="p">:</span><span class="w"> </span><span class="nx">Búsqueda</span><span class="w"> </span><span class="nx">en</span><span class="w"> </span><span class="nx">tiempo</span><span class="w"> </span><span class="nx">real</span><span class="w"> </span><span class="p">(</span><span class="nx">typeahead</span><span class="p">),</span><span class="w"> </span><span class="nx">navegación</span>
 
@@ -610,12 +690,14 @@ Angular tiene dos estrategias:</p>
 <span class="p">}</span>
 </code></pre></div>
 
-<p><strong>Optimizaciones clave:</strong>
-- Usar <code>OnPush</code> en todos los componentes (compatible con NgRx)
-- Usar <code>async</code> pipe en lugar de <code>.subscribe()</code>
-- Usar <code>trackBy</code> en <code>*ngFor</code>
-- Objetos inmutables (spread operator: <code>{ ...obj, prop: newValue }</code>)
-- <code>runOutsideAngular()</code> para operaciones que no necesitan change detection</p>
+<p><strong>Optimizaciones clave:</strong></p>
+<ul>
+<li>Usar <code>OnPush</code> en todos los componentes (compatible con NgRx)</li>
+<li>Usar <code>async</code> pipe en lugar de <code>.subscribe()</code></li>
+<li>Usar <code>trackBy</code> en <code>*ngFor</code></li>
+<li>Objetos inmutables (spread operator: <code>{ ...obj, prop: newValue }</code>)</li>
+<li><code>runOutsideAngular()</code> para operaciones que no necesitan change detection</li>
+</ul>
 <h4 id="p16-que-son-los-angular-signals-y-como-se-relacionan-con-rxjs">P16: ¿Qué son los Angular Signals y cómo se relacionan con RxJS?</h4>
 <p><strong>Respuesta esperada:</strong></p>
 <div class="highlight"><pre><span></span><code><span class="c1">// Signals (Angular 16+, estable en v17): reactivos y síncronos</span>
@@ -649,15 +731,36 @@ Angular tiene dos estrategias:</p>
 <span class="kd">const</span><span class="w"> </span><span class="nx">count$</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">toObservable</span><span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">count</span><span class="p">);</span>
 </code></pre></div>
 
-<p><strong>Signal vs RxJS:</strong>
-| Signals | RxJS |
-|---|---|
-| Estado síncrono | Streams asíncronos |
-| No necesita subscribe | Requiere subscribe/<span class="tt" data-tip="Pipe de Angular (| async) que suscribe en template y se desuscribe al destruir el componente.">async pipe</span> |
-| Estado local del componente | Flujos complejos, HTTP, WebSockets |
-| Más simple | Más poderoso |</p>
+<p><strong>Signal vs RxJS:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Signals</th>
+<th>RxJS</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Estado síncrono</td>
+<td>Streams asíncronos</td>
+</tr>
+<tr>
+<td>No necesita subscribe</td>
+<td>Requiere subscribe/<span class="tt" data-tip="Pipe de Angular (</td>
+<td>async) que suscribe en template y se desuscribe al destruir el componente.">async pipe</span></td>
+</tr>
+<tr>
+<td>Estado local del componente</td>
+<td>Flujos complejos, HTTP, WebSockets</td>
+</tr>
+<tr>
+<td>Más simple</td>
+<td>Más poderoso</td>
+</tr>
+</tbody>
+</table>
 <h4 id="p17-como-implementas-lazy-loading-correctamente">P17: ¿Cómo implementas Lazy Loading correctamente?</h4>
-<p><strong>Respuesta esperada:</strong></p>
+<p><strong>Respuesta esperada:</strong>
 <div class="highlight"><pre><span></span><code><span class="c1">// app-routing.module.ts</span>
 <span class="kd">const</span><span class="w"> </span><span class="nx">routes</span><span class="o">:</span><span class="w"> </span><span class="kt">Routes</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span>
 <span class="w">  </span><span class="p">{</span><span class="w"> </span><span class="nx">path</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">component</span><span class="o">:</span><span class="w"> </span><span class="kt">HomeComponent</span><span class="w"> </span><span class="p">},</span>
@@ -1489,12 +1592,14 @@ Opciones populares:
 <hr>
 <h2 id="tema-16-ai-coding-tools">🟢 TEMA 16: AI Coding Tools</h2>
 <h4 id="p44-como-usas-herramientas-de-ai-en-el-desarrollo">P44: ¿Cómo usas herramientas de AI en el desarrollo?</h4>
-<p><strong>Respuesta esperada:</strong>
-- <strong>GitHub Copilot:</strong> Autocompletado inteligente, generación de tests, refactoring
-- <strong>ChatGPT/Claude:</strong> Debugging, explicación de código, diseño de arquitectura
-- <strong>Uso responsable:</strong> Siempre revisar el código generado, entender antes de aplicar
-- <strong>Mejores usos:</strong> Tests unitarios, boilerplate, patrones repetitivos, documentación
-- <strong>Limitaciones:</strong> No confiar ciegamente, verificar seguridad, no copiar código propietario</p>
+<p><strong>Respuesta esperada:</strong></p>
+<ul>
+<li><strong>GitHub Copilot:</strong> Autocompletado inteligente, generación de tests, refactoring</li>
+<li><strong>ChatGPT/Claude:</strong> Debugging, explicación de código, diseño de arquitectura</li>
+<li><strong>Uso responsable:</strong> Siempre revisar el código generado, entender antes de aplicar</li>
+<li><strong>Mejores usos:</strong> Tests unitarios, boilerplate, patrones repetitivos, documentación</li>
+<li><strong>Limitaciones:</strong> No confiar ciegamente, verificar seguridad, no copiar código propietario</li>
+</ul>
 <hr>
 <h2 id="tema-17-accessibility-a11y">🟢 TEMA 17: Accessibility (a11y)</h2>
 <h4 id="p45-como-implementas-accessibility-en-angular">P45: ¿Cómo implementas accessibility en Angular?</h4>
@@ -1532,11 +1637,13 @@ Opciones populares:
 <h2 id="tema-18-preguntas-comportamentales-usa-metodo-star">💬 TEMA 18: Preguntas Comportamentales (usa método STAR)</h2>
 <h3 id="star-situacion-tarea-accion-resultado">STAR = Situación → Tarea → Acción → Resultado</h3>
 <h4 id="p46-cuentame-sobre-un-desafio-tecnico-que-resolviste">P46: "Cuéntame sobre un desafío técnico que resolviste"</h4>
-<p><strong>Estructura:</strong>
-- <strong>S:</strong> "En mi proyecto anterior, la app Angular tenía un tiempo de carga inicial de 8+ segundos"
-- <strong>T:</strong> "Necesitaba reducir el <span class="tt" data-tip="Tamaño total de JS descargado. Menor = más rápido. Lazy loading y tree shaking lo reducen.">bundle size</span> y mejorar el TTI significativamente"
-- <strong>A:</strong> "Identifiqué 3 módulos eagerly loaded usando webpack-bundle-analyzer, implementé lazy loading, migré a OnPush CD, y agregué <span class="tt" data-tip="Solo renderiza elementos visibles en pantalla. Mejora rendimiento con miles de items.">virtual scrolling</span> para listas de 10K+ items"
-- <strong>R:</strong> "Reduje el tiempo de carga a 2.1 segundos (74% mejora) y el <span class="tt" data-tip="Largest Contentful Paint: cuándo el elemento visible más grande termina de renderizarse.">LCP</span> pasó de 5.2s a 1.8s"</p>
+<p><strong>Estructura:</strong></p>
+<ul>
+<li><strong>S:</strong> "En mi proyecto anterior, la app Angular tenía un tiempo de carga inicial de 8+ segundos"</li>
+<li><strong>T:</strong> "Necesitaba reducir el <span class="tt" data-tip="Tamaño total de JS descargado. Menor = más rápido. Lazy loading y tree shaking lo reducen.">bundle size</span> y mejorar el TTI significativamente"</li>
+<li><strong>A:</strong> "Identifiqué 3 módulos eagerly loaded usando webpack-bundle-analyzer, implementé lazy loading, migré a OnPush CD, y agregué <span class="tt" data-tip="Solo renderiza elementos visibles en pantalla. Mejora rendimiento con miles de items.">virtual scrolling</span> para listas de 10K+ items"</li>
+<li><strong>R:</strong> "Reduje el tiempo de carga a 2.1 segundos (74% mejora) y el <span class="tt" data-tip="Largest Contentful Paint: cuándo el elemento visible más grande termina de renderizarse.">LCP</span> pasó de 5.2s a 1.8s"</li>
+</ul>
 <h4 id="p47-como-mentorearias-a-un-desarrollador-junior">P47: "¿Cómo mentorearías a un desarrollador junior?"</h4>
 <p>Worldly busca: <em>"Provide guidance to junior developers"</em></p>
 <ul>
@@ -1547,12 +1654,14 @@ Opciones populares:
 <li>Establecer sesiones técnicas semanales cortas</li>
 </ul>
 <h4 id="p48-por-que-te-interesa-worldly">P48: "¿Por qué te interesa Worldly?"</h4>
-<p><strong>Framework de respuesta:</strong>
-- Pasión por la tecnología con propósito (ESG, sostenibilidad)
-- Escala interesante (40K+ usuarios)
-- Stack técnico alineado con tu experiencia (Angular + NgRx)
-- Cultura remote-first y equipo global diverso
-- Empresa public benefit corporation — valores alineados</p>
+<p><strong>Framework de respuesta:</strong></p>
+<ul>
+<li>Pasión por la tecnología con propósito (ESG, sostenibilidad)</li>
+<li>Escala interesante (40K+ usuarios)</li>
+<li>Stack técnico alineado con tu experiencia (Angular + NgRx)</li>
+<li>Cultura remote-first y equipo global diverso</li>
+<li>Empresa public benefit corporation — valores alineados</li>
+</ul>
 <h4 id="p49-como-manejas-desacuerdos-tecnicos-en-el-equipo">P49: "¿Cómo manejas desacuerdos técnicos en el equipo?"</h4>
 <ul>
 <li>Escuchar primero, entender la perspectiva del otro</li>
@@ -1672,7 +1781,7 @@ Opciones populares:
 <p>📅 PLAN DE ESTUDIO SEMANAL (4 semanas)</p>
 </div>
 <hr>
-<h2 id="semana-1-ngrx-rxjs-core-de-la-entrevista">Semana 1: NgRx + RxJS (Core de la entrevista)</h2>
+<h2 id="semana-1-ngrx-rxjs-core-de-la-entrevista">Semana 1: NgRx + RxJS (Core de la entrevista)</h2></p>
 <table>
 <thead>
 <tr>
