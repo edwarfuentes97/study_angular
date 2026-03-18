@@ -1,0 +1,178 @@
+import { Component } from '@angular/core';
+import { AutoGlossaryDirective } from '../../shared/directives/auto-glossary.directive';
+
+@Component({
+  selector: 'app-arch-learn',
+  template: `
+    <div class="cards" appAutoGlossary>
+      <!-- 1. Smart / Dumb Component Pattern -->
+      <div class="card">
+        <h3>1 · Smart / Dumb Component Pattern</h3>
+        <p>
+          Los <strong>Smart components</strong> (containers) gestionan el estado y la lógica de negocio:
+          inyectan servicios, Store o signals y coordinan la comunicación con el backend.
+          Los <strong>Dumb components</strong> (presentacionales) solo reciben datos vía
+          <code>&#64;Input()</code> y emiten eventos con <code>&#64;Output()</code>, usando
+          <code>ChangeDetectionStrategy.OnPush</code> para máximo rendimiento.
+          Esta separación facilita testing, reutilización y mantenimiento.
+        </p>
+<pre><code>// ─── Smart container ───────────────────────────────
+&#64;Component(&#123;
+  template: \`
+    &lt;app-user-list
+      [users]="users()"
+      (select)="onSelect($event)" /&gt;
+  \`
+&#125;)
+export class UserContainerComponent &#123;
+  private store = inject(Store);
+  users = toSignal(this.store.select(selectAllUsers));
+
+  onSelect(user: User) &#123;
+    this.store.dispatch(selectUser(&#123; user &#125;));
+  &#125;
+&#125;
+
+// ─── Dumb presentational ──────────────────────────
+&#64;Component(&#123;
+  changeDetection: ChangeDetectionStrategy.OnPush
+&#125;)
+export class UserListComponent &#123;
+  &#64;Input() users: User[] = [];
+  &#64;Output() select = new EventEmitter&lt;User&gt;();
+&#125;</code></pre>
+      </div>
+
+      <!-- 2. Component Communication -->
+      <div class="card">
+        <h3>2 · Comunicación entre Componentes</h3>
+        <p>
+          Angular ofrece varios mecanismos: <strong>&#64;Input/&#64;Output</strong> para flujos
+          padre→hijo directos, <strong>servicios compartidos</strong> con
+          <code>BehaviorSubject</code> para componentes hermanos o desacoplados,
+          <strong>Signals</strong> como alternativa reactiva moderna, y
+          <strong>NgRx Store</strong> para estado global predecible.
+          Usa el más sencillo que resuelva el problema.
+        </p>
+<pre><code>// ─── Servicio con BehaviorSubject ──────────────────
+&#64;Injectable(&#123; providedIn: 'root' &#125;)
+export class ThemeService &#123;
+  private theme$ = new BehaviorSubject&lt;'light' | 'dark'&gt;('dark');
+  current$ = this.theme$.asObservable();
+
+  toggle() &#123;
+    this.theme$.next(
+      this.theme$.value === 'dark' ? 'light' : 'dark'
+    );
+  &#125;
+&#125;
+
+// ─── Mismo servicio con Signals ───────────────────
+&#64;Injectable(&#123; providedIn: 'root' &#125;)
+export class ThemeSignalService &#123;
+  theme = signal&lt;'light' | 'dark'&gt;('dark');
+
+  toggle() &#123;
+    this.theme.update(t =&gt; t === 'dark' ? 'light' : 'dark');
+  &#125;
+&#125;</code></pre>
+      </div>
+
+      <!-- 3. Enterprise Folder Structure -->
+      <div class="card">
+        <h3>3 · Estructura de Carpetas Enterprise</h3>
+        <p>
+          Organiza el proyecto en tres capas: <strong>core/</strong> para servicios singleton,
+          guards e interceptors; <strong>shared/</strong> para componentes, pipes y directivas
+          reutilizables; y <strong>features/</strong> con un módulo por dominio.
+          Cada capa expone un <code>index.ts</code> barrel export para imports limpios.
+        </p>
+<pre><code>src/app/
+├── core/
+│   ├── services/
+│   │   ├── auth.service.ts
+│   │   └── api.service.ts
+│   ├── guards/
+│   │   └── auth.guard.ts
+│   ├── interceptors/
+│   │   └── token.interceptor.ts
+│   └── index.ts
+├── shared/
+│   ├── components/
+│   │   └── button/button.ts
+│   ├── pipes/
+│   │   └── currency-format.ts
+│   ├── directives/
+│   │   └── tooltip.ts
+│   └── index.ts
+├── features/
+│   ├── users/
+│   │   ├── user-list.ts
+│   │   ├── user-detail.ts
+│   │   └── users.routes.ts
+│   └── products/
+│       ├── product-list.ts
+│       └── products.routes.ts
+└── app.routes.ts</code></pre>
+      </div>
+
+      <!-- 4. SCAM → Standalone -->
+      <div class="card">
+        <h3>4 · SCAM → Standalone</h3>
+        <p>
+          El patrón <strong>SCAM</strong> (Single Component Angular Module) envolvía cada
+          componente en su propio NgModule. Con <strong>standalone components</strong> de
+          Angular 14+ ya no se necesita esa capa extra: el componente declara sus propios
+          imports directamente.
+        </p>
+<pre><code>// ─── Antes: SCAM ──────────────────────────────────
+&#64;NgModule(&#123;
+  declarations: [UserCardComponent],
+  imports: [AutoGlossaryDirective, CommonModule],
+  exports: [UserCardComponent]
+&#125;)
+export class UserCardModule &#123;&#125;
+
+// ─── Después: Standalone ──────────────────────────
+&#64;Component(&#123;
+  standalone: true,
+  imports: [AutoGlossaryDirective, NgIf, NgFor],
+  selector: 'app-user-card',
+  template: \`...\`
+&#125;)
+export class UserCardComponent &#123;&#125;</code></pre>
+      </div>
+
+      <!-- 5. Barrel Exports -->
+      <div class="card">
+        <h3>5 · Barrel Exports</h3>
+        <p>
+          Los archivos <code>index.ts</code> re-exportan los símbolos públicos de una carpeta,
+          simplificando las rutas de importación y creando una API pública clara para cada capa
+          del proyecto.
+        </p>
+<pre><code>// shared/index.ts
+export * from './components/button/button';
+export * from './pipes/currency-format';
+export * from './directives/tooltip';
+
+// Consumo limpio desde cualquier feature:
+import &#123;
+  ButtonComponent,
+  CurrencyFormatPipe,
+  TooltipDirective
+&#125; from '../../shared';</code></pre>
+      </div>
+    </div>
+  `,
+  styles: `
+    :host { display: block; padding: 1rem 0; }
+    .cards { display: flex; flex-direction: column; gap: 1rem; }
+    .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1.2rem; }
+    .card h3 { margin: 0 0 0.6rem; font-size: 1.1rem; }
+    .card p { color: var(--text-muted); line-height: 1.6; margin: 0 0 0.8rem; }
+    pre { background: var(--bg-code, #161b22); border: 1px solid var(--border); border-radius: 6px; padding: 0.8rem; overflow-x: auto; font-size: 0.85rem; line-height: 1.5; }
+    code { color: var(--text); }
+  `
+})
+export class ArchLearnComponent {}

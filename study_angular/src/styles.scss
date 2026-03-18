@@ -1,1 +1,187 @@
-/* You can add global styles to this file, and also import other style files */
+:root {
+  --bg: #0d1117;
+  --bg-card: #161b22;
+  --bg-code: #1c2128;
+  --text: #e6edf3;
+  --text-muted: #8b949e;
+  --border: #30363d;
+  --accent-red: #f85149;
+  --accent-orange: #d29922;
+  --accent-yellow: #e3b341;
+  --accent-green: #3fb950;
+  --accent-blue: #58a6ff;
+  --accent-purple: #bc8cff;
+  --sidebar-width: 260px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html {
+  font-size: 15px;
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+  min-height: 100vh;
+}
+
+a { color: var(--accent-blue); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+code {
+  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 0.88em;
+  background: var(--bg-code);
+  padding: 0.1em 0.35em;
+  border-radius: 3px;
+  color: var(--accent-orange);
+}
+
+pre {
+  background: var(--bg-code);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.8rem;
+  overflow-x: auto;
+  margin: 0.5rem 0;
+  line-height: 1.4;
+}
+
+pre code { background: transparent; padding: 0; color: var(--text); }
+
+/* Utility classes */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-card);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: border-color 0.15s;
+}
+.btn:hover { border-color: var(--accent-blue); }
+.btn-primary { background: var(--accent-blue); color: #000; border-color: var(--accent-blue); }
+.btn-primary:hover { opacity: 0.9; }
+.btn-danger { border-color: var(--accent-red); color: var(--accent-red); }
+.btn-danger:hover { background: var(--accent-red); color: #fff; }
+
+.lab-header {
+  margin-bottom: 1rem;
+  padding-bottom: 0.8rem;
+  border-bottom: 1px solid var(--border);
+}
+.lab-header h2 { font-size: 1.4rem; margin-bottom: 0.3rem; }
+.lab-header p { color: var(--text-muted); font-size: 0.9rem; }
+
+.lab-section {
+  margin: 1rem 0;
+}
+.lab-section h3 {
+  font-size: 1.1rem;
+  margin-bottom: 0.5rem;
+  color: var(--accent-purple);
+}
+
+.output-log {
+  background: var(--bg-code);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.6rem 0.8rem;
+  max-height: 250px;
+  overflow-y: auto;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+.output-log .log-entry { padding: 0.1rem 0; border-bottom: 1px solid rgba(48,54,61,0.5); }
+.output-log .log-time { color: var(--text-muted); margin-right: 0.5rem; }
+
+.tag {
+  display: inline-block;
+  padding: 0.1em 0.5em;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.tag-red { background: rgba(248,81,73,0.15); color: var(--accent-red); }
+.tag-orange { background: rgba(210,153,34,0.15); color: var(--accent-orange); }
+.tag-green { background: rgba(63,185,80,0.15); color: var(--accent-green); }
+.tag-blue { background: rgba(88,166,255,0.15); color: var(--accent-blue); }
+
+/* ===== Glossary Tooltips ===== */
+.glossary-term {
+  position: relative;
+  cursor: help;
+  border-bottom: 1px dotted rgba(88, 166, 255, 0.5);
+  transition: border-color 0.15s;
+}
+.glossary-term:hover {
+  border-bottom-color: var(--accent-blue);
+}
+.glossary-icon {
+  font-size: 0.7em;
+  color: var(--accent-blue);
+  margin-left: 1px;
+  vertical-align: super;
+  opacity: 0.6;
+}
+.glossary-term:hover .glossary-icon {
+  opacity: 1;
+}
+.glossary-tip {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1c2333;
+  color: #e6edf3;
+  padding: 0.5rem 0.7rem;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  line-height: 1.35;
+  width: max-content;
+  max-width: 320px;
+  z-index: 1000;
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+  pointer-events: none;
+  white-space: normal;
+  font-weight: normal;
+  text-align: left;
+}
+.glossary-tip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-top-color: #1c2333;
+}
+.glossary-term:hover .glossary-tip,
+.glossary-term:focus .glossary-tip,
+.glossary-term.active .glossary-tip {
+  display: block;
+}
+/* Keep tooltip visible on edges */
+.glossary-term:first-child .glossary-tip,
+.glossary-tip[style] {
+  left: 0;
+  transform: none;
+}

@@ -1,12 +1,15 @@
-import { Component, signal } from '@angular/core';
-import { RouterOutlet } from '@angular/router';
+import { Component, inject } from '@angular/core';
+import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
+import { ProgressService, STUDY_TOPICS } from './core/services/progress.service';
+import { GlobalSearchComponent } from './shared/components/global-search';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, GlobalSearchComponent],
   templateUrl: './app.html',
   styleUrl: './app.scss'
 })
 export class App {
-  protected readonly title = signal('study_angular');
+  protected readonly progressService = inject(ProgressService);
+  protected readonly topics = STUDY_TOPICS;
 }
