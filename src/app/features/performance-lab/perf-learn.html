@@ -122,4 +122,417 @@ addEventListener('message', (&#123; data &#125;) =&gt; &#123;
   postMessage(result);
 &#125;);</code></pre>
       </div>
+
+      <!-- 7. Estrategia completa de optimización -->
+      <div class="card" id="estrategia-optimizacion">
+        <h3>7 · Estrategia completa de optimización</h3>
+        <p>
+          Checklist ordenado de mayor a menor impacto para optimizar una app Angular.
+          Aplica cada nivel en orden: corregir change detection mal usado tiene más efecto
+          que cualquier ajuste de red o SSR.
+        </p>
+
+        <h4>Nivel 1 — Change Detection (mayor impacto)</h4>
+        <p>
+          Objetivo: <strong>OnPush en el 100 % de componentes</strong>. Angular Default recorre
+          todo el árbol en cada evento; OnPush lo limita a cambios de referencia en
+          <code>&#64;Input()</code>, eventos del template o <code>markForCheck()</code>.
+        </p>
+        <p><strong>Migrar a OnPush sin romper nada:</strong></p>
+        <ol>
+          <li>Reemplazar mutaciones por inmutabilidad:
+            <code>&#123; ...obj, prop: newVal &#125;</code> en vez de <code>obj.prop = newVal</code>.</li>
+          <li>Usar <code>async</code> pipe o signals para datos reactivos.</li>
+          <li>Agregar <code>changeDetection: ChangeDetectionStrategy.OnPush</code> al componente.</li>
+        </ol>
+        <p>
+          <strong>Signal-based components</strong> ofrecen CD granular sin Zone.js.
+          Para código que no necesita disparar CD (scroll listeners, animaciones de canvas),
+          usa <code>NgZone.runOutsideAngular()</code>:
+        </p>
+        <pre ngNonBindable><code>&#64;Component(&#123; ... &#125;)
+export class ScrollTrackerComponent &#123;
+  private ngZone = inject(NgZone);
+  private scrollY = signal(0);
+
+  constructor() &#123;
+    // Ejecuta fuera de Zone → no dispara CD en cada scroll
+    this.ngZone.runOutsideAngular(() =&gt; &#123;
+      window.addEventListener('scroll', () =&gt; &#123;
+        this.scrollY.set(window.scrollY);
+      &#125;);
+    &#125;);
+  &#125;
+&#125;</code></pre>
+
+        <h4>Nivel 2 — Bundle Size</h4>
+        <ul>
+          <li><strong>Lazy loading de TODAS las features:</strong>
+            <code>loadChildren()</code> / <code>loadComponent()</code>.</li>
+          <li><strong>Analizar bundle:</strong>
+            <code>ng build --stats-json &amp;&amp; npx source-map-explorer dist/**/*.js</code></li>
+          <li><strong>Tree shaking:</strong> importar selectivamente
+            <code>import &#123; map &#125; from 'rxjs/operators'</code>,
+            nunca <code>import * as rx from 'rxjs'</code>.</li>
+          <li>Remover dependencias innecesarias del <code>package.json</code>.</li>
+          <li><strong>Preloading strategies:</strong> <code>PreloadAllModules</code> o una estrategia
+            custom para rutas frecuentes.</li>
+        </ul>
+        <p><strong>Estrategia de preloading custom:</strong></p>
+        <pre ngNonBindable><code>&#64;Injectable(&#123; providedIn: 'root' &#125;)
+export class SelectivePreloadStrategy implements PreloadingStrategy &#123;
+  preload(route: Route, load: () =&gt; Observable&lt;any&gt;): Observable&lt;any&gt; &#123;
+    // Solo precarga rutas marcadas con data.preload = true
+    return route.data?.['preload'] ? load() : of(null);
+  &#125;
+&#125;
+
+// app.routes.ts
+export const routes: Routes = [
+  &#123;
+    path: 'products',
+    loadComponent: () =&gt; import('./features/products/products.component'),
+    data: &#123; preload: true &#125;   // ← se precarga en background
+  &#125;,
+  &#123;
+    path: 'admin',
+    loadComponent: () =&gt; import('./features/admin/admin.component')
+    // sin preload → se carga solo cuando el usuario navega
+  &#125;
+];
+
+// app.config.ts
+provideRouter(routes, withPreloading(SelectivePreloadStrategy))</code></pre>
+
+        <h4>Nivel 3 — Rendering</h4>
+        <ul>
+          <li><strong><code>trackBy</code> en TODOS los <code>&#64;for</code> / <code>*ngFor</code>:</strong>
+            evita re-crear nodos DOM al cambiar la lista.</li>
+          <li><strong>Virtual scrolling</strong> para listas largas (100+ items):
+            <code>cdk-virtual-scroll-viewport</code>.</li>
+          <li><strong><code>&#64;defer</code></strong> para componentes pesados below the fold.</li>
+          <li><strong>Evitar funciones en templates:</strong>
+            <code ngNonBindable>&#123;&#123; getTotal() &#125;&#125;</code> se recalcula en cada CD cycle
+            → usar <code>computed</code> signal o un pipe puro.</li>
+          <li><code>ngClass</code> / <code>ngStyle</code> con objetos cacheados, no funciones.</li>
+        </ul>
+
+        <h4>Nivel 4 — Network</h4>
+        <ul>
+          <li><code>shareReplay(1)</code> para cachear HTTP responses compartidas.</li>
+          <li>HTTP caching con interceptor: ETag, If-None-Match.</li>
+          <li>Prefetch data con resolvers.</li>
+          <li>Pagination vs infinite scroll vs virtual scroll — elige según el UX.</li>
+          <li>Compress: gzip / brotli en servidor.</li>
+        </ul>
+        <p><strong>Interceptor de caché HTTP con ETag:</strong></p>
+        <pre ngNonBindable><code>export function httpCacheInterceptor(): HttpInterceptorFn &#123;
+  const cache = new Map&lt;string, &#123; etag: string; body: any &#125;&gt;();
+
+  return (req, next) =&gt; &#123;
+    if (req.method !== 'GET') return next(req);
+
+    const cached = cache.get(req.urlWithParams);
+    let headers = req.headers;
+    if (cached) &#123;
+      headers = headers.set('If-None-Match', cached.etag);
+    &#125;
+
+    return next(req.clone(&#123; headers &#125;)).pipe(
+      map(event =&gt; &#123;
+        if (event instanceof HttpResponse) &#123;
+          const etag = event.headers.get('ETag');
+          if (etag) &#123;
+            cache.set(req.urlWithParams, &#123;
+              etag,
+              body: event.body
+            &#125;);
+          &#125;
+        &#125;
+        return event;
+      &#125;),
+      catchError(err =&gt; &#123;
+        // 304 Not Modified → devolver respuesta cacheada
+        if (err.status === 304 &amp;&amp; cached) &#123;
+          return of(new HttpResponse(&#123;
+            body: cached.body,
+            status: 200
+          &#125;));
+        &#125;
+        return throwError(() =&gt; err);
+      &#125;)
+    );
+  &#125;;
+&#125;
+
+// app.config.ts
+provideHttpClient(withInterceptors([httpCacheInterceptor()]))</code></pre>
+
+        <h4>Nivel 5 — SSR &amp; Hydration</h4>
+        <ul>
+          <li><strong>Server-Side Rendering</strong> mejora LCP y SEO.</li>
+          <li><strong>Hydration (Angular 16+):</strong> no destruye y recrea el DOM del servidor,
+            lo reutiliza.</li>
+          <li><code>provideClientHydration()</code> en <code>app.config</code>.</li>
+          <li><code>afterNextRender()</code> para código que solo debe correr en el browser
+            (acceso a <code>window</code>, <code>document</code>, etc.).</li>
+        </ul>
+        <pre ngNonBindable><code>// app.config.ts
+export const appConfig: ApplicationConfig = &#123;
+  providers: [
+    provideClientHydration(),
+    provideRouter(routes),
+    provideHttpClient()
+  ]
+&#125;;
+
+// Componente que necesita APIs del browser
+&#64;Component(&#123; ... &#125;)
+export class ChartComponent &#123;
+  constructor() &#123;
+    afterNextRender(() =&gt; &#123;
+      // Seguro: solo corre en el browser después del render
+      const canvas = document.getElementById('chart') as HTMLCanvasElement;
+      new Chart(canvas, &#123; /* config */ &#125;);
+    &#125;);
+  &#125;
+&#125;</code></pre>
+
+        <h4>Nivel 6 — Web Workers</h4>
+        <ul>
+          <li>Para cálculos pesados: parsing CSV, procesamiento de imágenes, ordenamiento masivo.</li>
+          <li><code>ng generate web-worker my-worker</code></li>
+          <li>No pueden acceder al DOM.</li>
+          <li>Comunicación por mensajes: <code>worker.postMessage()</code> / <code>worker.onmessage</code>.</li>
+        </ul>
+
+        <h4>Métricas a medir</h4>
+        <table>
+          <thead>
+            <tr><th>Métrica</th><th>Target</th><th>Herramienta</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>LCP</td><td>&lt; 2.5 s</td><td>Lighthouse</td></tr>
+            <tr><td>FID / INP</td><td>&lt; 200 ms</td><td>Lighthouse</td></tr>
+            <tr><td>CLS</td><td>&lt; 0.1</td><td>Lighthouse</td></tr>
+            <tr><td>Bundle size</td><td>&lt; 200 KB initial</td><td>source-map-explorer</td></tr>
+            <tr><td>Component renders</td><td>Mínimos</td><td>Angular DevTools</td></tr>
+          </tbody>
+        </table>
+
+        <div class="code-ref">
+          📂 Implementación en el proyecto:
+          <ul>
+            <li><code>app.config.ts</code> — provideRouter con preloading strategy</li>
+            <li><code>app.routes.ts</code> — Lazy loading de todas las features</li>
+            <li><code>features/performance-lab/perf-demo.ts</code> — trackBy, &#64;defer, virtual scrolling</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- 8. Anti-patterns de Performance -->
+      <div class="card" id="anti-patterns-performance">
+        <h3>8 · Anti-patterns de Performance</h3>
+        <p>
+          Errores comunes que degradan el rendimiento de una app Angular.
+          Cada uno muestra el código incorrecto (❌) y la corrección (✅).
+        </p>
+
+        <h4>1. Funciones en template — se ejecutan en cada CD cycle</h4>
+        <pre ngNonBindable><code>// ❌ MAL — getTotal() se llama en CADA ciclo de change detection
+&#64;Component(&#123;
+  template: \`&lt;span&gt;Total: &#123;&#123; getTotal() &#125;&#125;&lt;/span&gt;\`
+&#125;)
+export class OrderComponent &#123;
+  items = signal&lt;Item[]&gt;([]);
+  getTotal(): number &#123;
+    return this.items().reduce((sum, i) =&gt; sum + i.price, 0);
+  &#125;
+&#125;
+
+// ✅ BIEN — computed() solo recalcula cuando items() cambia
+&#64;Component(&#123;
+  template: \`&lt;span&gt;Total: &#123;&#123; total() &#125;&#125;&lt;/span&gt;\`
+&#125;)
+export class OrderComponent &#123;
+  items = signal&lt;Item[]&gt;([]);
+  total = computed(() =&gt;
+    this.items().reduce((sum, i) =&gt; sum + i.price, 0)
+  );
+&#125;</code></pre>
+        <p>
+          <strong>¿Por qué?</strong> Angular ejecuta las expresiones del template en cada ciclo
+          de CD. Un <code>computed</code> signal memoriza el resultado y solo recalcula cuando
+          sus dependencias cambian.
+        </p>
+
+        <h4>2. Suscripciones manuales sin cleanup — memory leaks</h4>
+        <pre ngNonBindable><code>// ❌ MAL — suscripción nunca se limpia → memory leak
+&#64;Component(&#123; ... &#125;)
+export class ChatComponent implements OnInit &#123;
+  messages: Message[] = [];
+
+  ngOnInit() &#123;
+    this.chatService.messages$.subscribe(msgs =&gt; &#123;
+      this.messages = msgs;
+    &#125;);
+  &#125;
+&#125;
+
+// ✅ BIEN — Opción A: async pipe (se des-suscribe automáticamente)
+&#64;Component(&#123;
+  template: \`
+    &#64;for (msg of messages$ | async; track msg.id) &#123;
+      &lt;app-message [data]="msg" /&gt;
+    &#125;
+  \`
+&#125;)
+export class ChatComponent &#123;
+  messages$ = inject(ChatService).messages$;
+&#125;
+
+// ✅ BIEN — Opción B: DestroyRef + takeUntilDestroyed
+&#64;Component(&#123; ... &#125;)
+export class ChatComponent &#123;
+  private destroyRef = inject(DestroyRef);
+
+  ngOnInit() &#123;
+    this.chatService.messages$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(msgs =&gt; this.messages = msgs);
+  &#125;
+&#125;</code></pre>
+        <p>
+          <strong>¿Por qué?</strong> Las suscripciones manuales persisten después de destruir
+          el componente. El <code>async</code> pipe o <code>takeUntilDestroyed</code>
+          garantizan la limpieza automática.
+        </p>
+
+        <h4>3. Importar módulos enteros — bundle bloat</h4>
+        <pre ngNonBindable><code>// ❌ MAL — importa TODO RxJS (~45 KB)
+import * as rx from 'rxjs';
+const result$ = rx.of(1).pipe(rx.map(x =&gt; x * 2));
+
+// ✅ BIEN — tree-shakeable, solo importa lo usado (~2 KB)
+import &#123; of &#125; from 'rxjs';
+import &#123; map &#125; from 'rxjs/operators';
+const result$ = of(1).pipe(map(x =&gt; x * 2));</code></pre>
+        <p>
+          <strong>¿Por qué?</strong> Los import con <code>*</code> impiden que el bundler
+          elimine código no utilizado (tree shaking). Importar solo los símbolos necesarios
+          reduce drásticamente el tamaño del bundle.
+        </p>
+
+        <h4>4. No usar trackBy — re-renderiza toda la lista</h4>
+        <pre ngNonBindable><code>// ❌ MAL — sin track, Angular destruye y recrea todos los nodos DOM
+&#64;Component(&#123;
+  template: \`
+    &#64;for (user of users(); track $index) &#123;
+      &lt;app-user-card [user]="user" /&gt;
+    &#125;
+  \`
+&#125;)
+
+// ✅ BIEN — track por ID: Angular reutiliza nodos existentes
+&#64;Component(&#123;
+  template: \`
+    &#64;for (user of users(); track user.id) &#123;
+      &lt;app-user-card [user]="user" /&gt;
+    &#125;
+  \`
+&#125;)</code></pre>
+        <p>
+          <strong>¿Por qué?</strong> Sin un <code>track</code> estable, Angular no puede
+          identificar qué elementos cambiaron. Usar <code>$index</code> falla cuando el orden
+          cambia. Siempre usa una propiedad única como <code>id</code>.
+        </p>
+
+        <h4>5. Mutación de objetos con OnPush — cambios invisibles</h4>
+        <pre ngNonBindable><code>// ❌ MAL — mutar el array no cambia la referencia → OnPush no detecta
+updateUser(index: number, name: string) &#123;
+  this.users[index].name = name;  // mutación
+&#125;
+
+// ✅ BIEN — nueva referencia → OnPush detecta el cambio
+updateUser(index: number, name: string) &#123;
+  this.users = this.users.map((u, i) =&gt;
+    i === index ? &#123; ...u, name &#125; : u
+  );
+&#125;
+
+// ✅ MEJOR — con signals, update() crea nueva referencia
+users = signal&lt;User[]&gt;([]);
+
+updateUser(index: number, name: string) &#123;
+  this.users.update(list =&gt;
+    list.map((u, i) =&gt; i === index ? &#123; ...u, name &#125; : u)
+  );
+&#125;</code></pre>
+        <p>
+          <strong>¿Por qué?</strong> <code>OnPush</code> compara referencias, no contenido.
+          Mutar un objeto/array mantiene la misma referencia, así que Angular ignora el cambio.
+          Siempre crea nuevas referencias con spread o <code>.map()</code>.
+        </p>
+
+        <h4>6. ExpressionChangedAfterItHasBeenCheckedError</h4>
+        <pre ngNonBindable><code>// ❌ MAL — cambiar estado en ngAfterViewInit dispara el error
+&#64;Component(&#123; ... &#125;)
+export class BadComponent implements AfterViewInit &#123;
+  title = '';
+
+  ngAfterViewInit() &#123;
+    this.title = 'Loaded';  // ERROR en dev mode
+  &#125;
+&#125;
+
+// ✅ BIEN — usar afterNextRender o un signal con efecto
+&#64;Component(&#123; ... &#125;)
+export class GoodComponent &#123;
+  title = signal('');
+
+  constructor() &#123;
+    afterNextRender(() =&gt; &#123;
+      this.title.set('Loaded');
+    &#125;);
+  &#125;
+&#125;</code></pre>
+        <p>
+          <strong>¿Por qué?</strong> Angular verifica que los bindings no cambien entre el
+          check y el re-check (en dev mode). Modificar estado en <code>ngAfterViewInit</code>
+          viola esta regla. Usa <code>afterNextRender</code> o programa el cambio
+          para el siguiente frame.
+        </p>
+
+        <h4>7. Observables sin compartir — múltiples HTTP calls</h4>
+        <pre ngNonBindable><code>// ❌ MAL — cada suscripción dispara un HTTP request nuevo
+&#64;Injectable(&#123; providedIn: 'root' &#125;)
+export class UserService &#123;
+  getUser(id: number) &#123;
+    return this.http.get&lt;User&gt;(\`/api/users/$&#123;id&#125;\`);
+  &#125;
+&#125;
+// Si 3 componentes llaman getUser(1) → 3 HTTP requests
+
+// ✅ BIEN — shareReplay cachea y comparte la última respuesta
+&#64;Injectable(&#123; providedIn: 'root' &#125;)
+export class UserService &#123;
+  private userCache = new Map&lt;number, Observable&lt;User&gt;&gt;();
+
+  getUser(id: number): Observable&lt;User&gt; &#123;
+    if (!this.userCache.has(id)) &#123;
+      this.userCache.set(id,
+        this.http.get&lt;User&gt;(\`/api/users/$&#123;id&#125;\`).pipe(
+          shareReplay(&#123; bufferSize: 1, refCount: true &#125;)
+        )
+      );
+    &#125;
+    return this.userCache.get(id)!;
+  &#125;
+&#125;</code></pre>
+        <p>
+          <strong>¿Por qué?</strong> Cada <code>.subscribe()</code> a un Observable HTTP frío
+          crea una nueva petición. <code>shareReplay</code> con <code>refCount: true</code>
+          comparte la respuesta y libera el caché cuando no hay suscriptores.
+        </p>
+      </div>
     </div>

@@ -179,4 +179,543 @@ import &#123;
   TooltipDirective
 &#125; from '../../shared';</code></pre>
       </div>
+
+      <!-- 6. Arquitectura de una app Angular Enterprise -->
+      <div class="card" id="arquitectura-enterprise">
+        <h3>6 · Arquitectura de una app Angular Enterprise</h3>
+        <p>
+          En aplicaciones grandes, la arquitectura define la mantenibilidad a largo plazo.
+          La clave es separar responsabilidades en capas con reglas de dependencia estrictas.
+        </p>
+
+        <h4>Estructura de carpetas recomendada</h4>
+        <pre ngNonBindable><code>src/app/
+├── core/                    # Singleton services, guards, interceptors
+│   ├── services/            # API services, auth, config
+│   │   ├── auth.service.ts
+│   │   ├── api.service.ts
+│   │   └── config.service.ts
+│   ├── interceptors/        # HTTP interceptors
+│   │   ├── auth.interceptor.ts
+│   │   └── error.interceptor.ts
+│   ├── guards/              # Route guards
+│   │   └── auth.guard.ts
+│   ├── models/              # Core domain models
+│   │   └── user.model.ts
+│   └── index.ts             # Barrel export
+├── shared/                  # Reusable, stateless
+│   ├── components/          # Dumb/presentational components
+│   │   ├── button/
+│   │   ├── card/
+│   │   └── modal/
+│   ├── directives/          # Custom directives
+│   │   └── tooltip.directive.ts
+│   ├── pipes/               # Custom pipes
+│   │   └── currency-format.pipe.ts
+│   ├── utils/               # Pure utility functions
+│   │   └── date-helpers.ts
+│   └── index.ts             # Barrel export
+├── features/                # Feature modules (lazy-loaded)
+│   ├── products/
+│   │   ├── components/      # Feature-specific components
+│   │   │   ├── product-list.ts
+│   │   │   └── product-detail.ts
+│   │   ├── services/        # Feature-specific services
+│   │   │   └── product.service.ts
+│   │   ├── store/           # NgRx state (if needed)
+│   │   │   ├── product.actions.ts
+│   │   │   ├── product.reducer.ts
+│   │   │   └── product.selectors.ts
+│   │   └── products.routes.ts
+│   └── users/
+│       ├── components/
+│       ├── services/
+│       └── users.routes.ts
+└── app.routes.ts</code></pre>
+
+        <h4>Reglas de dependencia</h4>
+        <ul>
+          <li><code>core/</code> → importa de <code>shared/</code>, <strong>nunca</strong>
+            de <code>features/</code>.</li>
+          <li><code>shared/</code> → <strong>NO</strong> importa de <code>core/</code>
+            ni de <code>features/</code>. Es 100 % autónoma.</li>
+          <li><code>features/</code> → importa de <code>core/</code> y <code>shared/</code>,
+            <strong>nunca</strong> de otros features.</li>
+          <li><strong>Si dos features necesitan comunicarse</strong> → usan un servicio de
+            <code>core/</code> o un Store global (NgRx).</li>
+        </ul>
+        <pre ngNonBindable><code>// ❌ MAL — feature importa directamente de otro feature
+import &#123; ProductService &#125; from '../products/services/product.service';
+
+// ✅ BIEN — servicio compartido vive en core/
+import &#123; CatalogService &#125; from '../../core/services/catalog.service';
+
+// ✅ BIEN — comunicación via Store global
+import &#123; selectCartItems &#125; from '../../core/store/cart.selectors';</code></pre>
+
+        <h4>Barrel exports (index.ts)</h4>
+        <p>
+          Cada capa expone un <code>index.ts</code> que re-exporta solo la API pública.
+          Esto simplifica imports y crea un contrato claro entre capas.
+        </p>
+        <pre ngNonBindable><code>// shared/components/index.ts
+export &#123; ButtonComponent &#125; from './button/button.component';
+export &#123; CardComponent &#125; from './card/card.component';
+export &#123; ModalComponent &#125; from './modal/modal.component';
+
+// core/index.ts
+export &#123; AuthService &#125; from './services/auth.service';
+export &#123; ApiService &#125; from './services/api.service';
+export &#123; AuthGuard &#125; from './guards/auth.guard';
+
+// En un feature:
+import &#123; ButtonComponent, CardComponent &#125; from '&#64;shared/components';
+import &#123; AuthService &#125; from '&#64;core';</code></pre>
+        <p>
+          Tip: configura <code>paths</code> en <code>tsconfig.json</code> para alias como
+          <code>&#64;core</code>, <code>&#64;shared</code>, <code>&#64;features</code>.
+        </p>
+        <pre ngNonBindable><code>// tsconfig.json
+&#123;
+  "compilerOptions": &#123;
+    "paths": &#123;
+      "&#64;core/*": ["src/app/core/*"],
+      "&#64;shared/*": ["src/app/shared/*"],
+      "&#64;features/*": ["src/app/features/*"]
+    &#125;
+  &#125;
+&#125;</code></pre>
+
+        <div class="code-ref">
+          📂 Implementación en el proyecto:
+          <ul>
+            <li><code>core/</code> — Servicios singleton, interceptors, guards</li>
+            <li><code>shared/</code> — Componentes, directivas, modelos reutilizables</li>
+            <li><code>features/</code> — Módulos por dominio lazy-loaded (ngrx-lab, rxjs-lab, etc.)</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- 7. Patrones de comunicación entre componentes -->
+      <div class="card" id="comunicacion-componentes">
+        <h3>7 · Patrones de comunicación entre componentes</h3>
+        <p>
+          Angular ofrece 6 mecanismos de comunicación. Elegir el correcto depende de la
+          relación entre componentes y la complejidad del estado compartido.
+        </p>
+
+        <h4>1. &#64;Input / &#64;Output — Padre ↔ Hijo directo</h4>
+        <p>
+          El mecanismo más simple y explícito. Limitado a la jerarquía directa padre-hijo.
+          Ideal para componentes presentacionales.
+        </p>
+        <pre ngNonBindable><code>// Padre envía datos al hijo con &#64;Input
+// Hijo notifica al padre con &#64;Output
+&#64;Component(&#123;
+  selector: 'app-parent',
+  template: \`
+    &lt;app-child
+      [item]="selectedItem"
+      (save)="onSave($event)" /&gt;
+  \`
+&#125;)
+export class ParentComponent &#123;
+  selectedItem = signal(&#123; id: 1, name: 'Angular' &#125;);
+
+  onSave(updated: Item) &#123;
+    this.selectedItem.set(updated);
+  &#125;
+&#125;
+
+&#64;Component(&#123;
+  selector: 'app-child',
+  changeDetection: ChangeDetectionStrategy.OnPush
+&#125;)
+export class ChildComponent &#123;
+  &#64;Input() item!: Item;
+  &#64;Output() save = new EventEmitter&lt;Item&gt;();
+
+  onSubmit() &#123;
+    this.save.emit(&#123; ...this.item, name: 'Updated' &#125;);
+  &#125;
+&#125;</code></pre>
+
+        <h4>2. Shared Service + BehaviorSubject — Sin relación directa</h4>
+        <p>
+          Un servicio inyectable actúa como mediador entre componentes que no tienen
+          relación padre-hijo. Usa <code>BehaviorSubject</code> para mantener y emitir
+          el último valor.
+        </p>
+        <pre ngNonBindable><code>&#64;Injectable(&#123; providedIn: 'root' &#125;)
+export class NotificationService &#123;
+  private notificationsSubject = new BehaviorSubject&lt;string[]&gt;([]);
+  notifications$ = this.notificationsSubject.asObservable();
+
+  add(message: string) &#123;
+    const current = this.notificationsSubject.value;
+    this.notificationsSubject.next([...current, message]);
+  &#125;
+
+  clear() &#123;
+    this.notificationsSubject.next([]);
+  &#125;
+&#125;
+
+// Componente A — agrega notificaciones
+&#64;Component(&#123; ... &#125;)
+export class OrderComponent &#123;
+  private notif = inject(NotificationService);
+
+  placeOrder() &#123;
+    this.notif.add('Pedido creado exitosamente');
+  &#125;
+&#125;
+
+// Componente B — muestra notificaciones
+&#64;Component(&#123;
+  template: \`
+    &#64;for (msg of notifications$ | async; track msg) &#123;
+      &lt;div class="toast"&gt;&#123;&#123; msg &#125;&#125;&lt;/div&gt;
+    &#125;
+  \`
+&#125;)
+export class ToastComponent &#123;
+  notifications$ = inject(NotificationService).notifications$;
+&#125;</code></pre>
+
+        <h4>3. Signals (Angular 17+) — Reactivo y síncrono</h4>
+        <p>
+          Un signal en un servicio es la alternativa moderna a <code>BehaviorSubject</code>.
+          Más simple, síncrono y con mejor integración con el template.
+        </p>
+        <pre ngNonBindable><code>&#64;Injectable(&#123; providedIn: 'root' &#125;)
+export class CartService &#123;
+  items = signal&lt;CartItem[]&gt;([]);
+  total = computed(() =&gt;
+    this.items().reduce((sum, i) =&gt; sum + i.price * i.qty, 0)
+  );
+
+  addItem(item: CartItem) &#123;
+    this.items.update(list =&gt; [...list, item]);
+  &#125;
+
+  removeItem(id: number) &#123;
+    this.items.update(list =&gt; list.filter(i =&gt; i.id !== id));
+  &#125;
+&#125;
+
+// Cualquier componente lo consume directamente
+&#64;Component(&#123;
+  template: \`
+    &lt;span class="badge"&gt;&#123;&#123; cart.items().length &#125;&#125;&lt;/span&gt;
+    &lt;span&gt;Total: &#123;&#123; cart.total() | currency &#125;&#125;&lt;/span&gt;
+  \`
+&#125;)
+export class NavbarComponent &#123;
+  cart = inject(CartService);
+&#125;</code></pre>
+
+        <h4>4. NgRx Store — Estado global predecible</h4>
+        <p>
+          Para apps complejas con muchos consumidores del mismo estado.
+          Patrón Redux: Actions → Reducers → Selectors → Effects.
+        </p>
+        <pre ngNonBindable><code>// Actions
+export const loadProducts = createAction('[Products] Load');
+export const loadProductsSuccess = createAction(
+  '[Products] Load Success',
+  props&lt;&#123; products: Product[] &#125;&gt;()
+);
+
+// Reducer
+export const productsReducer = createReducer(
+  initialState,
+  on(loadProductsSuccess, (state, &#123; products &#125;) =&gt; (&#123;
+    ...state, products, loading: false
+  &#125;))
+);
+
+// Selector
+export const selectAllProducts = createSelector(
+  selectProductsState,
+  state =&gt; state.products
+);
+
+// Componente consume con Store
+&#64;Component(&#123; ... &#125;)
+export class ProductListComponent &#123;
+  private store = inject(Store);
+  products = toSignal(this.store.select(selectAllProducts));
+
+  ngOnInit() &#123;
+    this.store.dispatch(loadProducts());
+  &#125;
+&#125;</code></pre>
+
+        <h4>5. &#64;ViewChild / &#64;ContentChild — Acceso directo al hijo</h4>
+        <p>
+          El padre accede a propiedades y métodos públicos del hijo. Acoplamiento alto,
+          usar con precaución y solo cuando sea necesario (ej: controlar un reproductor de video).
+        </p>
+        <pre ngNonBindable><code>&#64;Component(&#123;
+  template: \`
+    &lt;app-video-player #player /&gt;
+    &lt;button (click)="player.play()"&gt;Play&lt;/button&gt;
+    &lt;button (click)="player.pause()"&gt;Pause&lt;/button&gt;
+  \`
+&#125;)
+export class VideoPageComponent &#123;
+  &#64;ViewChild('player') player!: VideoPlayerComponent;
+
+  seekTo(seconds: number) &#123;
+    this.player.seek(seconds);
+  &#125;
+&#125;</code></pre>
+
+        <h4>6. Event Bus (no recomendado)</h4>
+        <p>
+          Un <code>Subject</code> como bus global de eventos. Es un <strong>anti-pattern</strong>
+          en Angular porque es difícil de rastrear, depurar y tipar. Usa NgRx Store en su lugar.
+        </p>
+        <pre ngNonBindable><code>// ❌ Anti-pattern — difícil de rastrear y depurar
+&#64;Injectable(&#123; providedIn: 'root' &#125;)
+export class EventBus &#123;
+  private bus = new Subject&lt;&#123; type: string; payload: any &#125;&gt;();
+
+  emit(type: string, payload: any) &#123;
+    this.bus.next(&#123; type, payload &#125;);
+  &#125;
+
+  on(type: string) &#123;
+    return this.bus.pipe(filter(e =&gt; e.type === type));
+  &#125;
+&#125;
+
+// ✅ Mejor alternativa: NgRx Store o un servicio tipado con signals</code></pre>
+
+        <h4>Tabla de decisión</h4>
+        <table>
+          <thead>
+            <tr><th>Escenario</th><th>Patrón recomendado</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Padre → Hijo</td><td>&#64;Input</td></tr>
+            <tr><td>Hijo → Padre</td><td>&#64;Output</td></tr>
+            <tr><td>Hermanos cercanos</td><td>Shared Service o Signal</td></tr>
+            <tr><td>Cross-feature</td><td>NgRx Store</td></tr>
+            <tr><td>Estado de UI local</td><td>Signal en componente</td></tr>
+            <tr><td>Estado global (auth, config)</td><td>Service con signal o NgRx</td></tr>
+          </tbody>
+        </table>
+
+        <div class="code-ref">
+          📂 Implementación en el proyecto:
+          <ul>
+            <li><code>features/architecture-lab/architecture-lab.ts</code> — &#64;Input/&#64;Output, servicios compartidos, signals</li>
+            <li><code>features/ngrx-lab/</code> — NgRx Store completo (actions, reducer, selectors, effects)</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- 8. State Management — Cuándo usar qué -->
+      <div class="card" id="state-management-decision">
+        <h3>8 · State Management — Cuándo usar qué</h3>
+        <p>
+          Elegir la herramienta de estado correcta evita sobre-ingeniería en apps simples
+          y caos en apps complejas. Sigue este árbol de decisión:
+        </p>
+
+        <h4>1. Estado local del componente → <code>signal()</code> o propiedad</h4>
+        <p>
+          Contadores, toggles, estado de formulario, visibilidad de UI.
+          No necesita salir del componente.
+        </p>
+        <pre ngNonBindable><code>&#64;Component(&#123;
+  template: \`
+    &lt;button (click)="showPanel.set(!showPanel())"&gt;
+      &#123;&#123; showPanel() ? 'Ocultar' : 'Mostrar' &#125;&#125;
+    &lt;/button&gt;
+    &#64;if (showPanel()) &#123;
+      &lt;div class="panel"&gt;Contenido&lt;/div&gt;
+    &#125;
+  \`
+&#125;)
+export class TogglePanelComponent &#123;
+  showPanel = signal(false);
+&#125;</code></pre>
+
+        <h4>2. Compartido entre pocos componentes → Service + <code>signal()</code> o <code>BehaviorSubject</code></h4>
+        <p>
+          Tema oscuro/claro, estado del sidebar, preferencias de usuario.
+          Un servicio singleton con signal es la solución más simple.
+        </p>
+        <pre ngNonBindable><code>&#64;Injectable(&#123; providedIn: 'root' &#125;)
+export class SidebarService &#123;
+  isOpen = signal(true);
+
+  toggle() &#123;
+    this.isOpen.update(v =&gt; !v);
+  &#125;
+&#125;
+
+// Header component
+&#64;Component(&#123;
+  template: \`&lt;button (click)="sidebar.toggle()"&gt;☰&lt;/button&gt;\`
+&#125;)
+export class HeaderComponent &#123;
+  sidebar = inject(SidebarService);
+&#125;
+
+// Layout component
+&#64;Component(&#123;
+  template: \`
+    &lt;aside [class.open]="sidebar.isOpen()"&gt;...&lt;/aside&gt;
+  \`
+&#125;)
+export class LayoutComponent &#123;
+  sidebar = inject(SidebarService);
+&#125;</code></pre>
+
+        <h4>3. Estado complejo de feature → NgRx ComponentStore o SignalStore</h4>
+        <p>
+          CRUD de una feature, estado de formulario complejo, filtros + paginación.
+          El estado es más complejo que un solo signal pero no necesita ser global.
+        </p>
+        <pre ngNonBindable><code>// NgRx SignalStore — alternativa moderna a ComponentStore
+import &#123; signalStore, withState, withComputed, withMethods, patchState &#125;
+  from '&#64;ngrx/signals';
+
+interface ProductState &#123;
+  products: Product[];
+  loading: boolean;
+  filter: string;
+&#125;
+
+export const ProductStore = signalStore(
+  withState&lt;ProductState&gt;(&#123;
+    products: [],
+    loading: false,
+    filter: ''
+  &#125;),
+  withComputed((&#123; products, filter &#125;) =&gt; (&#123;
+    filteredProducts: computed(() =&gt; &#123;
+      const f = filter().toLowerCase();
+      return f
+        ? products().filter(p =&gt; p.name.toLowerCase().includes(f))
+        : products();
+    &#125;),
+    count: computed(() =&gt; products().length)
+  &#125;)),
+  withMethods((store, api = inject(ProductApiService)) =&gt; (&#123;
+    async loadProducts() &#123;
+      patchState(store, &#123; loading: true &#125;);
+      const products = await firstValueFrom(api.getAll());
+      patchState(store, &#123; products, loading: false &#125;);
+    &#125;,
+    setFilter(filter: string) &#123;
+      patchState(store, &#123; filter &#125;);
+    &#125;,
+    removeProduct(id: number) &#123;
+      patchState(store, &#123;
+        products: store.products().filter(p =&gt; p.id !== id)
+      &#125;);
+    &#125;
+  &#125;))
+);
+
+// Uso en componente — proveer a nivel de feature
+&#64;Component(&#123;
+  providers: [ProductStore],
+  template: \`
+    &lt;input (input)="store.setFilter($event.target.value)" /&gt;
+    &lt;p&gt;&#123;&#123; store.count() &#125;&#125; productos&lt;/p&gt;
+    &#64;if (store.loading()) &#123;
+      &lt;app-spinner /&gt;
+    &#125;
+    &#64;for (p of store.filteredProducts(); track p.id) &#123;
+      &lt;app-product-card [product]="p" /&gt;
+    &#125;
+  \`
+&#125;)
+export class ProductListComponent &#123;
+  store = inject(ProductStore);
+
+  constructor() &#123;
+    this.store.loadProducts();
+  &#125;
+&#125;</code></pre>
+
+        <h4>4. Estado global de la app → NgRx Store</h4>
+        <p>
+          Auth, carrito de compras, datos compartidos entre features.
+          Necesario cuando requieres: time-travel debugging, logging,
+          hydration SSR, o múltiples features consumen el mismo estado.
+        </p>
+        <pre ngNonBindable><code>// Estructura NgRx completa para auth global
+// auth.actions.ts
+export const login = createAction('[Auth] Login', props&lt;&#123; credentials: Credentials &#125;&gt;());
+export const loginSuccess = createAction('[Auth] Login Success', props&lt;&#123; user: User &#125;&gt;());
+export const logout = createAction('[Auth] Logout');
+
+// auth.reducer.ts
+export const authReducer = createReducer(
+  &#123; user: null, isAuthenticated: false &#125;,
+  on(loginSuccess, (state, &#123; user &#125;) =&gt; (&#123;
+    ...state, user, isAuthenticated: true
+  &#125;)),
+  on(logout, () =&gt; (&#123; user: null, isAuthenticated: false &#125;))
+);
+
+// auth.selectors.ts
+export const selectIsAuthenticated = createSelector(
+  selectAuthState,
+  state =&gt; state.isAuthenticated
+);
+
+// auth.effects.ts
+loginEffect = createEffect(() =&gt;
+  this.actions$.pipe(
+    ofType(login),
+    exhaustMap(action =&gt;
+      this.authApi.login(action.credentials).pipe(
+        map(user =&gt; loginSuccess(&#123; user &#125;)),
+        catchError(() =&gt; of(loginFailure()))
+      )
+    )
+  )
+);</code></pre>
+
+        <h4>Árbol de decisión rápido</h4>
+        <table>
+          <thead>
+            <tr><th>Pregunta</th><th>Si sí</th><th>Si no</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>¿El estado sale del componente?</td>
+              <td>→ Siguiente pregunta</td>
+              <td><code>signal()</code></td>
+            </tr>
+            <tr>
+              <td>¿Lo usan más de 2-3 componentes?</td>
+              <td>→ Siguiente pregunta</td>
+              <td>Service + signal</td>
+            </tr>
+            <tr>
+              <td>¿Es cross-feature o necesita DevTools?</td>
+              <td>NgRx Store</td>
+              <td>SignalStore</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="code-ref">
+          📂 Implementación en el proyecto:
+          <ul>
+            <li><code>features/ngrx-lab/store/</code> — NgRx Store completo (actions, reducer, selectors, effects)</li>
+            <li><code>features/architecture-lab/architecture-lab.ts</code> — Service con signal, &#64;Input/&#64;Output</li>
+            <li><code>features/signals-lab/</code> — Signals como estado local y compartido</li>
+          </ul>
+        </div>
+      </div>
     </div>

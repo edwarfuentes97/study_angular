@@ -405,91 +405,484 @@ export class StyledComponent &#123;&#125;
   <!-- F. DEPENDENCY INJECTION -->
   <!-- ═══════════════════════════════════════════════ -->
   <div class="card" id="f-dependency-injection-di">
-    <h3>F. Dependency Injection (DI)</h3>
-    <p>El sistema de DI de Angular es jerárquico. Resuelve dependencias subiendo por el árbol de injectors.</p>
+    <h3>F. Dependency Injection (DI) — En Profundidad</h3>
+    <p>El sistema de DI de Angular es jerárquico, potente y a veces confuso. Dominar DI es clave para entrevistas senior.</p>
 
-    <h4>Injector Tree</h4>
-    <p>Angular tiene dos árboles de injectors paralelos:</p>
-    <ul>
-      <li><strong>ModuleInjector</strong> — registros de <code>providedIn</code> y <code>providers</code> de módulos</li>
-      <li><strong>ElementInjector</strong> — registros de <code>providers</code> en <code>&#64;Component</code>/<code>&#64;Directive</code></li>
-    </ul>
-    <p>Angular busca primero en ElementInjector, luego sube al ModuleInjector.</p>
+    <h4>¿Cómo funciona DI internamente?</h4>
+    <p>
+      Cuando Angular necesita crear un componente o servicio, mira sus dependencias (parámetros del constructor o <code>inject()</code>).
+      Para cada dependencia, busca un <strong>provider</strong> registrado subiendo por el <strong>árbol de injectors</strong>:
+    </p>
+    <ol>
+      <li><strong>ElementInjector</strong> del componente actual (providers en &#64;Component)</li>
+      <li>ElementInjector del componente padre, abuelo, etc.</li>
+      <li><strong>ModuleInjector</strong> del módulo que declaró el componente</li>
+      <li>ModuleInjector raíz (root) — donde viven los <code>providedIn: 'root'</code></li>
+      <li><strong>PlatformInjector</strong> — nivel plataforma (raro, para multi-app)</li>
+      <li><strong>NullInjector</strong> — si llega aquí, lanza error (a menos que sea &#64;Optional)</li>
+    </ol>
+    <pre ngNonBindable><code class="language-typescript">// Visualización del árbol de injectors:
+//
+// NullInjector (throws error)
+//   └─ PlatformInjector
+//       └─ RootModuleInjector (providedIn: 'root')
+//           ├─ LazyModuleInjector A (providers del lazy module)
+//           │   └─ ElementInjector ComponentA (providers en @Component)
+//           │       └─ ElementInjector ChildComponent
+//           └─ LazyModuleInjector B
+//               └─ ElementInjector ComponentB</code></pre>
 
-    <h4>Formas de registrar un servicio</h4>
+    <h4>providedIn — Las opciones y cuándo usar cada una</h4>
     <table class="comparison-table">
       <thead>
-        <tr><th>Método</th><th>Scope</th><th>Tree-shakeable</th></tr>
+        <tr><th>Valor</th><th>Comportamiento</th><th>Tree-shakeable</th><th>Cuándo usar</th></tr>
       </thead>
       <tbody>
-        <tr><td><code>providedIn: 'root'</code></td><td>Singleton global</td><td>✅ Sí</td></tr>
-        <tr><td><code>providedIn: 'any'</code></td><td>Instancia por lazy module</td><td>✅ Sí</td></tr>
-        <tr><td><code>providers: []</code> en &#64;Component</td><td>Instancia por componente</td><td>❌ No</td></tr>
-        <tr><td><code>providers: []</code> en &#64;NgModule</td><td>Singleton en ese module</td><td>❌ No</td></tr>
+        <tr>
+          <td><code>providedIn: 'root'</code></td>
+          <td>Singleton global — UNA instancia para toda la app</td>
+          <td>✅ Sí</td>
+          <td><strong>Opción por defecto</strong>. Auth, HTTP, config, state</td>
+        </tr>
+        <tr>
+          <td><code>providedIn: 'any'</code></td>
+          <td>Una instancia por cada lazy-loaded module + una para eager modules</td>
+          <td>✅ Sí</td>
+          <td>Servicios que necesitan estado aislado por feature</td>
+        </tr>
+        <tr>
+          <td><code>providedIn: 'platform'</code></td>
+          <td>Compartido entre múltiples apps Angular en la misma página</td>
+          <td>✅ Sí</td>
+          <td>Micro-frontends con shared state</td>
+        </tr>
+        <tr>
+          <td><code>providers: []</code> en &#64;Component</td>
+          <td>Nueva instancia por CADA instancia del componente</td>
+          <td>❌ No</td>
+          <td>Estado por componente (ej: FormStateService)</td>
+        </tr>
+        <tr>
+          <td><code>providers: []</code> en ruta</td>
+          <td>Singleton para esa ruta y sus hijos</td>
+          <td>❌ No</td>
+          <td>Feature-level services (NgRx provideState)</td>
+        </tr>
+        <tr>
+          <td><code>providers: []</code> en &#64;NgModule</td>
+          <td>Singleton en ese module injector</td>
+          <td>❌ No</td>
+          <td>Legacy — evitar en apps nuevas</td>
+        </tr>
       </tbody>
     </table>
 
-    <h4>Provider Types</h4>
-    <pre ngNonBindable><code class="language-typescript">// useClass — reemplazar implementación
-providers: [&#123; provide: LoggerService, useClass: BetterLoggerService &#125;]
+    <h4>⚠️ El problema del Singleton en Lazy Modules</h4>
+    <p>
+      Si un servicio se registra en <code>providers</code> de un <strong>lazy-loaded module</strong>,
+      Angular crea un <strong>nuevo injector hijo</strong>, y ese servicio es un <strong>singleton SOLO dentro de ese module</strong>,
+      NO el mismo que el del root. Esto causa bugs sutiles:
+    </p>
+    <pre ngNonBindable><code class="language-typescript">// ❌ PROBLEMA: AuthService registrado en SharedModule
+@NgModule(&#123;
+  providers: [AuthService]  // ← cada lazy module que importe SharedModule
+&#125;)                           //   obtiene su PROPIA instancia de AuthService
+export class SharedModule &#123;&#125;
 
-// useValue — proveer un valor estático
-providers: [&#123; provide: API_URL, useValue: 'https://api.example.com' &#125;]
+// ✅ SOLUCIÓN 1: providedIn: 'root' (preferido)
+@Injectable(&#123; providedIn: 'root' &#125;)
+export class AuthService &#123;&#125;
 
-// useFactory — lógica condicional para crear el servicio
+// ✅ SOLUCIÓN 2: forRoot() pattern (legacy)
+@NgModule(&#123;&#125;)
+export class SharedModule &#123;
+  static forRoot(): ModuleWithProviders&lt;SharedModule&gt; &#123;
+    return &#123;
+      ngModule: SharedModule,
+      providers: [AuthService]  // solo se registra en root
+    &#125;;
+  &#125;
+&#125;</code></pre>
+
+    <h4>Provider Types — Todos los tipos en detalle</h4>
+    <pre ngNonBindable><code class="language-typescript">// === useClass — reemplazar implementación ===
+// Útil para testing, o estrategias diferentes por entorno
+providers: [
+  &#123; provide: LoggerService, useClass: environment.production 
+    ? ProdLoggerService 
+    : DevLoggerService &#125;
+]
+
+// === useValue — proveer un valor estático ===
+// Para configuración, tokens, constantes
+providers: [
+  &#123; provide: API_URL, useValue: 'https://api.example.com' &#125;,
+  &#123; provide: IS_PRODUCTION, useValue: true &#125;,
+  &#123; provide: APP_CONFIG, useValue: &#123; theme: 'dark', lang: 'es' &#125; &#125;
+]
+
+// === useFactory — lógica condicional ===
+// Cuando necesitas lógica para crear el servicio
+// deps: servicios que la factory necesita
 providers: [&#123;
-  provide: LoggerService,
-  useFactory: (env: Environment) =&gt; env.production
-    ? new ProdLogger() : new DevLogger(),
-  deps: [Environment]
+  provide: StorageService,
+  useFactory: (platform: Platform) => &#123;
+    if (platform.isBrowser) &#123;
+      return new LocalStorageService();
+    &#125; else &#123;
+      return new InMemoryStorageService();  // SSR
+    &#125;
+  &#125;,
+  deps: [Platform]
 &#125;]
 
-// useExisting — alias a otro provider
-providers: [&#123; provide: OldService, useExisting: NewService &#125;]</code></pre>
+// === useExisting — alias ===
+// Redirige un token a otro provider existente
+providers: [
+  NewLoggerService,
+  &#123; provide: OldLoggerService, useExisting: NewLoggerService &#125;
+  // Cuando alguien pida OldLogger, recibe la instancia de NewLogger
+]</code></pre>
 
     <h4>InjectionToken — Para valores no-clase</h4>
-    <pre ngNonBindable><code class="language-typescript">// Crear token
+    <p>
+      Las clases sirven como su propio token de DI, pero para valores primitivos (strings, números, objetos de config)
+      necesitas un <code>InjectionToken</code>:
+    </p>
+    <pre ngNonBindable><code class="language-typescript">// Crear token tipado
 export const API_URL = new InjectionToken&lt;string&gt;('API Base URL');
+export const APP_CONFIG = new InjectionToken&lt;AppConfig&gt;('App Configuration');
+export const FEATURE_FLAGS = new InjectionToken&lt;FeatureFlags&gt;('Feature Flags');
 
-// Proveer
-providers: [&#123; provide: API_URL, useValue: 'https://api.example.com' &#125;]
+// Token con factory (se auto-provee, tree-shakeable)
+export const WINDOW = new InjectionToken&lt;Window&gt;('Window Reference', &#123;
+  providedIn: 'root',
+  factory: () => window  // valor por defecto
+&#125;);
+
+export const IS_BROWSER = new InjectionToken&lt;boolean&gt;('Is Browser', &#123;
+  providedIn: 'root',
+  factory: () => typeof window !== 'undefined'
+&#125;);
+
+// Proveer en config
+export const appConfig: ApplicationConfig = &#123;
+  providers: [
+    &#123; provide: API_URL, useValue: 'https://api.worldly.com' &#125;,
+    &#123; provide: APP_CONFIG, useValue: &#123; theme: 'dark', maxRetries: 3 &#125; &#125;,
+  ]
+&#125;;
 
 // Inyectar
 export class ApiService &#123;
   private url = inject(API_URL);
-  // o en constructor: constructor(&#64;Inject(API_URL) private url: string)
+  private config = inject(APP_CONFIG);
+  private isBrowser = inject(IS_BROWSER);
 &#125;</code></pre>
 
-    <h4>Multi Providers</h4>
-    <pre ngNonBindable><code class="language-typescript">// Múltiples valores para el mismo token
-export const HTTP_INTERCEPTORS = new InjectionToken&lt;HttpInterceptorFn[]&gt;('interceptors');
+    <h4>Multi Providers — Arrays de servicios</h4>
+    <pre ngNonBindable><code class="language-typescript">// Cuando VARIOS providers deben registrarse bajo el mismo token
+// Angular los inyecta como un ARRAY
 
+export const APP_INITIALIZER = new InjectionToken&lt;(() => void)[]&gt;('App Init');
+
+providers: [
+  &#123; provide: APP_INITIALIZER, useFactory: () => () => loadConfig(), multi: true &#125;,
+  &#123; provide: APP_INITIALIZER, useFactory: () => () => loadTranslations(), multi: true &#125;,
+  &#123; provide: APP_INITIALIZER, useFactory: () => () => initAnalytics(), multi: true &#125;,
+]
+// Resultado: [loadConfig, loadTranslations, initAnalytics]
+
+// Caso de uso real: HTTP_INTERCEPTORS (class-based, legacy)
 providers: [
   &#123; provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true &#125;,
   &#123; provide: HTTP_INTERCEPTORS, useClass: LoggingInterceptor, multi: true &#125;,
-]
-// Inyecta un ARRAY con ambas instancias</code></pre>
+  &#123; provide: HTTP_INTERCEPTORS, useClass: ErrorInterceptor, multi: true &#125;,
+]</code></pre>
 
-    <h4>inject() vs Constructor Injection</h4>
-    <pre ngNonBindable><code class="language-typescript">// Moderno (Angular 14+) — preferido
+    <h4>inject() vs Constructor — Comparación completa</h4>
+    <pre ngNonBindable><code class="language-typescript">// ✅ MODERNO: inject() function (Angular 14+, preferido)
 export class UserService &#123;
   private http = inject(HttpClient);
   private router = inject(Router);
+  private config = inject(APP_CONFIG);
+  private logger = inject(LoggerService, &#123; optional: true &#125;); // no lanza error si no existe
 &#125;
 
-// Clásico — aún válido
+// ✅ CLÁSICO: Constructor injection (aún válido)
 export class UserService &#123;
   constructor(
     private http: HttpClient,
-    private router: Router
+    private router: Router,
+    @Inject(APP_CONFIG) private config: AppConfig,
+    @Optional() private logger: LoggerService // decorador para optional
   ) &#123;&#125;
 &#125;
 
-// inject() ventajas:
-// ✅ Funciona en funciones (guards, interceptors, resolvers)
-// ✅ No necesita constructor
-// ✅ Más fácil de refactorizar
-// ✅ Funciona con herencia sin super() complicado</code></pre>
+// inject() funciona en más contextos:
+// ✅ Functional guards
+export const authGuard: CanActivateFn = () => &#123;
+  const auth = inject(AuthService);
+  const router = inject(Router);
+  return auth.isLoggedIn() || router.createUrlTree(['/login']);
+&#125;;
+
+// ✅ Functional interceptors
+export const authInterceptor: HttpInterceptorFn = (req, next) => &#123;
+  const token = inject(AuthService).getToken();
+  return next(req.clone(&#123; setHeaders: &#123; Authorization: `Bearer $&#123;token&#125;` &#125; &#125;));
+&#125;;
+
+// ✅ Factory functions
+export function createApiService(): ApiService &#123;
+  const http = inject(HttpClient);
+  const url = inject(API_URL);
+  return new ApiService(http, url);
+&#125;</code></pre>
+
+    <h4>Decoradores de resolución avanzados</h4>
+    <pre ngNonBindable><code class="language-typescript">// @Optional / &#123; optional: true &#125; — no lanza error si no se encuentra
+private logger = inject(LoggerService, &#123; optional: true &#125;);
+
+// @Self / &#123; self: true &#125; — solo busca en el propio ElementInjector
+private service = inject(MyService, &#123; self: true &#125;);
+// Útil para: asegurar que el servicio es una instancia local
+
+// @SkipSelf / &#123; skipSelf: true &#125; — salta el propio injector, busca en padre
+private parentService = inject(MyService, &#123; skipSelf: true &#125;);
+// Útil para: acceder al servicio del componente padre
+
+// @Host / &#123; host: true &#125; — busca solo hasta el host component
+private hostService = inject(MyService, &#123; host: true &#125;);
+
+// Combinaciones:
+// "Quiero el del padre, pero si no existe, no pasa nada"
+private parentOpt = inject(MyService, &#123; skipSelf: true, optional: true &#125;);</code></pre>
+
+    <h4>Patrón: Component-level providers para estado local</h4>
+    <pre ngNonBindable><code class="language-typescript">// Servicio que maneja estado de un formulario
+@Injectable() // NO providedIn: 'root' — se crea por componente
+export class FormStateService &#123;
+  private state = signal&lt;FormData&gt;(&#123; name: '', email: '' &#125;);
+  
+  readonly formState = this.state.asReadonly();
+  
+  updateField(field: string, value: string) &#123;
+    this.state.update(s => (&#123; ...s, [field]: value &#125;));
+  &#125;
+  
+  reset() &#123; this.state.set(&#123; name: '', email: '' &#125;); &#125;
+&#125;
+
+@Component(&#123;
+  providers: [FormStateService], // ← nueva instancia POR CADA componente
+  template: `...`
+&#125;)
+export class UserFormComponent &#123;
+  private formState = inject(FormStateService);
+  // Cada instancia de UserFormComponent tiene su propio FormStateService
+&#125;</code></pre>
+
+    <div class="code-ref">
+      📂 Implementación en el proyecto:
+      <ul>
+        <li><code>core/services/progress.service.ts</code> — providedIn: 'root', singleton global con Signals</li>
+        <li><code>core/services/mock-api.service.ts</code> — providedIn: 'root', servicio HTTP simulado</li>
+        <li><code>core/interceptors/auth.interceptor.ts</code> — Functional interceptor con inject()</li>
+        <li><code>core/guards/auth.guard.ts</code> — Functional guard con inject()</li>
+        <li><code>app.config.ts</code> — provideHttpClient(withInterceptors([...])), provideStore()</li>
+        <li><code>features/ngrx-lab/ngrx-lab.routes.ts</code> — providers a nivel de ruta (provideState, provideEffects)</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- F2. CORE vs SHARED vs FEATURE MODULES -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div class="card" id="core-shared-feature-modules">
+    <h3>F2. Core Module vs Shared Module vs Feature Module</h3>
+    <p>
+      Aunque Angular 20 usa Standalone por defecto, estos conceptos arquitectónicos siguen siendo
+      preguntas frecuentes en entrevistas y definen cómo organizar providers y código.
+    </p>
+
+    <h4>Core Module (ahora: carpeta core/)</h4>
+    <p>Contiene servicios <strong>singleton</strong> que se usan en TODA la app. Se importa UNA sola vez en el root.</p>
+    <ul>
+      <li>Auth service, API services, config service</li>
+      <li>HTTP interceptors</li>
+      <li>Route guards</li>
+      <li>Modelos de dominio globales</li>
+      <li><strong>Regla</strong>: todo en core/ tiene <code>providedIn: 'root'</code> o se registra en app.config</li>
+    </ul>
+    <pre ngNonBindable><code class="language-typescript">// Patrón legacy: CoreModule con guard anti-reimportación
+@NgModule(&#123;
+  providers: [AuthService, ConfigService]
+&#125;)
+export class CoreModule &#123;
+  constructor(@Optional() @SkipSelf() parent: CoreModule) &#123;
+    if (parent) &#123;
+      throw new Error('CoreModule ya está cargado. Solo importar en AppModule.');
+    &#125;
+  &#125;
+&#125;
+
+// Patrón moderno (Angular 20): NO necesita módulo
+// Todo es providedIn: 'root' y se organiza por carpeta
+// src/app/core/
+//   services/auth.service.ts     → @Injectable(&#123; providedIn: 'root' &#125;)
+//   interceptors/auth.interceptor.ts → HttpInterceptorFn
+//   guards/auth.guard.ts         → CanActivateFn</code></pre>
+
+    <h4>Shared Module (ahora: carpeta shared/)</h4>
+    <p>
+      Contiene componentes, directivas y pipes <strong>reutilizables y sin estado</strong>.
+      Se puede importar en cualquier feature.
+    </p>
+    <ul>
+      <li>Componentes UI: Button, Card, Modal, Spinner, Table</li>
+      <li>Directivas: Highlight, Tooltip, Autosize</li>
+      <li>Pipes: FormatDate, FilterBy, TruncateText</li>
+      <li><strong>Regla</strong>: NUNCA incluir servicios con estado en shared/</li>
+      <li><strong>Regla</strong>: shared/ NO importa de core/ ni de features/</li>
+    </ul>
+    <pre ngNonBindable><code class="language-typescript">// Patrón legacy: SharedModule que re-exporta todo
+@NgModule(&#123;
+  declarations: [ButtonComponent, SpinnerComponent, FilterPipe],
+  imports: [CommonModule, FormsModule],
+  exports: [
+    ButtonComponent, SpinnerComponent, FilterPipe,
+    CommonModule, FormsModule  // re-exportar módulos comunes
+  ]
+  // ⚠️ NO poner providers aquí — causa múltiples instancias en lazy modules
+&#125;)
+export class SharedModule &#123;&#125;
+
+// Patrón moderno: Standalone + barrel export
+// shared/components/index.ts
+export &#123; ButtonComponent &#125; from './button.component';
+export &#123; SpinnerComponent &#125; from './spinner.component';
+
+// Usar en cualquier componente:
+import &#123; ButtonComponent &#125; from '../../shared/components';
+
+@Component(&#123;
+  imports: [ButtonComponent],  // import directo, sin módulo
+  template: `&lt;app-button label="Save" /&gt;`
+&#125;)</code></pre>
+
+    <h4>Feature Module (ahora: carpeta features/)</h4>
+    <p>
+      Cada feature es autocontenida: sus componentes, servicios, rutas y estado.
+      Se carga con <strong>lazy loading</strong>.
+    </p>
+    <pre ngNonBindable><code class="language-typescript">// Patrón legacy: Feature NgModule
+@NgModule(&#123;
+  declarations: [ProductListComponent, ProductCardComponent],
+  imports: [CommonModule, SharedModule, ProductRoutingModule],
+  providers: [ProductService]
+&#125;)
+export class ProductModule &#123;&#125;
+
+// Patrón moderno: Feature routes (sin módulo)
+// features/products/products.routes.ts
+export const PRODUCT_ROUTES: Routes = [&#123;
+  path: '',
+  providers: [
+    provideState('products', productReducer),  // state scoped a esta feature
+    provideEffects(ProductEffects),
+  ],
+  loadComponent: () => import('./product-list').then(m => m.ProductListComponent),
+  children: [...]
+&#125;];
+
+// En app.routes.ts:
+&#123; path: 'products', loadChildren: () => 
+  import('./features/products/products.routes').then(m => m.PRODUCT_ROUTES) &#125;</code></pre>
+
+    <h4>Tabla resumen: Core vs Shared vs Feature</h4>
+    <table class="comparison-table">
+      <thead>
+        <tr><th>Aspecto</th><th>Core</th><th>Shared</th><th>Feature</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Contiene</strong></td>
+          <td>Services, guards, interceptors</td>
+          <td>Components, directives, pipes</td>
+          <td>Todo lo de un dominio</td>
+        </tr>
+        <tr>
+          <td><strong>Scope</strong></td>
+          <td>Singleton global</td>
+          <td>Reutilizable, sin estado</td>
+          <td>Autocontenido</td>
+        </tr>
+        <tr>
+          <td><strong>Se importa en</strong></td>
+          <td>Solo AppModule/app.config</td>
+          <td>Cualquier feature</td>
+          <td>Lazy-loaded por ruta</td>
+        </tr>
+        <tr>
+          <td><strong>Providers?</strong></td>
+          <td>✅ Sí (providedIn: root)</td>
+          <td>❌ NUNCA servicios con estado</td>
+          <td>✅ Feature-level</td>
+        </tr>
+        <tr>
+          <td><strong>Ejemplo</strong></td>
+          <td>AuthService, ConfigService</td>
+          <td>ButtonComponent, FilterPipe</td>
+          <td>ProductListComponent + store</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h4>forRoot() / forChild() Pattern (legacy pero preguntado en entrevistas)</h4>
+    <pre ngNonBindable><code class="language-typescript">// Problema: SharedModule con providers se importa en múltiples lazy modules
+// Cada lazy module crea su propia instancia del servicio (no singleton!)
+
+// Solución: forRoot() pattern
+@NgModule(&#123;
+  declarations: [SpinnerComponent],
+  exports: [SpinnerComponent]
+&#125;)
+export class SharedModule &#123;
+  // forRoot() — solo se llama en AppModule, registra servicios
+  static forRoot(): ModuleWithProviders&lt;SharedModule&gt; &#123;
+    return &#123;
+      ngModule: SharedModule,
+      providers: [NotificationService, ConfigService]
+    &#125;;
+  &#125;
+  
+  // forChild() — se llama en feature modules, no registra servicios
+  static forChild(): ModuleWithProviders&lt;SharedModule&gt; &#123;
+    return &#123; ngModule: SharedModule &#125;;
+  &#125;
+&#125;
+
+// Ejemplo real: RouterModule
+RouterModule.forRoot(routes)   // en AppModule — configura Router service
+RouterModule.forChild(routes)  // en Feature — solo registra rutas
+
+// ✅ En Angular 20 con Standalone, todo esto es innecesario:
+// provideRouter(routes) en app.config
+// Componentes se importan directamente</code></pre>
+
+    <div class="code-ref">
+      📂 Estructura actual del proyecto:
+      <ul>
+        <li><code>core/services/</code> — Servicios singleton (progress, mock-api) con providedIn: 'root'</li>
+        <li><code>core/interceptors/</code> — Interceptor funcional</li>
+        <li><code>core/guards/</code> — Guard funcional</li>
+        <li><code>shared/components/</code> — Componentes reutilizables (lab-layout, global-search)</li>
+        <li><code>shared/directives/</code> — Directiva auto-glossary</li>
+        <li><code>shared/services/</code> — Glossary service (providedIn: 'root')</li>
+        <li><code>features/*/</code> — Cada feature con sus propias rutas, componentes y store</li>
+      </ul>
+    </div>
   </div>
 
   <!-- ═══════════════════════════════════════════════ -->

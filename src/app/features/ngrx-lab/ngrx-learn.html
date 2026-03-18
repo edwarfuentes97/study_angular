@@ -70,6 +70,578 @@ loadProducts$ = createEffect(() =>
         </div>
       </div>
 
+      <div class="card" id="ciclo-de-vida-ngrx">
+        <h3>🔁 Ciclo de Vida Completo de NgRx</h3>
+
+        <!-- Paso 1: El ciclo completo -->
+        <h4>1. El ciclo completo paso a paso</h4>
+        <p><strong>Flujo síncrono (sin side effects):</strong></p>
+        <pre ngNonBindable><code>Usuario hace click
+  → Component.dispatch(action)
+    → Store recibe action
+      → Reducer procesa action → produce nuevo state
+        → Store notifica selectors
+          → Selectors re-calculan (si el input cambió)
+            → Component recibe nuevo valor
+              → View se actualiza</code></pre>
+        <p><strong>Flujo con side effects (HTTP, WebSocket, etc.):</strong></p>
+        <pre ngNonBindable><code>Action despachada (ej: loadProducts)
+  → Effect escucha con ofType(loadProducts)
+    → Llama al API (HTTP / WebSocket / localStorage)
+      → Éxito: Effect despacha loadProductsSuccess(&#123; products &#125;)
+      → Error: Effect despacha loadProductsFailure(&#123; error &#125;)
+        → Reducer procesa Success o Failure
+          → Nuevo state (products cargados O error guardado)
+            → Selectors recalculan → Component se actualiza</code></pre>
+
+        <!-- Paso 2: Actions en detalle -->
+        <h4>2. Actions en detalle</h4>
+        <p>
+          Las actions describen <strong>QUÉ pasó</strong>, nunca CÓMO reaccionar. Convención de
+          naming: <code>[Source] Event</code>.
+        </p>
+        <pre ngNonBindable><code class="language-typescript">import &#123; createAction, props, createActionGroup &#125; from '&#64;ngrx/store';
+
+// Action simple (sin payload)
+export const loadProducts = createAction('[Product Page] Load Products');
+
+// Action con payload
+export const addToCart = createAction(
+  '[Cart] Add Item',
+  props&lt;&#123; product: Product &#125;&gt;()
+);
+
+// Action Groups (NgRx 15+) — agrupa actions relacionadas
+export const ProductActions = createActionGroup(&#123;
+  source: 'Product Page',
+  events: &#123;
+    'Load Products': emptyProps(),
+    'Load Products Success': props&lt;&#123; products: Product[] &#125;&gt;(),
+    'Load Products Failure': props&lt;&#123; error: string &#125;&gt;(),
+    'Delete Product': props&lt;&#123; id: string &#125;&gt;(),
+    'Delete Product Success': props&lt;&#123; id: string &#125;&gt;(),
+  &#125;
+&#125;);
+
+// Uso:
+this.store.dispatch(ProductActions.loadProducts());
+this.store.dispatch(ProductActions.deleteProduct(&#123; id: '123' &#125;));</code></pre>
+
+        <!-- Paso 3: Reducer en detalle -->
+        <h4>3. Reducer en detalle</h4>
+        <p>
+          Función pura: <code>(state, action) =&gt; newState</code>. <strong>NUNCA</strong> muta el state
+          directamente — siempre usa spread operator para crear un nuevo objeto.
+        </p>
+        <pre ngNonBindable><code class="language-typescript">import &#123; createReducer, on &#125; from '&#64;ngrx/store';
+import &#123; createEntityAdapter, EntityState &#125; from '&#64;ngrx/entity';
+
+// Estado inicial — siempre definir un default
+export interface ProductState extends EntityState&lt;Product&gt; &#123;
+  loading: boolean;
+  error: string | null;
+&#125;
+
+const adapter = createEntityAdapter&lt;Product&gt;();
+const initialState: ProductState = adapter.getInitialState(&#123;
+  loading: false,
+  error: null,
+&#125;);
+
+export const productReducer = createReducer(
+  initialState,
+
+  // Load — activar loading
+  on(ProductActions.loadProducts, (state) =&gt; (&#123;
+    ...state,
+    loading: true,
+    error: null,
+  &#125;)),
+
+  // Success — guardar datos con EntityAdapter
+  on(ProductActions.loadProductsSuccess, (state, &#123; products &#125;) =&gt;
+    adapter.setAll(products, &#123; ...state, loading: false &#125;)
+  ),
+
+  // Failure — guardar error
+  on(ProductActions.loadProductsFailure, (state, &#123; error &#125;) =&gt; (&#123;
+    ...state,
+    loading: false,
+    error,
+  &#125;)),
+
+  // Delete con EntityAdapter
+  on(ProductActions.deleteProductSuccess, (state, &#123; id &#125;) =&gt;
+    adapter.removeOne(id, state)
+  ),
+);
+
+// Feature state registration (lazy-loaded)
+// En las rutas del feature:
+provideState('products', productReducer);</code></pre>
+
+        <!-- Paso 4: Effects en detalle -->
+        <h4>4. Effects en detalle</h4>
+        <p>
+          Effects manejan side effects fuera del reducer. Se crean con <code>createEffect()</code>
+          y escuchan el stream de actions con <code>ofType()</code>.
+        </p>
+
+        <h5>Operadores críticos en Effects:</h5>
+        <ul>
+          <li><strong>switchMap</strong> → para LOAD (cancela petición anterior si llega otra)</li>
+          <li><strong>exhaustMap</strong> → para CREATE/LOGIN (ignora clicks duplicados)</li>
+          <li><strong>mergeMap</strong> → para DELETE (varias en paralelo)</li>
+          <li><strong>concatMap</strong> → para UPDATE (mantiene el orden)</li>
+        </ul>
+        <pre ngNonBindable><code class="language-typescript">import &#123; createEffect, Actions, ofType &#125; from '&#64;ngrx/effects';
+
+&#64;Injectable()
+export class ProductEffects &#123;
+  private actions$ = inject(Actions);
+  private productService = inject(ProductService);
+
+  // LOAD — switchMap cancela peticiones anteriores
+  loadProducts$ = createEffect(() =&gt;
+    this.actions$.pipe(
+      ofType(ProductActions.loadProducts),
+      switchMap(() =&gt;
+        this.productService.getAll().pipe(
+          map(products =&gt; ProductActions.loadProductsSuccess(&#123; products &#125;)),
+          catchError(err =&gt;
+            of(ProductActions.loadProductsFailure(&#123; error: err.message &#125;))
+          )
+        )
+      )
+    )
+  );
+
+  // CREATE — exhaustMap ignora clicks duplicados
+  createProduct$ = createEffect(() =&gt;
+    this.actions$.pipe(
+      ofType(ProductActions.createProduct),
+      exhaustMap((&#123; product &#125;) =&gt;
+        this.productService.create(product).pipe(
+          map(created =&gt; ProductActions.createProductSuccess(&#123; product: created &#125;)),
+          catchError(err =&gt;
+            of(ProductActions.createProductFailure(&#123; error: err.message &#125;))
+          )
+        )
+      )
+    )
+  );
+
+  // DELETE — mergeMap permite varias en paralelo
+  deleteProduct$ = createEffect(() =&gt;
+    this.actions$.pipe(
+      ofType(ProductActions.deleteProduct),
+      mergeMap((&#123; id &#125;) =&gt;
+        this.productService.delete(id).pipe(
+          map(() =&gt; ProductActions.deleteProductSuccess(&#123; id &#125;)),
+          catchError(err =&gt;
+            of(ProductActions.deleteProductFailure(&#123; error: err.message &#125;))
+          )
+        )
+      )
+    )
+  );
+&#125;</code></pre>
+
+        <h5>⚠️ Error handling — SIEMPRE catchError DENTRO del operador de aplanamiento:</h5>
+        <pre ngNonBindable><code class="language-typescript">// ✅ CORRECTO — el effect sigue vivo después de un error
+loadProducts$ = createEffect(() =&gt;
+  this.actions$.pipe(
+    ofType(ProductActions.loadProducts),
+    switchMap(() =&gt;
+      this.productService.getAll().pipe(
+        map(products =&gt; ProductActions.loadProductsSuccess(&#123; products &#125;)),
+        catchError(err =&gt; of(ProductActions.loadProductsFailure(&#123; error: err.message &#125;)))
+        // ☝️ catchError DENTRO del switchMap — el observable interno falla,
+        //    pero el observable externo (el effect) sigue escuchando actions
+      )
+    )
+  )
+);
+
+// ❌ INCORRECTO — si falla, el effect MUERE y nunca más procesa actions
+loadProducts$ = createEffect(() =&gt;
+  this.actions$.pipe(
+    ofType(ProductActions.loadProducts),
+    switchMap(() =&gt; this.productService.getAll()),
+    map(products =&gt; ProductActions.loadProductsSuccess(&#123; products &#125;)),
+    catchError(err =&gt; of(ProductActions.loadProductsFailure(&#123; error: err.message &#125;)))
+    // ☝️ catchError FUERA del switchMap — mata todo el effect stream
+  )
+);</code></pre>
+
+        <h5>Non-dispatching effects y lifecycle hooks:</h5>
+        <pre ngNonBindable><code class="language-typescript">// Non-dispatching effect — para logging, navigation, analytics
+logActions$ = createEffect(() =&gt;
+  this.actions$.pipe(
+    tap(action =&gt; console.log('[NgRx]', action.type))
+  ),
+  &#123; dispatch: false &#125;  // No despacha ninguna action
+);
+
+// Navegar después de crear exitosamente
+navigateAfterCreate$ = createEffect(() =&gt;
+  this.actions$.pipe(
+    ofType(ProductActions.createProductSuccess),
+    tap((&#123; product &#125;) =&gt;
+      inject(Router).navigate(['/products', product.id])
+    )
+  ),
+  &#123; dispatch: false &#125;
+);
+
+// Lifecycle hooks
+export class ProductEffects implements OnInitEffects &#123;
+  // Se ejecuta una vez cuando los effects se registran
+  ngrxOnInitEffects() &#123;
+    return ProductActions.loadProducts(); // Carga inicial automática
+  &#125;
+&#125;</code></pre>
+
+        <!-- Paso 5: Selectors en detalle -->
+        <h4>5. Selectors en detalle</h4>
+        <p>
+          Los selectors son funciones <strong>memoizadas</strong> que extraen y computan slices del Store.
+          Solo recalculan si su input cambió (igualdad por referencia).
+        </p>
+        <pre ngNonBindable><code class="language-typescript">import &#123; createFeatureSelector, createSelector &#125; from '&#64;ngrx/store';
+
+// 1. Feature selector — accede al slice del state global
+const selectProductState = createFeatureSelector&lt;ProductState&gt;('products');
+
+// 2. Selectors derivados — memoizados automáticamente
+const &#123; selectAll, selectEntities, selectTotal &#125; = adapter.getSelectors();
+
+export const selectAllProducts = createSelector(
+  selectProductState,
+  selectAll   // retorna Product[]
+);
+
+export const selectLoading = createSelector(
+  selectProductState,
+  (state) =&gt; state.loading
+);
+
+export const selectError = createSelector(
+  selectProductState,
+  (state) =&gt; state.error
+);
+
+// 3. Composición de selectors — un selector usa otros selectors
+export const selectExpensiveProducts = createSelector(
+  selectAllProducts,
+  (products) =&gt; products.filter(p =&gt; p.price &gt; 100)
+);
+
+export const selectProductCount = createSelector(
+  selectAllProducts,
+  (products) =&gt; products.length
+);
+
+// 4. Selector con parámetros (factory selector)
+export const selectProductById = (id: string) =&gt;
+  createSelector(
+    selectAllProducts,
+    (products) =&gt; products.find(p =&gt; p.id === id)
+  );
+
+// 5. selectSignal (NgRx 18+) — retorna Signal en vez de Observable
+// En el componente:
+products = this.store.selectSignal(selectAllProducts);
+// products() retorna Product[] — sin async pipe, síncrono</code></pre>
+
+        <!-- Paso 6: Store lifecycle in a component -->
+        <h4>6. Store lifecycle en un componente</h4>
+        <pre ngNonBindable><code class="language-typescript">&#64;Component(&#123;
+  selector: 'app-product-list',
+  template: \`
+    &#64;if (loading()) &#123;
+      &lt;app-spinner /&gt;
+    &#125;
+
+    &#64;for (product of products(); track product.id) &#123;
+      &lt;app-product-card
+        [product]="product"
+        (delete)="onDelete(product.id)" /&gt;
+    &#125;
+
+    &#64;if (error()) &#123;
+      &lt;p class="error"&gt;&#123;&#123; error() &#125;&#125;&lt;/p&gt;
+    &#125;
+  \`
+&#125;)
+export class ProductListComponent implements OnInit &#123;
+  private store = inject(Store);
+
+  // ✅ Approach moderno: Signals (NgRx 18+)
+  products = this.store.selectSignal(selectAllProducts);
+  loading = this.store.selectSignal(selectLoading);
+  error = this.store.selectSignal(selectError);
+
+  // Approach clásico: Observables
+  // products$ = this.store.select(selectAllProducts);
+
+  ngOnInit() &#123;
+    // Despachar action para cargar datos
+    this.store.dispatch(ProductActions.loadProducts());
+  &#125;
+
+  onDelete(id: string) &#123;
+    this.store.dispatch(ProductActions.deleteProduct(&#123; id &#125;));
+  &#125;
+&#125;</code></pre>
+
+        <!-- Paso 7: DevTools y Debugging -->
+        <h4>7. DevTools y Debugging</h4>
+        <p>
+          NgRx DevTools permite inspeccionar el estado, ver cada action despachada, hacer time-travel,
+          y exportar/importar sesiones completas para debugging.
+        </p>
+        <pre ngNonBindable><code class="language-typescript">// app.config.ts — configurar DevTools
+import &#123; provideStoreDevtools &#125; from '&#64;ngrx/store-devtools';
+import &#123; isDevMode &#125; from '&#64;angular/core';
+
+export const appConfig: ApplicationConfig = &#123;
+  providers: [
+    provideStore(),
+    provideStoreDevtools(&#123;
+      maxAge: 25,              // Guarda las últimas 25 actions
+      logOnly: !isDevMode(),   // Solo logging en producción
+    &#125;),
+  ]
+&#125;;</code></pre>
+        <p><strong>Funcionalidades de Redux DevTools:</strong></p>
+        <ul>
+          <li><strong>State inspection:</strong> Ver todo el árbol de estado en cualquier momento</li>
+          <li><strong>Action log:</strong> Cada action despachada con timestamp y payload</li>
+          <li><strong>Time travel:</strong> Retroceder y avanzar entre estados para reproducir bugs</li>
+          <li><strong>State diff:</strong> Ver exactamente qué cambió entre cada action</li>
+          <li><strong>Export/Import:</strong> Guardar y reproducir sesiones completas de debugging</li>
+        </ul>
+
+        <div class="code-ref">
+          📂 Implementación completa en el proyecto:
+          <ul>
+            <li><code>features/ngrx-lab/store/product.actions.ts</code> — Actions con createActionGroup</li>
+            <li><code>features/ngrx-lab/store/product.reducer.ts</code> — Reducer con EntityAdapter</li>
+            <li><code>features/ngrx-lab/store/product.effects.ts</code> — Effects con switchMap, exhaustMap, mergeMap</li>
+            <li><code>features/ngrx-lab/store/product.selectors.ts</code> — Selectors memoizados</li>
+            <li><code>features/ngrx-lab/components/product-list.ts</code> — Component con selectSignal y dispatch</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="card" id="patrones-avanzados-ngrx">
+        <h3>🧩 Patrones Avanzados de NgRx</h3>
+
+        <!-- 1. Facade Pattern -->
+        <h4>1. Facade Pattern</h4>
+        <p>
+          Un servicio "facade" encapsula el Store — los componentes <strong>nunca inyectan Store
+          directamente</strong>. Esto desacopla los componentes de NgRx, facilita testing, y centraliza
+          la lógica de dispatch/select.
+        </p>
+        <pre ngNonBindable><code class="language-typescript">// product.facade.ts — encapsula TODO el acceso al Store
+&#64;Injectable(&#123; providedIn: 'root' &#125;)
+export class ProductFacade &#123;
+  private store = inject(Store);
+
+  // Selectors expuestos como Signals
+  readonly products = this.store.selectSignal(selectAllProducts);
+  readonly loading = this.store.selectSignal(selectLoading);
+  readonly error = this.store.selectSignal(selectError);
+  readonly selectedProduct = this.store.selectSignal(selectSelectedProduct);
+
+  // Actions encapsuladas como métodos
+  loadProducts() &#123;
+    this.store.dispatch(ProductActions.loadProducts());
+  &#125;
+
+  createProduct(product: CreateProductDto) &#123;
+    this.store.dispatch(ProductActions.createProduct(&#123; product &#125;));
+  &#125;
+
+  deleteProduct(id: string) &#123;
+    this.store.dispatch(ProductActions.deleteProduct(&#123; id &#125;));
+  &#125;
+
+  selectProduct(id: string) &#123;
+    this.store.dispatch(ProductActions.selectProduct(&#123; id &#125;));
+  &#125;
+&#125;
+
+// En el componente — limpio y desacoplado de NgRx
+&#64;Component(&#123; ... &#125;)
+export class ProductListComponent &#123;
+  private facade = inject(ProductFacade);
+  products = this.facade.products;
+  loading = this.facade.loading;
+
+  ngOnInit() &#123; this.facade.loadProducts(); &#125;
+  onDelete(id: string) &#123; this.facade.deleteProduct(id); &#125;
+&#125;</code></pre>
+
+        <!-- 2. Optimistic Updates -->
+        <h4>2. Optimistic Updates</h4>
+        <p>
+          Actualizar la UI <strong>inmediatamente</strong> antes de que el API responda, y revertir
+          si falla. Mejora la UX percibida.
+        </p>
+        <pre ngNonBindable><code class="language-typescript">// Reducer — actualiza INMEDIATAMENTE al despachar deleteProduct
+on(ProductActions.deleteProduct, (state, &#123; id &#125;) =&gt;
+  adapter.removeOne(id, state)   // ← optimista: borra antes de confirmar
+),
+
+// Si falla, re-agregar el producto
+on(ProductActions.deleteProductFailure, (state, &#123; product &#125;) =&gt;
+  adapter.addOne(product, state) // ← revertir: lo vuelve a agregar
+),
+
+// Effect — intenta borrar en el API
+deleteProduct$ = createEffect(() =&gt;
+  this.actions$.pipe(
+    ofType(ProductActions.deleteProduct),
+    mergeMap((&#123; id &#125;) =&gt;
+      this.productService.delete(id).pipe(
+        map(() =&gt; ProductActions.deleteProductSuccess(&#123; id &#125;)),
+        catchError(() =&gt; &#123;
+          // Necesitamos el producto original para revertir
+          const product = this.store.selectSignal(selectProductById(id))();
+          return of(ProductActions.deleteProductFailure(&#123; product &#125;));
+        &#125;)
+      )
+    )
+  )
+);</code></pre>
+
+        <!-- 3. Entity Pattern -->
+        <h4>3. Entity Pattern — Normalización</h4>
+        <p>
+          <strong>¿Por qué no usar arrays?</strong> Buscar un item en un array es O(n). Con
+          <code>EntityAdapter</code>, los datos se guardan como <code>&#123; ids: string[], entities: &#123; [id]: Entity &#125; &#125;</code>,
+          haciendo lookups O(1). Elimina duplicados y simplifica updates.
+        </p>
+        <pre ngNonBindable><code class="language-typescript">// ❌ Con array — lento, propenso a duplicados
+interface State &#123;
+  products: Product[];  // Buscar: products.find(p =&gt; p.id === id) → O(n)
+&#125;
+
+// ✅ Con EntityAdapter — normalizado, O(1) lookups
+interface State extends EntityState&lt;Product&gt; &#123;
+  // EntityState provee: ids: string[], entities: &#123; [id: string]: Product &#125;
+  loading: boolean;
+&#125;
+
+const adapter = createEntityAdapter&lt;Product&gt;();
+
+// Operaciones CRUD limpias:
+adapter.addOne(product, state);              // Agregar uno
+adapter.addMany(products, state);            // Agregar varios
+adapter.setAll(products, state);             // Reemplazar todos
+adapter.updateOne(&#123; id, changes &#125;, state);  // Actualizar parcial
+adapter.removeOne(id, state);                // Eliminar uno
+adapter.upsertOne(product, state);           // Agregar o actualizar
+
+// Selectors generados automáticamente:
+const &#123; selectAll, selectEntities, selectIds, selectTotal &#125; =
+  adapter.getSelectors();</code></pre>
+
+        <!-- 4. Router Store -->
+        <h4>4. Router Store</h4>
+        <p>
+          <code>&#64;ngrx/router-store</code> sincroniza el estado de la ruta de Angular con el NgRx Store.
+          Permite crear selectors basados en parámetros de la URL.
+        </p>
+        <pre ngNonBindable><code class="language-typescript">// app.config.ts — registrar Router Store
+import &#123; provideRouterStore, routerReducer &#125; from '&#64;ngrx/router-store';
+
+export const appConfig: ApplicationConfig = &#123;
+  providers: [
+    provideStore(&#123; router: routerReducer &#125;),
+    provideRouterStore(),
+  ]
+&#125;;
+
+// Selectors basados en la ruta
+import &#123; getRouterSelectors &#125; from '&#64;ngrx/router-store';
+
+const &#123; selectRouteParams, selectQueryParams, selectUrl &#125; =
+  getRouterSelectors();
+
+// Selector que combina ruta + state
+export const selectCurrentProduct = createSelector(
+  selectRouteParams,
+  selectEntities,
+  (params, entities) =&gt; entities[params['id']]
+);
+
+// En el componente:
+currentProduct = this.store.selectSignal(selectCurrentProduct);
+// Se actualiza automáticamente al navegar a /products/:id</code></pre>
+
+        <!-- 5. Meta-reducers -->
+        <h4>5. Meta-reducers</h4>
+        <p>
+          Meta-reducers son <strong>middleware</strong> que interceptan TODAS las actions antes de que
+          lleguen a los reducers. Útiles para logging, freeze de state en dev, y limpiar state al
+          hacer logout.
+        </p>
+        <pre ngNonBindable><code class="language-typescript">import &#123; MetaReducer, ActionReducer &#125; from '&#64;ngrx/store';
+
+// Meta-reducer para logging
+function logger(reducer: ActionReducer&lt;any&gt;): ActionReducer&lt;any&gt; &#123;
+  return (state, action) =&gt; &#123;
+    console.group(action.type);
+    console.log('State antes:', state);
+    const nextState = reducer(state, action);
+    console.log('State después:', nextState);
+    console.groupEnd();
+    return nextState;
+  &#125;;
+&#125;
+
+// Meta-reducer para freeze — previene mutaciones accidentales en dev
+function freeze(reducer: ActionReducer&lt;any&gt;): ActionReducer&lt;any&gt; &#123;
+  return (state, action) =&gt; &#123;
+    const nextState = reducer(state, action);
+    Object.freeze(nextState); // Lanza error si alguien intenta mutar
+    return nextState;
+  &#125;;
+&#125;
+
+// Meta-reducer para limpiar state al hacer logout
+function clearState(reducer: ActionReducer&lt;any&gt;): ActionReducer&lt;any&gt; &#123;
+  return (state, action) =&gt; &#123;
+    if (action.type === '[Auth] Logout') &#123;
+      return reducer(undefined, action); // Reset a initialState
+    &#125;
+    return reducer(state, action);
+  &#125;;
+&#125;
+
+// Registrar meta-reducers
+const metaReducers: MetaReducer[] = isDevMode()
+  ? [logger, freeze]
+  : [clearState];
+
+// En app.config.ts:
+provideStore(&#123; router: routerReducer &#125;, &#123; metaReducers &#125;);</code></pre>
+
+        <div class="code-ref">
+          📂 Implementación en el proyecto:
+          <ul>
+            <li><code>features/ngrx-lab/store/product.effects.ts</code> — Effects con operadores switchMap, exhaustMap, mergeMap</li>
+            <li><code>features/ngrx-lab/store/product.selectors.ts</code> — Selectors compuestos y factory selectors</li>
+            <li><code>features/ngrx-lab/store/product.reducer.ts</code> — EntityAdapter con operaciones CRUD</li>
+            <li><code>app.config.ts</code> — provideStore() + provideStoreDevtools()</li>
+          </ul>
+        </div>
+      </div>
+
       <div class="card" id="cuando-usar-ngrx-vs-servicios-simples">
         <h3>⚖️ ¿Cuándo usar NgRx vs Servicios simples?</h3>
         <table class="compare-table">

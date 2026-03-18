@@ -230,4 +230,645 @@ const count = toSignal(interval(1000), {{ '{' }} initialValue: 0 {{ '}' }});</co
           📂 <code>features/rxjs-lab/memory-leaks.ts</code> — Demostración de leak + 3 patrones de solución (takeUntil, DestroyRef, async pipe)
         </div>
       </div>
+
+      <!-- ══════════════════════════════════════════════════════════════════
+           DEEP DIVE — Operadores Pipeables, Patrones Reactivos
+           ══════════════════════════════════════════════════════════════════ -->
+
+      <div class="card" id="operadores-pipeables">
+        <h3>🔧 Operadores Pipeables en Profundidad</h3>
+
+        <h4>¿Qué es un operador pipeable?</h4>
+        <p>
+          Es una <strong>función pura</strong> que recibe un Observable y retorna un <em>nuevo</em> Observable sin mutar el original.
+          Se encadenan dentro de <code>.pipe()</code>, lo que permite composición funcional legible y tree-shakeable.
+        </p>
+        <pre><code class="language-typescript">import {{ '{' }} map, filter {{ '}' }} from 'rxjs/operators';
+
+// Cada operador es una función: Observable → Observable
+source$.pipe(
+  filter(x =&gt; x &gt; 0),   // Observable → Observable (filtra negativos)
+  map(x =&gt; x * 10)      // Observable → Observable (multiplica)
+);
+
+// Equivale a:
+const filtered$ = filter(x =&gt; x &gt; 0)(source$);
+const mapped$   = map(x =&gt; x * 10)(filtered$);</code></pre>
+
+        <h4>Categorías de operadores</h4>
+        <table class="compare-table">
+          <thead>
+            <tr>
+              <th>Categoría</th>
+              <th>Operadores</th>
+              <th>Uso</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Transformación</strong></td>
+              <td><code>map</code>, <code>switchMap</code>, <code>mergeMap</code>, <code>concatMap</code>, <code>exhaustMap</code>, <code>scan</code>, <code>reduce</code></td>
+              <td>Transformar valores emitidos</td>
+            </tr>
+            <tr>
+              <td><strong>Filtrado</strong></td>
+              <td><code>filter</code>, <code>take</code>, <code>takeUntil</code>, <code>takeWhile</code>, <code>first</code>, <code>last</code>, <code>skip</code>, <code>distinctUntilChanged</code>, <code>debounceTime</code>, <code>throttleTime</code></td>
+              <td>Controlar qué valores pasan</td>
+            </tr>
+            <tr>
+              <td><strong>Combinación</strong></td>
+              <td><code>combineLatest</code>, <code>forkJoin</code>, <code>withLatestFrom</code>, <code>merge</code>, <code>concat</code>, <code>zip</code>, <code>race</code></td>
+              <td>Combinar múltiples streams</td>
+            </tr>
+            <tr>
+              <td><strong>Creación</strong></td>
+              <td><code>of</code>, <code>from</code>, <code>interval</code>, <code>timer</code>, <code>fromEvent</code>, <code>EMPTY</code>, <code>NEVER</code>, <code>throwError</code></td>
+              <td>Crear Observables</td>
+            </tr>
+            <tr>
+              <td><strong>Utilidad</strong></td>
+              <td><code>tap</code>, <code>delay</code>, <code>finalize</code>, <code>timeout</code>, <code>retry</code>, <code>retryWhen</code>, <code>catchError</code></td>
+              <td>Control y debugging</td>
+            </tr>
+            <tr>
+              <td><strong>Multicasting</strong></td>
+              <td><code>share</code>, <code>shareReplay</code>, <code>publish</code>, <code>refCount</code></td>
+              <td>Compartir suscripciones</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="code-ref">
+          📂 <code>features/rxjs-lab/flattening-operators.ts</code> — Operadores pipeables aplicados en componentes reales
+        </div>
+      </div>
+
+      <div class="card" id="transformacion-deep-dive">
+        <h3>🔄 Operadores de Transformación — Deep Dive</h3>
+
+        <h4>1. map — Transformación 1:1</h4>
+        <p>Transforma cada valor emitido aplicando una función. Nunca cambia la cantidad de emisiones.</p>
+        <pre><code class="language-typescript">of(1, 2, 3).pipe(
+  map(x =&gt; x * 2)
+).subscribe(v =&gt; console.log(v));
+// Output: 2, 4, 6</code></pre>
+
+        <h4>2. switchMap — ⭐ EL MÁS IMPORTANTE</h4>
+        <p>
+          Al recibir un nuevo valor, <strong>cancela</strong> la suscripción interna anterior y crea una nueva.
+          Es el operador por defecto para búsquedas, autocomplete y navegación.
+        </p>
+        <pre><code class="language-text">Diagrama — switchMap cancela inner al recibir nuevo outer:
+
+Source:  --A--------B--------C--&gt;
+Inner:   --1-2-3    --4-5    --6-7-8--&gt;
+Output:  --1-2------4-5------6-7-8--&gt;
+          ↑          ↑
+          A's stream  B's stream cancelled
+          cancelled   when C arrives
+          when B arrives</code></pre>
+        <p><strong>Código completo de búsqueda con manejo de errores:</strong></p>
+        <pre><code class="language-typescript">this.searchInput.valueChanges.pipe(
+  debounceTime(300),            // espera 300ms de silencio
+  distinctUntilChanged(),       // ignora si el valor no cambió
+  filter(term =&gt; term.length &gt;= 2), // mínimo 2 caracteres
+  switchMap(term =&gt; this.api.search(term).pipe(
+    catchError(() =&gt; of([]))    // error NO mata el stream externo
+  ))
+).subscribe(results =&gt; this.results = results);</code></pre>
+
+        <h4>3. mergeMap (flatMap) — Paralelo sin cancelar</h4>
+        <p>
+          Ejecuta <strong>TODAS</strong> las suscripciones internas en paralelo. Ninguna se cancela.
+          Acepta un parámetro de concurrencia: <code>mergeMap(fn, 3)</code> — máximo 3 simultáneas.
+        </p>
+        <pre><code class="language-text">Diagrama — mergeMap mantiene todas las suscripciones:
+
+Source:  --A--------B--------C--&gt;
+Inner:   --1-2-3    --4-5-6  --7-8--&gt;
+Output:  --1-2-3----4-5-6----7-8--&gt;
+          ↑          ↑        ↑
+          All inner streams run to completion</code></pre>
+        <pre><code class="language-typescript">// Descargar múltiples archivos en paralelo (máx 3 simultáneos)
+fileIds$.pipe(
+  mergeMap(id =&gt; this.http.get(`/api/files/${{ '{' }}id{{ '}' }}`), 3)
+).subscribe(file =&gt; this.downloaded.push(file));</code></pre>
+
+        <h4>4. concatMap — Secuencial estricto</h4>
+        <p>
+          Espera a que la suscripción interna <strong>complete</strong> antes de procesar el siguiente valor.
+          <span style="color: var(--accent-red, #f85149);">⚠️ PELIGRO:</span> si el inner Observable nunca completa, la cola se bloquea para siempre.
+        </p>
+        <pre><code class="language-text">Diagrama — concatMap espera completar antes de siguiente:
+
+Source:  --A----B----C--&gt;
+Inner:   --1-2| --3-4| --5-6|
+Output:  --1-2----3-4----5-6--&gt;
+          ↑      ↑
+          B waits for A to complete
+                 C waits for B to complete</code></pre>
+        <pre><code class="language-typescript">// Guardar cambios en orden estricto
+changes$.pipe(
+  concatMap(change =&gt; this.api.save(change))
+).subscribe(() =&gt; console.log('Guardado en orden'));</code></pre>
+
+        <h4>5. exhaustMap — Ignora mientras está ocupado</h4>
+        <p>
+          Mientras hay una suscripción interna activa, <strong>ignora completamente</strong> los nuevos valores del source.
+          Perfecto para evitar doble-click en formularios y botones de login.
+        </p>
+        <pre><code class="language-text">Diagrama — exhaustMap descarta B y C:
+
+Source:  --A--B--C--------D--&gt;
+Inner:   --1-2-3|         --4-5|
+Output:  --1-2-3----------4-5--&gt;
+          ↑  ↑  ↑         ↑
+          A  B  C ignored  D processed
+          processing       (inner finished)
+          active</code></pre>
+        <pre><code class="language-typescript">// Login: ignora clicks adicionales mientras se procesa
+this.loginBtn.click$.pipe(
+  exhaustMap(() =&gt; this.auth.login(this.credentials))
+).subscribe(user =&gt; this.router.navigate(['/home']));</code></pre>
+
+        <h4>6. scan — Acumulador progresivo</h4>
+        <p>
+          Como <code>Array.reduce()</code>, pero emite <strong>cada valor acumulado</strong> en vez de solo el final.
+          Ideal para contadores, estado acumulado y running totals.
+        </p>
+        <pre><code class="language-typescript">// Contador de clicks
+clicks$.pipe(
+  scan((count) =&gt; count + 1, 0)
+).subscribe(n =&gt; console.log(n));
+// Output: 1, 2, 3, 4...
+
+// Acumular lista de items
+newItem$.pipe(
+  scan((items, item) =&gt; [...items, item], [] as Item[])
+).subscribe(allItems =&gt; this.items = allItems);</code></pre>
+
+        <h4>7. Tabla de decisión: ¿Cuál usar?</h4>
+        <table class="compare-table">
+          <thead>
+            <tr>
+              <th>Situación</th>
+              <th>Operador</th>
+              <th>Por qué</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Búsqueda / autocomplete</td>
+              <td><code>switchMap</code></td>
+              <td>Cancela peticiones obsoletas</td>
+            </tr>
+            <tr>
+              <td>Login / Submit formulario</td>
+              <td><code>exhaustMap</code></td>
+              <td>Evita doble envío</td>
+            </tr>
+            <tr>
+              <td>Guardar cambios en orden</td>
+              <td><code>concatMap</code></td>
+              <td>Mantiene secuencia estricta</td>
+            </tr>
+            <tr>
+              <td>Descargas paralelas</td>
+              <td><code>mergeMap</code></td>
+              <td>Máxima velocidad, sin esperas</td>
+            </tr>
+            <tr>
+              <td>Acumular estado</td>
+              <td><code>scan</code></td>
+              <td>Emite progresivamente</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="code-ref">
+          📂 Implementación en el proyecto:
+          <ul>
+            <li><code>features/rxjs-lab/flattening-operators.ts</code> — Comparación interactiva de los 4 operadores</li>
+            <li><code>features/rxjs-lab/search-typeahead.ts</code> — switchMap con debounceTime en búsqueda real</li>
+            <li><code>features/ngrx-lab/store/product.effects.ts</code> — switchMap, exhaustMap, mergeMap en effects</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="card" id="filtrado-deep-dive">
+        <h3>🔍 Operadores de Filtrado — Deep Dive</h3>
+
+        <h4>1. filter — Predicado básico</h4>
+        <p>Solo deja pasar valores que cumplan la condición. Equivale a <code>Array.filter()</code> pero para streams.</p>
+        <pre><code class="language-typescript">numbers$.pipe(
+  filter(n =&gt; n % 2 === 0)  // solo pares
+)</code></pre>
+
+        <h4>2. debounceTime(ms) — Espera silencio</h4>
+        <p>
+          Espera <strong>X milisegundos de silencio</strong> antes de emitir el último valor.
+          Si llega un nuevo valor antes de que pase el tiempo, reinicia el temporizador.
+          Ideal para <strong>inputs de búsqueda</strong>.
+        </p>
+
+        <h4>3. throttleTime(ms) — Limita frecuencia</h4>
+        <p>
+          Emite el <strong>primer valor</strong>, luego ignora todo durante X milisegundos.
+          Ideal para eventos de <strong>scroll</strong> y <strong>resize</strong>.
+        </p>
+
+        <pre><code class="language-text">Comparación debounceTime vs throttleTime:
+
+Input:    --A-B-C------D-E-----&gt;
+                 300ms gap
+
+debounce: ----------C--------E-&gt;  (espera silencio, emite último)
+throttle: --A--------D--------&gt;   (emite primero, ignora el resto)</code></pre>
+
+        <h4>4. distinctUntilChanged — Solo si cambió</h4>
+        <p>
+          Solo emite si el valor es diferente al anterior.
+          <span style="color: var(--accent-red, #f85149);">⚠️ Cuidado con objetos:</span> compara por referencia.
+          Usa un comparador custom para objetos:
+        </p>
+        <pre><code class="language-typescript">// Primitivos — funciona directo
+search$.pipe(distinctUntilChanged())
+
+// Objetos — necesita comparador custom
+user$.pipe(
+  distinctUntilChanged((prev, curr) =&gt; prev.id === curr.id)
+)</code></pre>
+
+        <h4>5. take(n) — Solo N valores</h4>
+        <p>
+          Emite los primeros <code>n</code> valores y luego <strong>completa</strong> el Observable.
+          <code>take(1)</code> es muy común: "dame el primer valor y desuscríbete automáticamente".
+        </p>
+        <pre><code class="language-typescript">// take(1) — equivale a un "one-shot"
+this.store.select(selectUser).pipe(
+  take(1)  // obtiene valor actual y se desuscribe
+).subscribe(user =&gt; console.log(user));</code></pre>
+
+        <h4>6. takeUntil(notifier$) — Patrón de cleanup clásico</h4>
+        <p>Emite valores hasta que el <code>notifier$</code> emite. Es el patrón tradicional para limpiar suscripciones:</p>
+        <pre><code class="language-typescript">private destroy$ = new Subject&lt;void&gt;();
+
+ngOnInit() {{ '{' }}
+  this.data$.pipe(
+    takeUntil(this.destroy$)
+  ).subscribe(data =&gt; this.data = data);
+
+  this.events$.pipe(
+    takeUntil(this.destroy$)
+  ).subscribe(event =&gt; this.handle(event));
+{{ '}' }}
+
+ngOnDestroy() {{ '{' }}
+  this.destroy$.next();
+  this.destroy$.complete();
+{{ '}' }}</code></pre>
+
+        <h4>7. takeUntilDestroyed() — Angular 16+ ✅ Recomendado</h4>
+        <p>Reemplaza el patrón manual de <code>takeUntil</code> + <code>Subject</code>. Más limpio y menos propenso a errores:</p>
+        <pre><code class="language-typescript">import {{ '{' }} takeUntilDestroyed {{ '}' }} from '&#64;angular/core/rxjs-interop';
+
+// ✅ En campo de clase o constructor — inyecta DestroyRef automáticamente
+data$ = this.store.select(selectData).pipe(takeUntilDestroyed());
+
+// ✅ En ngOnInit — necesita DestroyRef explícito
+private destroyRef = inject(DestroyRef);
+
+ngOnInit() {{ '{' }}
+  this.data$.pipe(
+    takeUntilDestroyed(this.destroyRef)
+  ).subscribe(d =&gt; this.process(d));
+{{ '}' }}</code></pre>
+
+        <h4>8. first() y skip(n)</h4>
+        <p>
+          <code>first()</code> — Emite el primer valor que cumpla la condición (o error si no hay ninguno).
+          <code>skip(n)</code> — Ignora los primeros <code>n</code> valores y emite a partir del siguiente.
+        </p>
+        <pre><code class="language-typescript">// first con condición — primer usuario admin
+users$.pipe(
+  first(user =&gt; user.role === 'admin')
+).subscribe(admin =&gt; console.log(admin));
+// ⚠️ Si no hay admin, lanza EmptyError
+
+// skip — ignorar estado inicial
+formValue$.pipe(
+  skip(1)  // ignora el valor inicial del formulario
+).subscribe(val =&gt; this.markDirty());</code></pre>
+        <div class="code-ref">
+          📂 Implementación en el proyecto:
+          <ul>
+            <li><code>features/rxjs-lab/search-typeahead.ts</code> — debounceTime + distinctUntilChanged + filter en búsqueda</li>
+            <li><code>features/rxjs-lab/memory-leaks.ts</code> — takeUntil y takeUntilDestroyed para cleanup</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="card" id="combinacion-deep-dive">
+        <h3>🔗 Operadores de Combinación — Deep Dive</h3>
+
+        <h4>1. combineLatest — Último de cada fuente, reactivo</h4>
+        <p>
+          Emite un array con el <strong>último valor de CADA fuente</strong> cada vez que cualquiera emite.
+          Solo empieza a emitir cuando <strong>TODOS</strong> han emitido al menos una vez.
+        </p>
+        <pre><code class="language-text">Diagrama — combineLatest:
+
+a$:  --1----2-----------3--&gt;
+b$:  ----X------Y-----------&gt;
+Out: ---[1,X]-[2,X]-[2,Y]-[3,Y]--&gt;
+     ↑         ↑     ↑     ↑
+     Ambos     a$    b$    a$ emitió
+     emitieron emitió emitió</code></pre>
+        <pre><code class="language-typescript">// Combinar filtros de una tabla
+combineLatest([
+  this.searchTerm$,
+  this.categoryFilter$,
+  this.sortOrder$
+]).pipe(
+  debounceTime(100),  // evitar re-renders excesivos
+  switchMap(([term, cat, sort]) =&gt;
+    this.api.getProducts({{ '{' }} search: term, category: cat, sort {{ '}' }})
+  )
+).subscribe(products =&gt; this.products = products);</code></pre>
+
+        <h4>2. forkJoin — Esperar que TODOS completen (como Promise.all)</h4>
+        <p>
+          Espera a que <strong>todos los Observables completen</strong>, luego emite un array (o objeto) con el último valor de cada uno.
+          <span style="color: var(--accent-red, #f85149);">⚠️ PELIGRO:</span> Si un Observable nunca completa, forkJoin <strong>nunca emite</strong>.
+        </p>
+        <pre><code class="language-typescript">// Cargar datos iniciales en paralelo (con nombre de propiedades)
+forkJoin({{ '{' }}
+  users:    this.http.get&lt;User[]&gt;('/api/users'),
+  products: this.http.get&lt;Product[]&gt;('/api/products'),
+  config:   this.http.get&lt;Config&gt;('/api/config')
+{{ '}' }}).subscribe(({{ '{' }} users, products, config {{ '}' }}) =&gt; {{ '{' }}
+  this.users    = users;
+  this.products = products;
+  this.config   = config;
+{{ '}' }});
+// ✅ HttpClient completa después de emitir → forkJoin funciona perfecto
+// ❌ No usar con BehaviorSubject (nunca completa automáticamente)</code></pre>
+
+        <h4>3. withLatestFrom — Enriquecer evento con datos</h4>
+        <p>
+          Cuando el <strong>source emite</strong>, toma el último valor de otro Observable.
+          El segundo Observable <strong>NO trigger</strong> emisiones por sí solo.
+        </p>
+        <pre><code class="language-typescript">// Click de guardar + datos actuales del formulario
+this.saveClick$.pipe(
+  withLatestFrom(this.store.select(selectFormData)),
+  map(([_, formData]) =&gt; formData),
+  switchMap(data =&gt; this.api.save(data))
+).subscribe(() =&gt; this.showSuccess());</code></pre>
+
+        <h4>4. merge, concat, zip, race</h4>
+        <pre><code class="language-typescript">// merge — combina en un solo stream (el primero que emita pasa)
+merge(click$, keypress$, gesture$).subscribe(event =&gt; handle(event));
+
+// concat — en secuencia: primero todos de a$, luego todos de b$
+concat(cachedData$, freshData$).subscribe(data =&gt; render(data));
+
+// zip — parejas 1:1 (espera que ambos tengan nuevo valor)
+zip(nombres$, apellidos$).pipe(
+  map(([nombre, apellido]) =&gt; `${{ '{' }}nombre{{ '}' }} ${{ '{' }}apellido{{ '}' }}`)
+);
+
+// race — el primero en emitir gana, los otros se cancelan
+race(httpResponse$, timeout$).subscribe(result =&gt; handle(result));</code></pre>
+
+        <h4>Tabla de decisión: ¿Cuál combinador usar?</h4>
+        <table class="compare-table">
+          <thead>
+            <tr>
+              <th>Necesito...</th>
+              <th>Operador</th>
+              <th>Comportamiento</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Último valor de cada fuente, reactivo</td>
+              <td><code>combineLatest</code></td>
+              <td>Emite cuando cualquiera emite</td>
+            </tr>
+            <tr>
+              <td>Esperar que TODOS completen</td>
+              <td><code>forkJoin</code></td>
+              <td>Como <code>Promise.all()</code></td>
+            </tr>
+            <tr>
+              <td>Enriquecer evento con dato actual</td>
+              <td><code>withLatestFrom</code></td>
+              <td>Solo source trigger emisión</td>
+            </tr>
+            <tr>
+              <td>Mezclar streams independientes</td>
+              <td><code>merge</code></td>
+              <td>El primero que emita pasa</td>
+            </tr>
+            <tr>
+              <td>Secuencia ordenada de streams</td>
+              <td><code>concat</code></td>
+              <td>Primero a$, luego b$</td>
+            </tr>
+            <tr>
+              <td>Parear valores 1:1</td>
+              <td><code>zip</code></td>
+              <td>Espera par de ambos</td>
+            </tr>
+            <tr>
+              <td>El más rápido gana</td>
+              <td><code>race</code></td>
+              <td>Cancela los demás</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="code-ref">
+          📂 <code>features/rxjs-lab/combining-operators.ts</code> — combineLatest, forkJoin, withLatestFrom, merge en acción
+        </div>
+      </div>
+
+      <div class="card" id="multicasting-sharereplay">
+        <h3>📡 Multicasting y shareReplay</h3>
+
+        <h4>El problema: Cold vs Hot Observables</h4>
+        <table class="compare-table">
+          <thead>
+            <tr>
+              <th>Tipo</th>
+              <th>Comportamiento</th>
+              <th>Ejemplo</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Cold</strong></td>
+              <td>Cada suscripción ejecuta el productor desde cero</td>
+              <td><code>HttpClient.get()</code> — N suscripciones = N HTTP calls</td>
+            </tr>
+            <tr>
+              <td><strong>Hot</strong></td>
+              <td>Todos los suscriptores comparten la misma fuente</td>
+              <td>WebSocket, <code>fromEvent()</code>, <code>Subject</code></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h4>share() — Convertir cold a hot</h4>
+        <p>Comparte la suscripción entre todos los suscriptores activos. Cuando el último se desuscribe, la fuente se desconecta.</p>
+
+        <h4>shareReplay(1) — Compartir + cachear</h4>
+        <p>
+          Comparte la suscripción <strong>y cachea</strong> el último valor para nuevos suscriptores tardíos.
+          Es el operador más usado para cachear respuestas HTTP.
+        </p>
+        <pre><code class="language-typescript">// ❌ Sin shareReplay: 3 suscripciones = 3 HTTP calls
+products$ = this.http.get&lt;Product[]&gt;('/api/products');
+
+// ✅ Con shareReplay: 1 HTTP call, todos reciben el mismo resultado
+products$ = this.http.get&lt;Product[]&gt;('/api/products').pipe(
+  shareReplay({{ '{' }} bufferSize: 1, refCount: true {{ '}' }})
+);
+
+// template A:  {{ '{{' }} products$ | async {{ '}}' }}  → trigger HTTP
+// template B:  {{ '{{' }} products$ | async {{ '}}' }}  → usa cache
+// template C:  {{ '{{' }} products$ | async {{ '}}' }}  → usa cache</code></pre>
+
+        <h4>refCount: true vs false</h4>
+        <ul>
+          <li><code>refCount: true</code> — cuando no hay suscriptores, desconecta la fuente. ✅ <strong>Recomendado</strong> para evitar memory leaks.</li>
+          <li><code>refCount: false</code> (default) — cachea para siempre incluso sin suscriptores. ⚠️ Posible memory leak.</li>
+        </ul>
+
+        <h4>Patrón de caché con invalidación manual</h4>
+        <pre><code class="language-typescript">private refresh$ = new Subject&lt;void&gt;();
+
+products$ = this.refresh$.pipe(
+  startWith(undefined),                               // carga inicial
+  switchMap(() =&gt; this.http.get&lt;Product[]&gt;('/api/products')),
+  shareReplay(1)
+);
+
+// Cuando se necesita invalidar el caché:
+invalidateCache() {{ '{' }}
+  this.refresh$.next();  // trigger nueva petición HTTP
+{{ '}' }}</code></pre>
+        <div class="code-ref">
+          📂 Implementación en el proyecto:
+          <ul>
+            <li><code>features/rxjs-lab/observable-types.ts</code> — Cold vs Hot Observables</li>
+            <li><code>features/rxjs-lab/combining-operators.ts</code> — shareReplay en servicios</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="card" id="patrones-rxjs-angular">
+        <h3>🏗️ Patrones RxJS en Angular</h3>
+
+        <h4>1. HTTP con retry y backoff exponencial</h4>
+        <p>Reintentar peticiones fallidas con espera exponencial (1s, 2s, 4s...):</p>
+        <pre><code class="language-typescript">this.http.get(url).pipe(
+  retry({{ '{' }}
+    count: 3,
+    delay: (error, retryCount) =&gt; timer(Math.pow(2, retryCount) * 1000)
+  {{ '}' }}),
+  catchError(err =&gt; {{ '{' }}
+    console.error('Failed after 3 retries', err);
+    return of(null);
+  {{ '}' }})
+)</code></pre>
+
+        <h4>2. Polling — Consultas periódicas</h4>
+        <pre><code class="language-typescript">const polling$ = timer(0, 5000).pipe(  // inmediato + cada 5s
+  switchMap(() =&gt; this.http.get('/api/status')),
+  retry(3),
+  share(),
+  takeUntilDestroyed()
+);
+
+// Todos los suscriptores comparten el mismo polling</code></pre>
+
+        <h4>3. Prevención de race conditions</h4>
+        <pre><code class="language-typescript">// switchMap cancela la petición anterior automáticamente
+// Si el usuario navega rápido: /user/1 → /user/2 → /user/3
+// Solo la última petición (/user/3) llega al subscribe
+this.route.params.pipe(
+  switchMap(params =&gt; this.api.getUser(params['id']))
+).subscribe(user =&gt; this.user = user);</code></pre>
+
+        <h4>4. Loading state pattern</h4>
+        <p>Manejar estados de carga, datos y error en un solo stream:</p>
+        <pre><code class="language-typescript">interface State&lt;T&gt; {{ '{' }}
+  loading: boolean;
+  data: T | null;
+  error: boolean;
+{{ '}' }}
+
+const data$ = this.trigger$.pipe(
+  switchMap(query =&gt; concat(
+    of({{ '{' }} loading: true, data: null, error: false {{ '}' }}),
+    this.api.search(query).pipe(
+      map(data =&gt; ({{ '{' }} loading: false, data, error: false {{ '}' }})),
+      catchError(() =&gt; of({{ '{' }} loading: false, data: null, error: true {{ '}' }}))
+    )
+  )),
+  shareReplay(1)
+);
+
+// En template:
+// &#64;if (data$ | async; as state) {{ '{' }}
+//   &#64;if (state.loading) {{ '{' }} &lt;spinner /&gt; {{ '}' }}
+//   &#64;if (state.error) {{ '{' }} &lt;error-msg /&gt; {{ '}' }}
+//   &#64;if (state.data) {{ '{' }} &lt;results [data]="state.data" /&gt; {{ '}' }}
+// {{ '}' }}</code></pre>
+
+        <h4>5. Estrategias de unsubscribe — Comparación</h4>
+        <table class="compare-table">
+          <thead>
+            <tr>
+              <th>Estrategia</th>
+              <th>Código</th>
+              <th>Cuándo usar</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>takeUntil(destroy$)</code></td>
+              <td><code>Subject</code> + <code>ngOnDestroy</code></td>
+              <td>Enfoque clásico, pre-Angular 16</td>
+            </tr>
+            <tr>
+              <td><code>takeUntilDestroyed()</code></td>
+              <td><code>inject(DestroyRef)</code></td>
+              <td>✅ Angular 16+ — preferido</td>
+            </tr>
+            <tr>
+              <td><code>async</code> pipe</td>
+              <td>template <code>| async</code></td>
+              <td>Suscripciones solo en template</td>
+            </tr>
+            <tr>
+              <td><code>toSignal()</code></td>
+              <td><code>toSignal(obs$)</code></td>
+              <td>Componentes basados en Signals</td>
+            </tr>
+            <tr>
+              <td><code>take(1)</code></td>
+              <td>One-shot</td>
+              <td>Cuando solo necesitas un valor</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="code-ref">
+          📂 Implementación en el proyecto:
+          <ul>
+            <li><code>features/rxjs-lab/memory-leaks.ts</code> — takeUntil, DestroyRef, async pipe</li>
+            <li><code>features/rxjs-lab/search-typeahead.ts</code> — switchMap + debounce para prevenir race conditions</li>
+            <li><code>features/ngrx-lab/store/product.effects.ts</code> — retry, catchError en effects reales</li>
+          </ul>
+        </div>
+      </div>
     </div>

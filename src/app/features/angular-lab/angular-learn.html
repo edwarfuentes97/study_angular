@@ -2,28 +2,140 @@
 
       <div class="card" id="1-change-detection">
         <h3>1. Change Detection</h3>
-        <p>
-          Angular usa Zone.js para interceptar eventos asíncronos (clicks, HTTP, timers) y disparar
-          un ciclo de Change Detection (CD) desde la raíz del árbol de componentes. En modo
-          <strong>Default</strong>, cada componente se revisa en cada ciclo. Con
-          <strong>OnPush</strong>, Angular solo revisa el componente cuando cambian sus &#64;Input()
-          por referencia, se dispara un evento del template, o se llama manualmente a
-          <code>markForCheck()</code>. Esto reduce drásticamente el trabajo del CD en apps grandes.
-        </p>
-        <pre ngNonBindable><code>// Componente con OnPush — solo se re-renderiza si cambia la referencia del input
-&#64;Component(&#123;
-  selector: 'app-child',
-  imports: [AutoGlossaryDirective],
-  changeDetection: ChangeDetectionStrategy.OnPush,
-  template: \`&lt;p&gt;&#123;&#123; data.name &#125;&#125;&lt;/p&gt;\`
-&#125;)
-export class ChildComponent &#123;
-  &#64;Input() data!: &#123; name: string &#125;;
-&#125;
 
-// En el padre — mutar NO dispara CD en OnPush
-this.user.name = 'Nuevo';           // ❌ misma referencia
-this.user = &#123; name: 'Nuevo' &#125;;     // ✅ nueva referencia</code></pre>
+        <h4>¿Cómo funciona?</h4>
+        <p>
+          Angular usa <strong>Zone.js</strong> para interceptar <em>todos</em> los eventos asíncronos
+          (clicks, setTimeout, HTTP requests, Promises) y dispara un ciclo de Change Detection (CD)
+          desde la raíz del árbol de componentes hacia abajo. En cada ciclo, Angular compara los
+          valores actuales del template con los anteriores y actualiza el DOM si hay diferencias.
+        </p>
+
+        <h4>Default Strategy</h4>
+        <p>
+          Revisa <strong>TODOS</strong> los componentes en cada ciclo de CD, sin importar si cambiaron
+          o no. Simple pero costoso en apps grandes — un solo click puede causar que cientos de
+          componentes se revisen innecesariamente.
+        </p>
+        <pre ngNonBindable><code>// Default — se revisa en CADA ciclo de CD, incluso si nada cambió
+&#64;Component(&#123;
+  selector: 'app-default',
+  template: \`&lt;p&gt;&#123;&#123; heavyComputation() &#125;&#125;&lt;/p&gt;\`
+  // No se especifica changeDetection → usa Default
+&#125;)
+export class DefaultComponent &#123;
+  heavyComputation() &#123;
+    console.log('Se ejecuta en CADA ciclo de CD');
+    return this.items.filter(i =&gt; i.active).length;
+  &#125;
+&#125;</code></pre>
+
+        <h4>OnPush Strategy</h4>
+        <p>
+          Solo revisa el componente cuando ocurre una de estas condiciones:
+        </p>
+        <ul>
+          <li><strong>(a)</strong> Un <code>&#64;Input()</code> cambia por <strong>referencia</strong> (no mutación)</li>
+          <li><strong>(b)</strong> Un evento DOM se dispara en el componente o en un hijo</li>
+          <li><strong>(c)</strong> Un <code>async</code> pipe emite un nuevo valor</li>
+          <li><strong>(d)</strong> Un <strong>Signal</strong> leído en el template cambia</li>
+          <li><strong>(e)</strong> Se llama <code>markForCheck()</code> manualmente</li>
+        </ul>
+        <pre ngNonBindable><code>&#64;Component(&#123;
+  selector: 'app-onpush',
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: \`
+    &lt;!-- (a) Input por referencia --&gt;
+    &lt;p&gt;&#123;&#123; user.name &#125;&#125;&lt;/p&gt;
+
+    &lt;!-- (b) Evento DOM --&gt;
+    &lt;button (click)="increment()"&gt;+1&lt;/button&gt;
+
+    &lt;!-- (c) Async pipe --&gt;
+    &lt;p&gt;&#123;&#123; data$ | async &#125;&#125;&lt;/p&gt;
+
+    &lt;!-- (d) Signal --&gt;
+    &lt;p&gt;&#123;&#123; count() &#125;&#125;&lt;/p&gt;
+  \`
+&#125;)
+export class OnPushComponent &#123;
+  &#64;Input() user!: &#123; name: string &#125;;
+  count = signal(0);
+  data$ = inject(DataService).getData();
+
+  increment() &#123; this.count.update(v =&gt; v + 1); &#125;
+&#125;</code></pre>
+
+        <h4>ChangeDetectorRef</h4>
+        <p>
+          Permite controlar manualmente el ciclo de CD:
+        </p>
+        <pre ngNonBindable><code>export class ManualCDComponent &#123;
+  private cdr = inject(ChangeDetectorRef);
+
+  // Fuerza una revisión inmediata de este componente y sus hijos
+  forceCheck() &#123;
+    this.cdr.detectChanges();
+  &#125;
+
+  // Marca el componente como "dirty" — se revisará en el próximo ciclo
+  markDirty() &#123;
+    this.cdr.markForCheck();
+  &#125;
+
+  // Desconecta el componente del árbol de CD — nunca se revisa automáticamente
+  detachFromCD() &#123;
+    this.cdr.detach();
+  &#125;
+
+  // Reconecta al árbol de CD
+  reattach() &#123;
+    this.cdr.reattach();
+  &#125;
+&#125;</code></pre>
+
+        <h4>Zoneless Angular (experimental)</h4>
+        <p>
+          Angular está migrando hacia un modelo sin Zone.js. Con Zoneless, solo los <strong>Signals</strong>
+          y llamadas explícitas a <code>markForCheck()</code> disparan Change Detection. Esto elimina
+          la sobrecarga de Zone.js y da control total sobre cuándo se actualiza la UI.
+        </p>
+        <pre ngNonBindable><code>// app.config.ts — activar Zoneless
+export const appConfig: ApplicationConfig = &#123;
+  providers: [
+    provideExperimentalZonelessChangeDetection(),
+    // Ya NO necesitas Zone.js — quítalo de polyfills
+  ]
+&#125;;
+
+// Con Zoneless, setTimeout NO dispara CD:
+setTimeout(() =&gt; this.value = 'nuevo', 1000); // ❌ NO actualiza la UI
+
+// Solo signals y markForCheck funcionan:
+this.mySignal.set('nuevo');    // ✅ Dispara CD
+this.cdr.markForCheck();       // ✅ Dispara CD</code></pre>
+
+        <h4>🧠 Diagrama mental</h4>
+        <p>
+          <strong>Default</strong> = "revísalo TODO siempre" — fácil pero lento.<br>
+          <strong>OnPush</strong> = "no me molestes a menos que algo cambie realmente" — rápido pero requiere inmutabilidad.<br>
+          <strong>Zoneless</strong> = "solo los Signals mandan" — el futuro de Angular.
+        </p>
+
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li>
+            <strong>Mutar objeto con OnPush:</strong> <code>this.user.name = 'Nuevo'</code> NO dispara CD
+            porque la referencia no cambió. Solución: <code>this.user = &#123; ...this.user, name: 'Nuevo' &#125;</code>
+          </li>
+          <li>
+            <strong>ExpressionChangedAfterItHasBeenCheckedError:</strong> Ocurre cuando un valor del
+            template cambia durante el mismo ciclo de CD (por ejemplo, en <code>ngOnInit</code> o
+            <code>ngAfterViewInit</code>). Solución: usar <code>setTimeout</code> o mover la lógica
+            al constructor/signal.
+          </li>
+        </ul>
+
         <div class="code-ref">
           📂 <code>features/angular-lab/change-detection/cd-demo.ts</code> — Default vs OnPush lado a lado
         </div>
@@ -31,35 +143,329 @@ this.user = &#123; name: 'Nuevo' &#125;;     // ✅ nueva referencia</code></pre
 
       <div class="card" id="2-signals">
         <h3>2. Signals</h3>
+
+        <!-- 2.1 ¿Qué son los Signals? -->
+        <h4>2.1 ¿Qué son los Signals?</h4>
         <p>
-          Signals son primitivas reactivas introducidas en Angular 16+ que permiten rastrear estado
-          de forma granular sin Zone.js. <code>signal()</code> crea un valor reactivo,
-          <code>computed()</code> deriva valores automáticamente, y <code>effect()</code> ejecuta
-          side-effects cuando las dependencias cambian. <code>linkedSignal()</code> (Angular 19+)
-          conecta un signal derivado que también puede escribirse. Comparado con RxJS, los Signals
-          son sincrónicos, más simples para estado local, y se integran con templates sin
+          Los Signals son una <strong>primitiva reactiva síncrona</strong> introducida en Angular 16 que
+          permite rastrear estado de forma granular. A diferencia de RxJS (que es asíncrono y basado en
+          push/subscribe), los Signals son <strong>síncronos</strong> y basados en <strong>pull</strong>:
+          lees el valor cuando lo necesitas llamándolo como función.
+        </p>
+        <p>
+          Angular los usa internamente para habilitar <strong>Change Detection granular</strong> y
+          eventualmente eliminar la dependencia en Zone.js (Zoneless Angular). Cuando un Signal cambia,
+          Angular sabe <em>exactamente</em> qué componentes necesitan actualizarse.
+        </p>
+
+        <!-- 2.2 signal() — Estado mutable -->
+        <h4>2.2 signal() — Estado mutable</h4>
+        <p>
+          <code>signal()</code> crea un valor reactivo mutable. Se lee llamándolo como función, se
+          escribe con <code>.set()</code> o <code>.update()</code>.
+        </p>
+        <pre ngNonBindable><code>import &#123; signal &#125; from '&#64;angular/core';
+
+// Crear un signal con valor inicial
+const count = signal(0);
+
+// Leer el valor (como función)
+console.log(count()); // 0
+
+// Escribir un nuevo valor
+count.set(5);
+console.log(count()); // 5
+
+// Actualizar basado en el valor anterior
+count.update(v =&gt; v + 1);
+console.log(count()); // 6
+
+// Con objetos (tipado explícito)
+interface User &#123;
+  name: string;
+  age: number;
+&#125;
+const user = signal&lt;User&gt;(&#123; name: 'Ed', age: 30 &#125;);
+
+// ⚠️ mutate() fue removido en Angular 17
+// Ahora se usa update() con spread para objetos:
+user.update(u =&gt; (&#123; ...u, age: 31 &#125;));
+
+// Equality function — controla cuándo se notifica a los consumidores
+const position = signal(
+  &#123; x: 0, y: 0 &#125;,
+  &#123; equal: (a, b) =&gt; a.x === b.x &amp;&amp; a.y === b.y &#125;
+);
+// Si set() produce un valor "equal", NO se notifica</code></pre>
+
+        <!-- 2.3 computed() — Derivaciones -->
+        <h4>2.3 computed() — Derivaciones</h4>
+        <p>
+          <code>computed()</code> crea un Signal de <strong>solo lectura</strong> derivado de otros Signals.
+          Se recalcula <strong>solo cuando sus dependencias cambian</strong> (memoizado automáticamente).
+          Es <strong>lazy</strong>: no se calcula hasta que alguien lo lee. Y es <strong>glitch-free</strong>:
+          siempre muestra valores consistentes, nunca intermedios.
+        </p>
+        <pre ngNonBindable><code>import &#123; signal, computed &#125; from '&#64;angular/core';
+
+const firstName = signal('Eduardo');
+const lastName = signal('García');
+
+// computed — se recalcula solo cuando firstName o lastName cambian
+const fullName = computed(() =&gt; firstName() + ' ' + lastName());
+console.log(fullName()); // 'Eduardo García'
+
+firstName.set('Carlos');
+console.log(fullName()); // 'Carlos García' — se recalculó automáticamente
+
+// Ejemplo complejo: filtrado + ordenamiento + paginación
+const items = signal&lt;Product[]&gt;([]);
+const searchTerm = signal('');
+const sortBy = signal&lt;'name' | 'price'&gt;('name');
+const page = signal(1);
+const pageSize = 10;
+
+const filteredItems = computed(() =&gt;
+  items().filter(item =&gt;
+    item.name.toLowerCase().includes(searchTerm().toLowerCase())
+  )
+);
+
+const sortedItems = computed(() =&gt; &#123;
+  const field = sortBy();
+  return [...filteredItems()].sort((a, b) =&gt;
+    a[field] &gt; b[field] ? 1 : -1
+  );
+&#125;);
+
+const paginatedItems = computed(() =&gt; &#123;
+  const start = (page() - 1) * pageSize;
+  return sortedItems().slice(start, start + pageSize);
+&#125;);
+
+const totalPages = computed(() =&gt;
+  Math.ceil(filteredItems().length / pageSize)
+);</code></pre>
+
+        <!-- 2.4 effect() — Side effects -->
+        <h4>2.4 effect() — Side effects</h4>
+        <p>
+          <code>effect()</code> ejecuta código cuando los Signals que lee cambian. <strong>NO</strong>
+          se debe usar para cambiar otros Signals (anti-pattern). Casos de uso: logging, localStorage,
+          analytics, manipulación manual del DOM.
+        </p>
+        <p>
+          <strong>Injection context:</strong> se debe crear en el constructor, como campo de clase, o
+          usando <code>runInInjectionContext()</code>.
+        </p>
+        <pre ngNonBindable><code>import &#123; signal, effect, inject, Injector, runInInjectionContext &#125; from '&#64;angular/core';
+
+// Ejemplo: persistir en localStorage
+const count = signal(0);
+effect(() =&gt; &#123;
+  localStorage.setItem('count', count().toString());
+  console.log('Count guardado:', count());
+&#125;);
+
+// Cleanup function — se ejecuta antes de cada re-ejecución y al destruirse
+effect((onCleanup) =&gt; &#123;
+  const id = setInterval(() =&gt; console.log('tick', count()), 1000);
+  onCleanup(() =&gt; &#123;
+    clearInterval(id);
+    console.log('Interval limpiado');
+  &#125;);
+&#125;);
+
+// Fuera del injection context — usar runInInjectionContext
+export class MyComponent &#123;
+  private injector = inject(Injector);
+  count = signal(0);
+
+  ngOnInit() &#123;
+    // ❌ effect(() =&gt; ...); // Error: no injection context
+    // ✅ Correcto:
+    runInInjectionContext(this.injector, () =&gt; &#123;
+      effect(() =&gt; console.log('Count:', this.count()));
+    &#125;);
+  &#125;
+&#125;</code></pre>
+
+        <!-- 2.5 linkedSignal() — Angular 19+ -->
+        <h4>2.5 linkedSignal() — Angular 19+</h4>
+        <p>
+          <code>linkedSignal()</code> crea un Signal que se <strong>resetea automáticamente</strong>
+          cuando su fuente cambia, pero también se puede escribir manualmente. Ideal para formularios
+          dependientes y selecciones que dependen de un contexto.
+        </p>
+        <pre ngNonBindable><code>import &#123; signal, linkedSignal &#125; from '&#64;angular/core';
+
+const items = signal(['Angular', 'React', 'Vue']);
+
+// selected se resetea al primer item cuando items cambia
+const selected = linkedSignal(() =&gt; items()[0]);
+console.log(selected()); // 'Angular'
+
+// Se puede escribir manualmente
+selected.set('Vue');
+console.log(selected()); // 'Vue'
+
+// Cuando items cambia, selected se resetea
+items.set(['Svelte', 'Solid', 'Qwik']);
+console.log(selected()); // 'Svelte' — se reseteó automáticamente
+
+// Caso de uso real: país → ciudad
+const countries = signal(['México', 'España', 'Argentina']);
+const selectedCountry = signal('México');
+const cities = computed(() =&gt; &#123;
+  const cityMap: Record&lt;string, string[]&gt; = &#123;
+    'México': ['CDMX', 'Guadalajara', 'Monterrey'],
+    'España': ['Madrid', 'Barcelona', 'Valencia'],
+    'Argentina': ['Buenos Aires', 'Córdoba', 'Rosario'],
+  &#125;;
+  return cityMap[selectedCountry()] ?? [];
+&#125;);
+// Cuando el país cambia, la ciudad seleccionada se resetea a la primera
+const selectedCity = linkedSignal(() =&gt; cities()[0]);</code></pre>
+
+        <!-- 2.6 resource() — Angular 19+ -->
+        <h4>2.6 resource() — Angular 19+</h4>
+        <p>
+          <code>resource()</code> combina datos asíncronos con Signals, proporcionando
+          <code>.value()</code>, <code>.status()</code> y <code>.error()</code> automáticamente.
+          Status puede ser: <strong>idle</strong>, <strong>loading</strong>, <strong>resolved</strong>,
+          <strong>error</strong>.
+        </p>
+        <pre ngNonBindable><code>import &#123; resource, signal &#125; from '&#64;angular/core';
+
+// resource básico
+const products = resource(&#123;
+  loader: () =&gt; fetch('/api/products').then(r =&gt; r.json())
+&#125;);
+
+// Usar en template o código:
+products.value();   // Product[] | undefined
+products.status();  // 'idle' | 'loading' | 'resolved' | 'error'
+products.error();   // error object o undefined
+
+// resource con dependencias — se recarga cuando selectedId cambia
+const selectedId = signal('abc-123');
+const productDetail = resource(&#123;
+  request: () =&gt; (&#123; id: selectedId() &#125;),
+  loader: (&#123; request &#125;) =&gt;
+    fetch(\`/api/products/$&#123;request.id&#125;\`).then(r =&gt; r.json())
+&#125;);
+
+// Cambiar el ID recarga automáticamente
+selectedId.set('xyz-456'); // productDetail se recarga</code></pre>
+
+        <!-- 2.7 Interop con RxJS -->
+        <h4>2.7 Interop con RxJS</h4>
+        <p>
+          Angular provee funciones para convertir entre Signals y Observables.
+          <code>toSignal()</code> se auto-desuscribe al destruirse el componente.
+        </p>
+        <pre ngNonBindable><code>import &#123; toSignal, toObservable &#125; from '&#64;angular/core/rxjs-interop';
+import &#123; signal &#125; from '&#64;angular/core';
+
+// Observable → Signal
+const products$ = this.http.get&lt;Product[]&gt;('/api/products');
+const products = toSignal(products$, &#123; initialValue: [] &#125;);
+// products() devuelve Product[] — síncrono, sin async pipe
+
+// Signal → Observable
+const searchTerm = signal('');
+const searchTerm$ = toObservable(searchTerm);
+// searchTerm$ emite cada vez que searchTerm cambia
+
+// toSignal se auto-desuscribe cuando el componente se destruye
+// No necesitas takeUntilDestroyed() ni unsubscribe manual</code></pre>
+        <p>
+          <strong>¿Cuándo usar cada uno?</strong> Signals para <em>estado de UI</em> (contadores,
+          formularios, selecciones). RxJS para <em>streams de eventos</em> (WebSocket, event buses,
+          operaciones complejas con timing como debounce, retry, race).
+        </p>
+
+        <!-- 2.8 Signals vs BehaviorSubject -->
+        <h4>2.8 Signals vs BehaviorSubject</h4>
+        <table class="compare-table">
+          <thead>
+            <tr>
+              <th>Característica</th>
+              <th>Signal</th>
+              <th>BehaviorSubject</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Síncrono</td>
+              <td>✅ Sí</td>
+              <td>❌ Async (schedulers)</td>
+            </tr>
+            <tr>
+              <td>Lectura</td>
+              <td><code>signal()</code></td>
+              <td><code>.getValue()</code> o <code>.subscribe()</code></td>
+            </tr>
+            <tr>
+              <td>Change Detection</td>
+              <td>Automático (granular)</td>
+              <td>Necesita async pipe o markForCheck</td>
+            </tr>
+            <tr>
+              <td>Composición</td>
+              <td><code>computed()</code></td>
+              <td><code>combineLatest</code>, <code>map</code></td>
+            </tr>
+            <tr>
+              <td>Memory leaks</td>
+              <td>No</td>
+              <td>Sí (si no unsubscribe)</td>
+            </tr>
+            <tr>
+              <td>Side effects</td>
+              <td><code>effect()</code></td>
+              <td><code>tap()</code></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- 2.9 Patrones avanzados -->
+        <h4>2.9 Patrones avanzados</h4>
+        <p>
+          <strong>Signal Store (NgRx SignalStore):</strong> Alternativa más simple al NgRx Store clásico.
+          Usa Signals internamente y reduce el boilerplate de Actions/Reducers/Effects.
+        </p>
+        <p>
+          <strong>Component state con Signals:</strong> Reemplaza <code>BehaviorSubject</code> en servicios
+          compartidos. Los componentes leen directamente <code>service.items()</code> sin
           <code>async</code> pipe.
         </p>
-        <pre><code>import &#123; signal, computed, effect, linkedSignal &#125; from '&#64;angular/core';
-import &#123; toSignal &#125; from '&#64;angular/core/rxjs-interop';
+        <p>
+          <strong>Zoneless Angular:</strong> Los Signals habilitan Change Detection sin Zone.js.
+          Angular detecta exactamente qué cambió y actualiza solo esos componentes.
+        </p>
+        <pre ngNonBindable><code>// Servicio con Signals en vez de BehaviorSubject
+&#64;Injectable(&#123; providedIn: 'root' &#125;)
+export class CartService &#123;
+  // Antes: private itemsSubject = new BehaviorSubject&lt;Item[]&gt;([]);
+  // Ahora:
+  private items = signal&lt;Item[]&gt;([]);
 
-// signal — valor reactivo mutable
-const count = signal(0);
-count.set(5);
-count.update(v =&gt; v + 1);
+  readonly allItems = this.items.asReadonly();
+  readonly total = computed(() =&gt;
+    this.items().reduce((sum, i) =&gt; sum + i.price, 0)
+  );
+  readonly count = computed(() =&gt; this.items().length);
 
-// computed — derivado, se recalcula automáticamente
-const double = computed(() =&gt; count() * 2);
+  addItem(item: Item) &#123;
+    this.items.update(list =&gt; [...list, item]);
+  &#125;
 
-// effect — side-effect que corre cuando cambian sus deps
-effect(() =&gt; console.log('Count:', count()));
+  removeItem(id: string) &#123;
+    this.items.update(list =&gt; list.filter(i =&gt; i.id !== id));
+  &#125;
+&#125;</code></pre>
 
-// linkedSignal — signal derivado que también es writable
-const selected = linkedSignal(() =&gt; items()[0]);
-selected.set(items()[2]); // se puede sobrescribir manualmente
-
-// Integración con RxJS
-const data = toSignal(this.http.get('/api'), &#123; initialValue: [] &#125;);</code></pre>
         <div class="code-ref">
           📂 Implementación en el proyecto:
           <ul>

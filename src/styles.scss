@@ -151,17 +151,19 @@ pre code { background: transparent; padding: 0; color: var(--text); }
   transform: translateX(-50%);
   background: #1c2333;
   color: #e6edf3;
-  padding: 0.5rem 0.7rem;
+  padding: 0.7rem 0.85rem;
   border-radius: 6px;
-  font-size: 0.82rem;
-  line-height: 1.35;
-  width: max-content;
-  max-width: 320px;
+  font-size: 0.83rem;
+  line-height: 1.45;
+  width: min(560px, 85vw);
+  max-width: min(560px, 85vw);
+  max-height: min(60vh, 520px);
   z-index: 1000;
   border: 1px solid var(--border);
   box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-  pointer-events: none;
-  white-space: normal;
+  overflow-y: auto;
+  pointer-events: auto;
+  white-space: pre-line;
   font-weight: normal;
   text-align: left;
 }

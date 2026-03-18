@@ -101,14 +101,29 @@ export class AutoGlossaryDirective implements AfterViewInit, OnDestroy {
           fragment.appendChild(document.createTextNode(currentText.slice(lastIndex, r.start)));
         }
         
-        // Create tooltip span with anchor ID for search navigation
+        // Create tooltip span with anchor ID for search navigation.
+        // Build children explicitly so glossary text stays plain text and
+        // definitions can safely include characters like <T> or multi-line notes.
         const span = document.createElement('span');
         const anchor = r.term.toLowerCase().replace(/[\s\/&]+/g, '-').replace(/[^a-z0-9\-@]/g, '');
+        const label = document.createTextNode(currentText.slice(r.start, r.end));
+        const icon = document.createElement('span');
+        const tip = document.createElement('span');
+
         span.className = 'glossary-term';
         span.id = anchor;
         span.setAttribute('tabindex', '0');
         span.setAttribute('role', 'term');
-        span.innerHTML = `${currentText.slice(r.start, r.end)}<span class="glossary-icon">ⓘ</span><span class="glossary-tip">${r.definition}</span>`;
+
+        icon.className = 'glossary-icon';
+        icon.textContent = 'ⓘ';
+
+        tip.className = 'glossary-tip';
+        tip.textContent = r.definition;
+
+        span.appendChild(label);
+        span.appendChild(icon);
+        span.appendChild(tip);
         
         // Mobile tap toggle
         span.addEventListener('click', (e) => {
