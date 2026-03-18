@@ -35,6 +35,14 @@ export class UserListComponent &#123;
   &#64;Input() users: User[] = [];
   &#64;Output() select = new EventEmitter&lt;User&gt;();
 &#125;</code></pre>
+        <div class="code-ref">
+          📂 Implementación en el proyecto:
+          <ul>
+            <li><code>features/ngrx-lab/components/product-list.ts</code> — Smart: dispatch + selectors</li>
+            <li><code>features/ngrx-lab/components/product-card.ts</code> — Dumb: solo @Input/@Output + OnPush</li>
+            <li><code>features/architecture-lab/architecture-lab.ts</code> — Patrón completo con 4 componentes</li>
+          </ul>
+        </div>
       </div>
 
       <!-- 2. Component Communication -->
@@ -70,6 +78,9 @@ export class ThemeSignalService &#123;
     this.theme.update(t =&gt; t === 'dark' ? 'light' : 'dark');
   &#125;
 &#125;</code></pre>
+        <div class="code-ref">
+          📂 <code>features/architecture-lab/architecture-lab.ts</code> — @Input/@Output, servicios compartidos, signals
+        </div>
       </div>
 
       <!-- 3. Enterprise Folder Structure -->
@@ -108,6 +119,14 @@ export class ThemeSignalService &#123;
 │       ├── product-list.ts
 │       └── products.routes.ts
 └── app.routes.ts</code></pre>
+        <div class="code-ref">
+          📂 Estructura actual del proyecto:
+          <ul>
+            <li><code>core/</code> — Servicios singleton, interceptors, guards</li>
+            <li><code>shared/</code> — Componentes, directivas, modelos reutilizables</li>
+            <li><code>features/</code> — Módulos por dominio (ngrx-lab, rxjs-lab, etc.)</li>
+          </ul>
+        </div>
       </div>
 
       <!-- 4. SCAM → Standalone -->
@@ -135,6 +154,9 @@ export class UserCardModule &#123;&#125;
   template: \`...\`
 &#125;)
 export class UserCardComponent &#123;&#125;</code></pre>
+        <div class="code-ref">
+          📂 Todos los componentes del proyecto son Standalone (Angular 20.3 default)
+        </div>
       </div>
 
       <!-- 5. Barrel Exports -->

@@ -1,0 +1,40 @@
+.learn-page { max-width: 900px; }
+.card { margin-bottom: 1rem; }
+.card h3 { color: var(--accent-green); margin-bottom: 0.5rem; }
+.card h4 { color: var(--accent-blue); margin: 0.6rem 0 0.3rem; font-size: 0.95rem; }
+.card ul { margin: 0.3rem 0 0.5rem 1.2rem; }
+.card li { margin-bottom: 0.25rem; line-height: 1.4; }
+.lifecycle-order {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin: 0.5rem 0;
+}
+.lifecycle-order span {
+  background: var(--bg-code);
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-family: monospace;
+}
+.lifecycle-order .arrow {
+  background: none;
+  color: var(--text-muted);
+}
+pre { margin: 0.5rem 0; }
+code.language-typescript { font-size: 0.8rem; }
+.comparison-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  margin: 0.5rem 0;
+}
+.comparison-table th, .comparison-table td {
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--border);
+  text-align: left;
+}
+.comparison-table th {
+  background: var(--bg-code);
+  font-weight: 600;
+}

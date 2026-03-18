@@ -108,6 +108,31 @@ export class GlossaryService {
     { term: 'Computation caching', definition: 'NX almacena resultados de builds/tests previos y reutiliza si código no cambió.', topic: 'performance' },
     { term: 'Dependency graph', definition: 'Visualización NX de relaciones entre proyectos. Permite builds selectivos.', topic: 'architecture' },
     { term: 'memoizadas', definition: 'Caché de resultados: se reutiliza si inputs no cambiaron. Selectors y computed() la usan.', topic: 'ngrx' },
+
+    // Fundamentals terms
+    { term: 'Directivas', definition: 'Clases que modifican el DOM. 3 tipos: componentes (con template), estructurales (*ngIf, @if) y de atributo (ngClass, ngStyle).', topic: 'fundamentals' },
+    { term: 'Pipes', definition: 'Transforman datos en el template. Pure (default, solo re-ejecuta si input cambia) o Impure (cada ciclo de CD).', topic: 'fundamentals' },
+    { term: 'Lifecycle Hooks', definition: 'Métodos que Angular llama en momentos clave: ngOnInit, ngOnChanges, ngOnDestroy, ngAfterViewInit, etc.', topic: 'fundamentals' },
+    { term: 'ngOnInit', definition: 'Se ejecuta una vez después del primer ngOnChanges. Ideal para inicialización, HTTP calls, setup de suscripciones.', topic: 'fundamentals' },
+    { term: 'ngOnDestroy', definition: 'Se ejecuta cuando el componente se destruye. Para cleanup: unsubscribe, removeEventListener, clearInterval.', topic: 'fundamentals' },
+    { term: 'ngOnChanges', definition: 'Se ejecuta cada vez que un @Input cambia. Recibe SimpleChanges con previousValue y currentValue.', topic: 'fundamentals' },
+    { term: 'Content Projection', definition: 'Pasar contenido HTML de padre a hijo mediante <ng-content>. Single-slot o multi-slot con select.', topic: 'fundamentals' },
+    { term: 'ng-content', definition: 'Elemento para proyectar contenido del padre al hijo. select="" para multi-slot projection.', topic: 'fundamentals' },
+    { term: 'ng-template', definition: 'Template que no se renderiza por defecto. Se usa con *ngIf else, ngTemplateOutlet, directivas estructurales.', topic: 'fundamentals' },
+    { term: 'ng-container', definition: 'Contenedor lógico que no genera elemento DOM. Ideal para agrupar directivas sin div extra.', topic: 'fundamentals' },
+    { term: 'ViewEncapsulation', definition: 'Controla cómo se encapsulan los estilos CSS: Emulated (default), ShadowDom (nativo), None (global).', topic: 'fundamentals' },
+    { term: 'Shadow DOM', definition: 'API nativa del navegador para encapsular DOM y CSS. Angular lo emula por defecto con atributos _nghost/_ngcontent.', topic: 'fundamentals' },
+    { term: 'Dependency Injection', definition: 'Patrón donde Angular provee instancias de servicios automáticamente. Hierarchical injector tree.', topic: 'fundamentals' },
+    { term: 'InjectionToken', definition: 'Token para inyectar valores no-clase (strings, configs). new InjectionToken<Type>(description).', topic: 'fundamentals' },
+    { term: 'providedIn', definition: 'Metadato de @Injectable que define dónde registrar el servicio: root (singleton), any (por lazy module), platform.', topic: 'fundamentals' },
+    { term: 'ViewChild', definition: 'Decorador para acceder a un elemento hijo o directiva desde la clase del componente. Alternativa signal: viewChild().', topic: 'fundamentals' },
+    { term: 'ElementRef', definition: 'Wrapper del elemento DOM nativo. Acceso directo via nativeElement. Usar con precaución (no SSR-safe).', topic: 'fundamentals' },
+    { term: 'TemplateRef', definition: 'Referencia a un ng-template. Se usa con ViewContainerRef para crear vistas dinámicamente.', topic: 'fundamentals' },
+    { term: 'ViewContainerRef', definition: 'Punto de anclaje para insertar vistas (componentes/templates) dinámicamente en el DOM.', topic: 'fundamentals' },
+    { term: 'Resolver', definition: 'Función que pre-carga datos antes de activar una ruta. El componente recibe los datos ya listos.', topic: 'fundamentals' },
+    { term: 'ActivatedRoute', definition: 'Servicio con info de la ruta activa: params, queryParams, data, url. snapshot (estático) vs observable (reactivo).', topic: 'fundamentals' },
+    { term: 'NgModule', definition: 'Clase con @NgModule que agrupa declarations, imports, exports, providers. Reemplazado por Standalone en Angular 20.', topic: 'fundamentals' },
+    { term: 'DestroyRef', definition: 'Angular 16+ alternativa a ngOnDestroy. inject(DestroyRef).onDestroy(() => cleanup()). Funcional y composable.', topic: 'fundamentals' },
   ];
 
   // Map topic IDs to routes and labels
@@ -119,6 +144,7 @@ export class GlossaryService {
     'architecture': { route: '/lab/architecture', label: 'Architecture Lab' },
     'performance': { route: '/lab/performance', label: 'Performance Lab' },
     'testing': { route: '/lab/testing', label: 'Testing Lab' },
+    'fundamentals': { route: '/lab/fundamentals', label: 'Angular Fundamentals' },
   };
 
   getDefinition(term: string): string | null {

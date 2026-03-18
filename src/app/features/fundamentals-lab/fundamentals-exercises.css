@@ -1,0 +1,62 @@
+.exercises-page { max-width: 900px; }
+.page-title { font-size: 1.3rem; margin-bottom: 0.3rem; }
+.page-desc { color: var(--text-muted); margin-bottom: 1.5rem; font-size: 0.9rem; }
+
+.card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1.4rem;
+  margin-bottom: 1.2rem;
+  background: var(--bg-card);
+}
+.card h3 {
+  font-size: 1.05rem;
+  color: var(--accent-blue);
+  margin-bottom: 0.6rem;
+}
+.card p {
+  line-height: 1.5;
+  font-size: 0.9rem;
+  margin-bottom: 0.5rem;
+}
+.card code {
+  background: var(--bg-code);
+  padding: 0.1rem 0.35rem;
+  border-radius: 3px;
+  font-size: 0.82rem;
+}
+
+.criteria {
+  background: rgba(88, 166, 255, 0.06);
+  border-radius: 8px;
+  padding: 0.8rem 1rem;
+  margin: 0.8rem 0;
+}
+.criteria h4 {
+  font-size: 0.9rem;
+  margin-bottom: 0.4rem;
+  color: var(--accent-blue);
+}
+.criteria ul {
+  margin: 0.3rem 0 0 1.2rem;
+  font-size: 0.85rem;
+}
+.criteria li {
+  margin-bottom: 0.3rem;
+  line-height: 1.45;
+}
+
+.hint {
+  background: rgba(63, 185, 80, 0.06);
+  border-left: 3px solid var(--accent-green);
+  padding: 0.7rem 1rem;
+  border-radius: 0 8px 8px 0;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  margin-top: 0.5rem;
+}
+
+@media (max-width: 600px) {
+  .card { padding: 1rem; }
+  .criteria, .hint { padding: 0.6rem 0.8rem; }
+}

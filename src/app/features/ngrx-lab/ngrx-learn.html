@@ -28,6 +28,16 @@ export const selectAllProducts = createSelector(
   selectProductState,
   (state) => state.products
 );</code></pre>
+        <div class="code-ref">
+          📂 Implementación completa en el proyecto:
+          <ul>
+            <li><code>features/ngrx-lab/store/product.actions.ts</code> — Actions: loadProducts, createProduct, updateProduct, deleteProduct</li>
+            <li><code>features/ngrx-lab/store/product.reducer.ts</code> — Reducer con createReducer + EntityAdapter</li>
+            <li><code>features/ngrx-lab/store/product.effects.ts</code> — Effects: switchMap, exhaustMap, mergeMap</li>
+            <li><code>features/ngrx-lab/store/product.selectors.ts</code> — Selectors: selectAll, selectLoading, selectHighSustainability</li>
+            <li><code>features/ngrx-lab/store/product.state.ts</code> — State: EntityState&lt;Product&gt; + loading, error</li>
+          </ul>
+        </div>
       </div>
 
       <div class="card">
@@ -55,6 +65,9 @@ loadProducts$ = createEffect(() =>
     )
   )
 );</code></pre>
+        <div class="code-ref">
+          📂 <code>features/ngrx-lab/components/product-list.ts</code> — Smart Component que despacha actions y lee selectors
+        </div>
       </div>
 
       <div class="card">
@@ -101,6 +114,9 @@ loadProducts$ = createEffect(() =>
           </tbody>
         </table>
         <p><strong>Regla práctica:</strong> Si tu app tiene más de 3 features que comparten estado, NgRx vale la pena.</p>
+        <div class="code-ref">
+          📂 <code>core/services/progress.service.ts</code> — Ejemplo de servicio con Signals (alternativa simple a NgRx)
+        </div>
       </div>
 
       <div class="card">
@@ -141,6 +157,9 @@ on(addProductSuccess, (state, {{ '{' }} product {{ '}' }}) =>
   productAdapter.addOne(product, state)
 ),</code></pre>
         <p><strong>¿Por qué normalizar?</strong> Evita duplicados, simplifica updates, y los selectors son más eficientes.</p>
+        <div class="code-ref">
+          📂 <code>features/ngrx-lab/store/product.reducer.ts</code> — EntityAdapter con addOne, setAll, updateOne, removeOne
+        </div>
       </div>
 
       <div class="card">
@@ -169,5 +188,12 @@ export const NGRX_LAB_ROUTES: Routes = [{{ '{' }}
   children: [...]
 {{ '}' }}];</code></pre>
         <p>Cada feature registra su estado de forma lazy — solo se carga cuando el usuario navega ahí.</p>
+        <div class="code-ref">
+          📂 Implementación en el proyecto:
+          <ul>
+            <li><code>app.config.ts</code> — provideStore() + provideStoreDevtools()</li>
+            <li><code>features/ngrx-lab/ngrx-lab.routes.ts</code> — provideState('products') + provideEffects() a nivel de ruta</li>
+          </ul>
+        </div>
       </div>
     </div>

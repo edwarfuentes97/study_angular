@@ -1,0 +1,819 @@
+<div class="learn-page" appAutoGlossary>
+  <h2>🟢 Angular Fundamentals — Conceptos Esenciales</h2>
+  <p>Todo lo que un Senior Angular developer debe dominar. Estos temas aparecen constantemente en entrevistas técnicas.</p>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- A. DIRECTIVAS -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div class="card">
+    <h3>A. Directivas — Los 3 Tipos</h3>
+    <p>Las <strong>Directivas</strong> son clases que modifican elementos del DOM. Todo en Angular es una directiva bajo el capó — incluso los componentes.</p>
+
+    <h4>1. Componentes (Directivas con Template)</h4>
+    <p>El tipo más común. <code>&#64;Component</code> hereda de <code>&#64;Directive</code> y añade un template HTML.</p>
+    <pre ngNonBindable><code class="language-typescript">&#64;Component(&#123;
+  selector: 'app-hero',
+  template: '&lt;h1&gt;&#123;&#123; name &#125;&#125;&lt;/h1&gt;'
+&#125;)
+export class HeroComponent &#123;
+  name = 'Angular';
+&#125;</code></pre>
+
+    <h4>2. Directivas Estructurales — Modifican el DOM</h4>
+    <p>Añaden, eliminan o manipulan elementos del DOM. Se reconocen por el prefijo <code>*</code> (sintaxis de microsintaxis) o el nuevo control flow.</p>
+    <ul>
+      <li><strong>Clásicas:</strong> <code>*ngIf</code>, <code>*ngFor</code>, <code>*ngSwitch</code></li>
+      <li><strong>Nuevo Control Flow (Angular 17+):</strong> <code ngNonBindable>&#64;if</code>, <code ngNonBindable>&#64;for</code>, <code ngNonBindable>&#64;switch</code> — built-in, mejor rendimiento, no requiere import</li>
+    </ul>
+    <p><strong>¿Cómo funciona internamente?</strong> Angular convierte <code>*ngIf</code> en un <code>&lt;ng-template&gt;</code> + usa <code>ViewContainerRef</code> para insertar/remover la vista:</p>
+    <pre ngNonBindable><code class="language-typescript">// Esto:
+&lt;div *ngIf="show"&gt;Hola&lt;/div&gt;
+
+// Angular lo convierte internamente a:
+&lt;ng-template [ngIf]="show"&gt;
+  &lt;div&gt;Hola&lt;/div&gt;
+&lt;/ng-template&gt;</code></pre>
+
+    <h4>3. Directivas de Atributo — Modifican Apariencia/Comportamiento</h4>
+    <p>No cambian la estructura del DOM, sino la apariencia o el comportamiento de un elemento existente.</p>
+    <ul>
+      <li><code>ngClass</code> — añade/remueve clases CSS dinámicamente</li>
+      <li><code>ngStyle</code> — aplica estilos inline dinámicamente</li>
+      <li>Custom attribute directives (ej: <code>appHighlight</code>)</li>
+    </ul>
+
+    <h4>Directiva Custom — Attribute Directive</h4>
+    <pre ngNonBindable><code class="language-typescript">&#64;Directive(&#123;
+  selector: '[appHighlight]'
+&#125;)
+export class HighlightDirective &#123;
+  &#64;Input() appHighlight = 'yellow';
+  private el = inject(ElementRef);
+
+  &#64;HostListener('mouseenter') onEnter() &#123;
+    this.el.nativeElement.style.backgroundColor = this.appHighlight;
+  &#125;
+  &#64;HostListener('mouseleave') onLeave() &#123;
+    this.el.nativeElement.style.backgroundColor = '';
+  &#125;
+&#125;
+
+// Uso: &lt;p [appHighlight]="'cyan'"&gt;Hover me&lt;/p&gt;</code></pre>
+
+    <h4>Directiva Custom — Structural Directive</h4>
+    <pre ngNonBindable><code class="language-typescript">&#64;Directive(&#123;
+  selector: '[appUnless]'
+&#125;)
+export class UnlessDirective &#123;
+  private templateRef = inject(TemplateRef&lt;any&gt;);
+  private vcRef = inject(ViewContainerRef);
+  private hasView = false;
+
+  &#64;Input() set appUnless(condition: boolean) &#123;
+    if (!condition && !this.hasView) &#123;
+      this.vcRef.createEmbeddedView(this.templateRef);
+      this.hasView = true;
+    &#125; else if (condition && this.hasView) &#123;
+      this.vcRef.clear();
+      this.hasView = false;
+    &#125;
+  &#125;
+&#125;
+
+// Uso: &lt;div *appUnless="isLoading"&gt;Contenido&lt;/div&gt;</code></pre>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- B. PIPES -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div class="card">
+    <h3>B. Pipes — Pure vs Impure</h3>
+    <p>Los <strong>Pipes</strong> transforman datos en el template. Sintaxis: <code ngNonBindable>&#123;&#123; value | pipeName:arg1:arg2 &#125;&#125;</code></p>
+
+    <h4>Built-in Pipes</h4>
+    <table class="comparison-table">
+      <thead>
+        <tr><th>Pipe</th><th>Uso</th><th>Ejemplo</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>date</code></td><td>Formatear fechas</td><td><code ngNonBindable>&#123;&#123; today | date:'dd/MM/yyyy' &#125;&#125;</code></td></tr>
+        <tr><td><code>currency</code></td><td>Formato moneda</td><td><code ngNonBindable>&#123;&#123; price | currency:'USD' &#125;&#125;</code></td></tr>
+        <tr><td><code>percent</code></td><td>Formato porcentaje</td><td><code ngNonBindable>&#123;&#123; 0.85 | percent &#125;&#125;</code> → 85%</td></tr>
+        <tr><td><code>decimal</code></td><td>Formato numérico</td><td><code ngNonBindable>&#123;&#123; 3.14159 | number:'1.2-2' &#125;&#125;</code> → 3.14</td></tr>
+        <tr><td><code>uppercase</code></td><td>Mayúsculas</td><td><code ngNonBindable>&#123;&#123; 'hola' | uppercase &#125;&#125;</code> → HOLA</td></tr>
+        <tr><td><code>lowercase</code></td><td>Minúsculas</td><td><code ngNonBindable>&#123;&#123; 'HOLA' | lowercase &#125;&#125;</code> → hola</td></tr>
+        <tr><td><code>titlecase</code></td><td>Capitalizar</td><td><code ngNonBindable>&#123;&#123; 'hola mundo' | titlecase &#125;&#125;</code> → Hola Mundo</td></tr>
+        <tr><td><code>json</code></td><td>Debug objetos</td><td><code ngNonBindable>&#123;&#123; obj | json &#125;&#125;</code></td></tr>
+        <tr><td><code>async</code></td><td>Suscribir Observable/Promise</td><td><code ngNonBindable>&#123;&#123; data$ | async &#125;&#125;</code></td></tr>
+        <tr><td><code>slice</code></td><td>Subcadena/subarray</td><td><code ngNonBindable>&#123;&#123; items | slice:0:5 &#125;&#125;</code></td></tr>
+        <tr><td><code>keyvalue</code></td><td>Iterar objetos</td><td><code ngNonBindable>&#64;for (item of obj | keyvalue; track item.key)</code></td></tr>
+      </tbody>
+    </table>
+
+    <h4>Pure Pipes (default) — Mejor Rendimiento</h4>
+    <p>Solo se re-ejecutan cuando el <strong>valor de referencia</strong> del input cambia. Angular usa <code>===</code> para comparar.</p>
+    <ul>
+      <li>✅ Rendimiento óptimo — se ejecuta pocas veces</li>
+      <li>⚠️ NO detecta cambios dentro de arrays/objetos mutados</li>
+      <li>Para arrays: crear nuevo array (<code>[...arr, newItem]</code>) para triggear el pipe</li>
+    </ul>
+    <pre ngNonBindable><code class="language-typescript">&#64;Pipe(&#123; name: 'filterBy' &#125;) // pure: true por defecto
+export class FilterByPipe implements PipeTransform &#123;
+  transform(items: string[], search: string): string[] &#123;
+    if (!search) return items;
+    return items.filter(i =&gt; i.toLowerCase().includes(search.toLowerCase()));
+  &#125;
+&#125;</code></pre>
+
+    <h4>Impure Pipes (<code>pure: false</code>) — Cuidado con el Rendimiento</h4>
+    <p>Se re-ejecutan en <strong>CADA ciclo de Change Detection</strong>. Necesarias cuando el array se muta in-place, pero son costosas.</p>
+    <pre ngNonBindable><code class="language-typescript">&#64;Pipe(&#123; name: 'sortBy', pure: false &#125;)
+export class SortByPipe implements PipeTransform &#123;
+  transform(items: any[], field: string): any[] &#123;
+    return [...items].sort((a, b) =&gt; a[field] &gt; b[field] ? 1 : -1);
+  &#125;
+&#125;</code></pre>
+
+    <h4>⚡ Cuándo usar cada una</h4>
+    <table class="comparison-table">
+      <thead>
+        <tr><th>Aspecto</th><th>Pure</th><th>Impure</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Ejecución</td><td>Solo si referencia cambia</td><td>Cada ciclo de CD</td></tr>
+        <tr><td>Rendimiento</td><td>✅ Excelente</td><td>⚠️ Puede ser costoso</td></tr>
+        <tr><td>Detecta mutaciones</td><td>❌ No</td><td>✅ Sí</td></tr>
+        <tr><td>Uso ideal</td><td>Transformaciones simples</td><td>Arrays mutados, filtros dinámicos</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- C. LIFECYCLE HOOKS -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div class="card">
+    <h3>C. Ciclo de Vida de Componentes (Lifecycle Hooks)</h3>
+    <p>Angular llama estos métodos en momentos específicos del ciclo de vida del componente.</p>
+
+    <h4>Orden de Ejecución</h4>
+    <div class="lifecycle-order">
+      <span>constructor</span><span class="arrow">→</span>
+      <span>ngOnChanges</span><span class="arrow">→</span>
+      <span>ngOnInit</span><span class="arrow">→</span>
+      <span>ngDoCheck</span><span class="arrow">→</span>
+      <span>ngAfterContentInit</span><span class="arrow">→</span>
+      <span>ngAfterContentChecked</span><span class="arrow">→</span>
+      <span>ngAfterViewInit</span><span class="arrow">→</span>
+      <span>ngAfterViewChecked</span><span class="arrow">→</span>
+      <span>ngOnDestroy</span>
+    </div>
+
+    <h4><code>constructor</code></h4>
+    <p>Se ejecuta cuando Angular instancia la clase. <strong>Solo para inyección de dependencias.</strong> NO hacer lógica aquí — los <code>&#64;Input()</code> aún no tienen valor.</p>
+
+    <h4><code>ngOnChanges(changes: SimpleChanges)</code></h4>
+    <p>Se ejecuta <strong>antes de ngOnInit</strong> y cada vez que un <code>&#64;Input()</code> cambia. Recibe un objeto con valores previos y actuales.</p>
+    <pre ngNonBindable><code class="language-typescript">ngOnChanges(changes: SimpleChanges) &#123;
+  if (changes['userId']) &#123;
+    console.log('Prev:', changes['userId'].previousValue);
+    console.log('Curr:', changes['userId'].currentValue);
+    console.log('First:', changes['userId'].firstChange);
+  &#125;
+&#125;</code></pre>
+
+    <h4><code>ngOnInit</code></h4>
+    <p>Se ejecuta <strong>una sola vez</strong> después del primer <code>ngOnChanges</code>. Ideal para:</p>
+    <ul>
+      <li>Llamadas HTTP iniciales</li>
+      <li>Setup de suscripciones</li>
+      <li>Lógica que depende de <code>&#64;Input()</code> valores</li>
+    </ul>
+
+    <h4><code>ngDoCheck</code></h4>
+    <p>Se ejecuta en <strong>cada ciclo de Change Detection</strong>. Peligroso para rendimiento. Solo usar para detección de cambios custom que Angular no detecta (ej: mutaciones profundas de objetos).</p>
+
+    <h4><code>ngAfterContentInit</code> / <code>ngAfterContentChecked</code></h4>
+    <p>Se ejecutan después de que Angular proyecta el contenido externo (<code>&lt;ng-content&gt;</code>) en el componente. <code>Init</code> se ejecuta una vez; <code>Checked</code> en cada CD.</p>
+
+    <h4><code>ngAfterViewInit</code> / <code>ngAfterViewChecked</code></h4>
+    <p>Se ejecutan después de que Angular inicializa las vistas hijas del componente. Aquí es seguro acceder a <code>&#64;ViewChild</code>.</p>
+    <pre ngNonBindable><code class="language-typescript">&#64;ViewChild('myInput') inputRef!: ElementRef;
+
+ngAfterViewInit() &#123;
+  // Ahora inputRef está disponible
+  this.inputRef.nativeElement.focus();
+&#125;</code></pre>
+
+    <h4><code>ngOnDestroy</code></h4>
+    <p><strong>Cleanup obligatorio.</strong> Se ejecuta cuando el componente se destruye.</p>
+    <ul>
+      <li>Cancelar suscripciones: <code>subscription.unsubscribe()</code></li>
+      <li>Remover event listeners: <code>removeEventListener()</code></li>
+      <li>Limpiar timers: <code>clearInterval()</code>, <code>clearTimeout()</code></li>
+    </ul>
+
+    <h4>Alternativas Modernas (Angular 16+)</h4>
+    <pre ngNonBindable><code class="language-typescript">// DestroyRef — alternativa funcional a ngOnDestroy
+export class MyComponent &#123;
+  private destroyRef = inject(DestroyRef);
+
+  ngOnInit() &#123;
+    const sub = this.data$.subscribe(d =&gt; this.process(d));
+    this.destroyRef.onDestroy(() =&gt; sub.unsubscribe());
+  &#125;
+&#125;
+
+// afterNextRender — ejecutar código después del primer render (SSR-safe)
+export class ChartComponent &#123;
+  constructor() &#123;
+    afterNextRender(() =&gt; &#123;
+      // Acceso seguro al DOM — solo se ejecuta en el browser
+      this.initChart();
+    &#125;);
+  &#125;
+&#125;
+
+// afterRender — ejecutar después de CADA render
+export class AnimComponent &#123;
+  constructor() &#123;
+    afterRender(() =&gt; &#123;
+      this.updateAnimation();
+    &#125;);
+  &#125;
+&#125;</code></pre>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- D. CONTENT PROJECTION -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div class="card">
+    <h3>D. Content Projection (ng-content)</h3>
+    <p>Mecanismo para pasar HTML del componente padre al hijo. Similar a "slots" en Vue/Web Components.</p>
+
+    <h4>Single Slot</h4>
+    <pre ngNonBindable><code class="language-typescript">// card.component.html
+&lt;div class="card"&gt;
+  &lt;ng-content /&gt;
+&lt;/div&gt;
+
+// Uso:
+&lt;app-card&gt;
+  &lt;p&gt;Este contenido se proyecta dentro del card&lt;/p&gt;
+&lt;/app-card&gt;</code></pre>
+
+    <h4>Multi-Slot Projection</h4>
+    <pre ngNonBindable><code class="language-typescript">// panel.component.html
+&lt;div class="panel"&gt;
+  &lt;header&gt;&lt;ng-content select=".panel-header" /&gt;&lt;/header&gt;
+  &lt;main&gt;&lt;ng-content /&gt;&lt;/main&gt;
+  &lt;footer&gt;&lt;ng-content select="[footer]" /&gt;&lt;/footer&gt;
+&lt;/div&gt;
+
+// Uso:
+&lt;app-panel&gt;
+  &lt;div class="panel-header"&gt;Título&lt;/div&gt;
+  &lt;p&gt;Contenido principal (slot por defecto)&lt;/p&gt;
+  &lt;div footer&gt;Pie de página&lt;/div&gt;
+&lt;/app-panel&gt;</code></pre>
+
+    <h4>ng-container vs ng-template</h4>
+    <table class="comparison-table">
+      <thead>
+        <tr><th>Elemento</th><th>Se renderiza</th><th>Uso principal</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>&lt;ng-container&gt;</code></td>
+          <td>❌ No genera elemento DOM</td>
+          <td>Agrupar directivas sin div extra. Ej: <code>&lt;ng-container *ngIf="x"&gt;</code></td>
+        </tr>
+        <tr>
+          <td><code>&lt;ng-template&gt;</code></td>
+          <td>❌ No se renderiza por defecto</td>
+          <td>Definir templates reutilizables. Se instancia con <code>*ngIf else</code>, <code>ngTemplateOutlet</code>, o <code>ViewContainerRef</code></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h4>ngTemplateOutlet — Renderizar Templates Dinámicamente</h4>
+    <pre ngNonBindable><code class="language-typescript">// Definir template
+&lt;ng-template #greetTpl let-name="name"&gt;
+  &lt;p&gt;Hola, &#123;&#123; name &#125;&#125;!&lt;/p&gt;
+&lt;/ng-template&gt;
+
+// Renderizar dinámicamente
+&lt;ng-container
+  [ngTemplateOutlet]="greetTpl"
+  [ngTemplateOutletContext]="&#123; name: 'Angular' &#125;"
+/&gt;
+
+// Uso avanzado: componente que acepta template custom
+&#64;Component(&#123;
+  selector: 'app-list',
+  template: \`
+    &#64;for (item of items; track item) &#123;
+      &lt;ng-container
+        [ngTemplateOutlet]="itemTpl"
+        [ngTemplateOutletContext]="&#123; $implicit: item &#125;"
+      /&gt;
+    &#125;
+  \`
+&#125;)
+export class ListComponent &#123;
+  &#64;Input() items: any[] = [];
+  &#64;ContentChild(TemplateRef) itemTpl!: TemplateRef&lt;any&gt;;
+&#125;</code></pre>
+
+    <h4>Conditional Projection</h4>
+    <pre ngNonBindable><code class="language-typescript">// Proyección condicional: solo mostrar si hay contenido
+&lt;div class="card"&gt;
+  &#64;if (showHeader) &#123;
+    &lt;header&gt;&lt;ng-content select=".header" /&gt;&lt;/header&gt;
+  &#125;
+  &lt;ng-content /&gt;
+&lt;/div&gt;</code></pre>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- E. VIEW ENCAPSULATION -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div class="card">
+    <h3>E. ViewEncapsulation (Shadow DOM)</h3>
+    <p>Controla cómo Angular encapsula los estilos CSS de cada componente.</p>
+
+    <table class="comparison-table">
+      <thead>
+        <tr><th>Modo</th><th>Mecanismo</th><th>CSS Aislado</th><th>Cuándo usar</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Emulated</strong> (default)</td>
+          <td>Angular añade atributos <code>_nghost-xxx</code> y <code>_ngcontent-xxx</code></td>
+          <td>✅ Sí (emulado)</td>
+          <td>99% de los casos — es el default por buena razón</td>
+        </tr>
+        <tr>
+          <td><strong>ShadowDom</strong></td>
+          <td>Usa Shadow DOM nativo del navegador</td>
+          <td>✅ Sí (nativo)</td>
+          <td>Web Components, aislamiento total. No todos los componentes lo soportan bien</td>
+        </tr>
+        <tr>
+          <td><strong>None</strong></td>
+          <td>Sin encapsulación — estilos globales</td>
+          <td>❌ No</td>
+          <td>Estilos globales de librería, overrides. Usar con cuidado</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <pre ngNonBindable><code class="language-typescript">import &#123; ViewEncapsulation &#125; from '&#64;angular/core';
+
+&#64;Component(&#123;
+  selector: 'app-styled',
+  template: '&lt;p&gt;Styled component&lt;/p&gt;',
+  styles: ['p &#123; color: red; &#125;'],
+  encapsulation: ViewEncapsulation.Emulated // default
+&#125;)
+export class StyledComponent &#123;&#125;
+
+// Emulated genera en el DOM:
+// &lt;p _ngcontent-abc=""&gt;Styled component&lt;/p&gt;
+// CSS: p[_ngcontent-abc] &#123; color: red; &#125;
+
+// ShadowDom genera:
+// #shadow-root
+//   &lt;style&gt;p &#123; color: red; &#125;&lt;/style&gt;
+//   &lt;p&gt;Styled component&lt;/p&gt;
+
+// None genera:
+// &lt;p&gt;Styled component&lt;/p&gt;
+// CSS global: p &#123; color: red; &#125; (¡afecta TODOS los &lt;p&gt;!)</code></pre>
+
+    <h4>::ng-deep (Deprecated pero aún usado)</h4>
+    <p>Permite que estilos de un componente padre penetren la encapsulación de componentes hijos. <strong>Deprecated</strong> pero sin reemplazo oficial aún.</p>
+    <pre ngNonBindable><code class="language-typescript">// Rompe la encapsulación del componente hijo
+:host ::ng-deep .child-class &#123;
+  color: blue;
+&#125;
+
+// Alternativa: usar ViewEncapsulation.None en el hijo
+// o CSS custom properties (variables) que sí atraviesan Shadow DOM</code></pre>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- F. DEPENDENCY INJECTION -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div class="card">
+    <h3>F. Dependency Injection (DI)</h3>
+    <p>El sistema de DI de Angular es jerárquico. Resuelve dependencias subiendo por el árbol de injectors.</p>
+
+    <h4>Injector Tree</h4>
+    <p>Angular tiene dos árboles de injectors paralelos:</p>
+    <ul>
+      <li><strong>ModuleInjector</strong> — registros de <code>providedIn</code> y <code>providers</code> de módulos</li>
+      <li><strong>ElementInjector</strong> — registros de <code>providers</code> en <code>&#64;Component</code>/<code>&#64;Directive</code></li>
+    </ul>
+    <p>Angular busca primero en ElementInjector, luego sube al ModuleInjector.</p>
+
+    <h4>Formas de registrar un servicio</h4>
+    <table class="comparison-table">
+      <thead>
+        <tr><th>Método</th><th>Scope</th><th>Tree-shakeable</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>providedIn: 'root'</code></td><td>Singleton global</td><td>✅ Sí</td></tr>
+        <tr><td><code>providedIn: 'any'</code></td><td>Instancia por lazy module</td><td>✅ Sí</td></tr>
+        <tr><td><code>providers: []</code> en &#64;Component</td><td>Instancia por componente</td><td>❌ No</td></tr>
+        <tr><td><code>providers: []</code> en &#64;NgModule</td><td>Singleton en ese module</td><td>❌ No</td></tr>
+      </tbody>
+    </table>
+
+    <h4>Provider Types</h4>
+    <pre ngNonBindable><code class="language-typescript">// useClass — reemplazar implementación
+providers: [&#123; provide: LoggerService, useClass: BetterLoggerService &#125;]
+
+// useValue — proveer un valor estático
+providers: [&#123; provide: API_URL, useValue: 'https://api.example.com' &#125;]
+
+// useFactory — lógica condicional para crear el servicio
+providers: [&#123;
+  provide: LoggerService,
+  useFactory: (env: Environment) =&gt; env.production
+    ? new ProdLogger() : new DevLogger(),
+  deps: [Environment]
+&#125;]
+
+// useExisting — alias a otro provider
+providers: [&#123; provide: OldService, useExisting: NewService &#125;]</code></pre>
+
+    <h4>InjectionToken — Para valores no-clase</h4>
+    <pre ngNonBindable><code class="language-typescript">// Crear token
+export const API_URL = new InjectionToken&lt;string&gt;('API Base URL');
+
+// Proveer
+providers: [&#123; provide: API_URL, useValue: 'https://api.example.com' &#125;]
+
+// Inyectar
+export class ApiService &#123;
+  private url = inject(API_URL);
+  // o en constructor: constructor(&#64;Inject(API_URL) private url: string)
+&#125;</code></pre>
+
+    <h4>Multi Providers</h4>
+    <pre ngNonBindable><code class="language-typescript">// Múltiples valores para el mismo token
+export const HTTP_INTERCEPTORS = new InjectionToken&lt;HttpInterceptorFn[]&gt;('interceptors');
+
+providers: [
+  &#123; provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true &#125;,
+  &#123; provide: HTTP_INTERCEPTORS, useClass: LoggingInterceptor, multi: true &#125;,
+]
+// Inyecta un ARRAY con ambas instancias</code></pre>
+
+    <h4>inject() vs Constructor Injection</h4>
+    <pre ngNonBindable><code class="language-typescript">// Moderno (Angular 14+) — preferido
+export class UserService &#123;
+  private http = inject(HttpClient);
+  private router = inject(Router);
+&#125;
+
+// Clásico — aún válido
+export class UserService &#123;
+  constructor(
+    private http: HttpClient,
+    private router: Router
+  ) &#123;&#125;
+&#125;
+
+// inject() ventajas:
+// ✅ Funciona en funciones (guards, interceptors, resolvers)
+// ✅ No necesita constructor
+// ✅ Más fácil de refactorizar
+// ✅ Funciona con herencia sin super() complicado</code></pre>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- G. TEMPLATE REFS & VIEWCHILD -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div class="card">
+    <h3>G. Template Reference Variables &amp; ViewChild</h3>
+    <p>Acceder a elementos del DOM o instancias de componentes hijos desde la clase.</p>
+
+    <h4>Template Reference Variables (<code>#ref</code>)</h4>
+    <pre ngNonBindable><code class="language-typescript">// En el template — acceso directo al elemento o componente
+&lt;input #nameInput type="text"&gt;
+&lt;button (click)="greet(nameInput.value)"&gt;Saludar&lt;/button&gt;
+
+// Si es un componente, #ref apunta a la instancia del componente
+&lt;app-timer #timer /&gt;
+&lt;button (click)="timer.start()"&gt;Start&lt;/button&gt;</code></pre>
+
+    <h4>&#64;ViewChild / &#64;ViewChildren</h4>
+    <pre ngNonBindable><code class="language-typescript">// Acceder desde la clase del componente
+&#64;ViewChild('nameInput') inputRef!: ElementRef&lt;HTMLInputElement&gt;;
+&#64;ViewChild(TimerComponent) timer!: TimerComponent;
+&#64;ViewChildren(ItemComponent) items!: QueryList&lt;ItemComponent&gt;;
+
+ngAfterViewInit() &#123;
+  this.inputRef.nativeElement.focus();
+  this.timer.start();
+  this.items.forEach(item =&gt; item.highlight());
+&#125;</code></pre>
+
+    <h4>ElementRef vs TemplateRef vs ViewContainerRef</h4>
+    <table class="comparison-table">
+      <thead>
+        <tr><th>Clase</th><th>Qué representa</th><th>Uso principal</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>ElementRef</code></td>
+          <td>Wrapper del elemento DOM nativo</td>
+          <td>Acceso a <code>nativeElement</code>. ⚠️ No SSR-safe</td>
+        </tr>
+        <tr>
+          <td><code>TemplateRef</code></td>
+          <td>Referencia a un <code>&lt;ng-template&gt;</code></td>
+          <td>Crear vistas embebidas dinámicamente</td>
+        </tr>
+        <tr>
+          <td><code>ViewContainerRef</code></td>
+          <td>Punto de anclaje en el DOM</td>
+          <td>Insertar/remover vistas y componentes dinámicamente</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h4>Signal-based Queries (Angular 17+)</h4>
+    <pre ngNonBindable><code class="language-typescript">// Alternativas modernas basadas en signals
+export class MyComponent &#123;
+  // ViewChild → viewChild()
+  nameInput = viewChild&lt;ElementRef&gt;('nameInput');
+  timer = viewChild.required(TimerComponent);
+
+  // ViewChildren → viewChildren()
+  items = viewChildren(ItemComponent);
+
+  // ContentChild → contentChild()
+  header = contentChild&lt;ElementRef&gt;('.header');
+
+  // ContentChildren → contentChildren()
+  tabs = contentChildren(TabComponent);
+
+  doSomething() &#123;
+    // Acceso via signal — siempre actualizado
+    this.nameInput()?.nativeElement.focus();
+    this.timer().start();
+    this.items().forEach(i =&gt; i.highlight());
+  &#125;
+&#125;</code></pre>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- H. ROUTING AVANZADO -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div class="card">
+    <h3>H. Routing Avanzado</h3>
+
+    <h4>Route Params, Query Params &amp; Fragments</h4>
+    <pre ngNonBindable><code class="language-typescript">// Definir ruta con parámetro
+&#123; path: 'user/:id', component: UserComponent &#125;
+
+// Navegar
+this.router.navigate(['/user', 42], &#123;
+  queryParams: &#123; tab: 'profile' &#125;,
+  fragment: 'bio'
+&#125;);
+// URL: /user/42?tab=profile#bio</code></pre>
+
+    <h4>ActivatedRoute — snapshot vs observable</h4>
+    <pre ngNonBindable><code class="language-typescript">export class UserComponent &#123;
+  private route = inject(ActivatedRoute);
+
+  // Snapshot — valor estático (NO se actualiza si la ruta cambia sin destruir el componente)
+  ngOnInit() &#123;
+    const id = this.route.snapshot.params['id'];
+    const tab = this.route.snapshot.queryParams['tab'];
+  &#125;
+
+  // Observable — reactivo (SE actualiza cuando cambian los params)
+  ngOnInit() &#123;
+    this.route.params.subscribe(params =&gt; &#123;
+      this.loadUser(params['id']); // Se re-ejecuta al navegar /user/1 → /user/2
+    &#125;);
+  &#125;
+&#125;
+// ⚡ Usar observable cuando el mismo componente puede recibir diferentes params
+// (ej: lista de usuarios con navegación entre ellos)</code></pre>
+
+    <h4>Resolvers — Pre-cargar datos</h4>
+    <pre ngNonBindable><code class="language-typescript">// Functional resolver (Angular 15+)
+export const userResolver: ResolveFn&lt;User&gt; = (route) =&gt; &#123;
+  const userService = inject(UserService);
+  return userService.getById(route.params['id']);
+&#125;;
+
+// En la ruta
+&#123;
+  path: 'user/:id',
+  component: UserDetailComponent,
+  resolve: &#123; user: userResolver &#125;
+&#125;
+
+// En el componente — datos ya disponibles
+export class UserDetailComponent &#123;
+  private route = inject(ActivatedRoute);
+  user = this.route.snapshot.data['user'] as User;
+&#125;</code></pre>
+
+    <h4>Router Events</h4>
+    <pre ngNonBindable><code class="language-typescript">export class AppComponent &#123;
+  private router = inject(Router);
+
+  constructor() &#123;
+    this.router.events.pipe(
+      filter(e =&gt; e instanceof NavigationStart)
+    ).subscribe(event =&gt; &#123;
+      console.log('Navegando a:', event.url);
+    &#125;);
+  &#125;
+&#125;
+// Eventos: NavigationStart → NavigationEnd / NavigationCancel / NavigationError</code></pre>
+
+    <h4>Nested Routes &amp; Route Data</h4>
+    <pre ngNonBindable><code class="language-typescript">&#123;
+  path: 'admin',
+  component: AdminLayoutComponent,
+  data: &#123; role: 'admin' &#125;, // datos estáticos
+  children: [
+    &#123; path: '', component: AdminDashboard &#125;,
+    &#123; path: 'users', component: AdminUsers &#125;,
+    &#123; path: 'settings', component: AdminSettings &#125;,
+  ]
+&#125;</code></pre>
+
+    <h4>Functional Guards (Angular 15+)</h4>
+    <pre ngNonBindable><code class="language-typescript">// Guard como función — reemplaza CanActivate class
+export const authGuard: CanActivateFn = (route, state) =&gt; &#123;
+  const auth = inject(AuthService);
+  const router = inject(Router);
+
+  if (auth.isLoggedIn()) return true;
+  return router.createUrlTree(['/login'], &#123;
+    queryParams: &#123; returnUrl: state.url &#125;
+  &#125;);
+&#125;;
+
+// Uso en rutas
+&#123; path: 'admin', canActivate: [authGuard], component: AdminComponent &#125;</code></pre>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- I. MODULES VS STANDALONE -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div class="card">
+    <h3>I. Modules vs Standalone</h3>
+
+    <h4>NgModule (Clásico — Angular 2-13)</h4>
+    <pre ngNonBindable><code class="language-typescript">&#64;NgModule(&#123;
+  declarations: [AppComponent, HeaderComponent], // componentes que PERTENECEN a este módulo
+  imports: [BrowserModule, FormsModule],          // otros módulos necesarios
+  exports: [HeaderComponent],                      // lo que otros módulos pueden usar
+  providers: [AuthService],                        // servicios (scope: este módulo)
+  bootstrap: [AppComponent]                        // componente raíz (solo en AppModule)
+&#125;)
+export class AppModule &#123;&#125;
+
+// Bootstrap clásico
+platformBrowserDynamic().bootstrapModule(AppModule);</code></pre>
+
+    <h4>Standalone (Angular 14+ — Default en Angular 20)</h4>
+    <pre ngNonBindable><code class="language-typescript">// En Angular 20, standalone es el default — no necesitas declararlo
+&#64;Component(&#123;
+  selector: 'app-header',
+  imports: [CommonModule, RouterModule], // importa directamente lo que necesita
+  template: '&lt;nav&gt;...&lt;/nav&gt;'
+&#125;)
+export class HeaderComponent &#123;&#125;
+
+// Bootstrap standalone
+bootstrapApplication(AppComponent, &#123;
+  providers: [
+    provideRouter(routes),
+    provideHttpClient(withInterceptors([authInterceptor])),
+    provideAnimations(),
+  ]
+&#125;);</code></pre>
+
+    <h4>Migración NgModule → Standalone</h4>
+    <table class="comparison-table">
+      <thead>
+        <tr><th>Aspecto</th><th>NgModule</th><th>Standalone</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Declaración</td><td><code>declarations</code> en módulo</td><td>Componente se auto-contiene</td></tr>
+        <tr><td>Dependencias</td><td>Módulo importa otros módulos</td><td>Componente importa lo que necesita</td></tr>
+        <tr><td>Providers</td><td><code>providers</code> en módulo</td><td><code>providedIn: 'root'</code> o <code>providers</code> en componente</td></tr>
+        <tr><td>Bootstrap</td><td><code>platformBrowserDynamic().bootstrapModule()</code></td><td><code>bootstrapApplication()</code></td></tr>
+        <tr><td>Lazy loading</td><td><code>loadChildren: () =&gt; Module</code></td><td><code>loadComponent</code> o <code>loadChildren: () =&gt; Routes</code></td></tr>
+        <tr><td>Tree shaking</td><td>⚠️ Módulo entero</td><td>✅ Componente individual</td></tr>
+      </tbody>
+    </table>
+
+    <h4>¿Por qué Angular 20 ya no necesita NgModule?</h4>
+    <ul>
+      <li>Standalone es el default — <code>standalone: true</code> ya no es necesario declarar</li>
+      <li>Mejor tree shaking — solo se incluye lo que se importa</li>
+      <li>Menos boilerplate — no más archivos <code>.module.ts</code></li>
+      <li>Lazy loading más simple — <code>loadComponent</code> directamente</li>
+      <li>Providers funcionales: <code>provideRouter()</code>, <code>provideHttpClient()</code>, etc.</li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- J. DECORADORES IMPORTANTES -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div class="card">
+    <h3>J. Decoradores Importantes</h3>
+
+    <h4>&#64;Input() / &#64;Output() — Comunicación Padre-Hijo</h4>
+    <pre ngNonBindable><code class="language-typescript">// Hijo recibe datos del padre
+&#64;Input() title = '';
+&#64;Input(&#123; required: true &#125;) userId!: string; // obligatorio
+&#64;Input(&#123; transform: booleanAttribute &#125;) disabled = false; // transforma "true" string → true boolean
+&#64;Input(&#123; alias: 'label' &#125;) buttonLabel = ''; // nombre diferente en el template
+
+// Hijo emite eventos al padre
+&#64;Output() saved = new EventEmitter&lt;User&gt;();
+this.saved.emit(user);
+
+// En el padre:
+// &lt;app-child [title]="'Hola'" [userId]="id" (saved)="onSave($event)" /&gt;</code></pre>
+
+    <h4>Model Inputs — Two-Way Binding con Signals (Angular 17+)</h4>
+    <pre ngNonBindable><code class="language-typescript">// Hijo — model input (señal de lectura/escritura)
+export class ToggleComponent &#123;
+  checked = model(false); // crea un WritableSignal
+
+  toggle() &#123;
+    this.checked.update(v =&gt; !v);
+  &#125;
+&#125;
+
+// Padre — two-way binding con banana-in-a-box
+// &lt;app-toggle [(checked)]="isActive" /&gt;
+// isActive se actualiza automáticamente cuando el hijo cambia checked</code></pre>
+
+    <h4>&#64;HostListener / &#64;HostBinding</h4>
+    <pre ngNonBindable><code class="language-typescript">&#64;Directive(&#123; selector: '[appDropdown]' &#125;)
+export class DropdownDirective &#123;
+  // Bindea una propiedad del elemento host
+  &#64;HostBinding('class.open') isOpen = false;
+
+  // Escucha eventos del elemento host
+  &#64;HostListener('click') toggleOpen() &#123;
+    this.isOpen = !this.isOpen;
+  &#125;
+
+  &#64;HostListener('document:click', ['$event.target'])
+  onDocumentClick(target: HTMLElement) &#123;
+    // Cerrar si click fuera del elemento
+  &#125;
+&#125;</code></pre>
+
+    <h4>host: property — Alternativa Moderna</h4>
+    <pre ngNonBindable><code class="language-typescript">// Preferido en Angular moderno — sin decoradores
+&#64;Component(&#123;
+  selector: 'app-button',
+  host: &#123;
+    '[class.active]': 'isActive',
+    '[attr.aria-pressed]': 'isActive',
+    '(click)': 'onClick()',
+    'role': 'button',
+    '[tabindex]': '0',
+  &#125;,
+  template: '&lt;ng-content /&gt;'
+&#125;)
+export class ButtonComponent &#123;
+  isActive = false;
+  onClick() &#123; this.isActive = !this.isActive; &#125;
+&#125;</code></pre>
+
+    <h4>&#64;ContentChild / &#64;ContentChildren</h4>
+    <pre ngNonBindable><code class="language-typescript">// Acceder al contenido proyectado (ng-content)
+&#64;ContentChild('headerRef') header!: ElementRef;
+&#64;ContentChildren(TabComponent) tabs!: QueryList&lt;TabComponent&gt;;
+
+ngAfterContentInit() &#123;
+  // header y tabs están disponibles aquí
+  console.log('Tabs:', this.tabs.length);
+  this.tabs.changes.subscribe(() =&gt; &#123;
+    console.log('Tabs cambiaron:', this.tabs.length);
+  &#125;);
+&#125;
+
+// Signal alternatives (Angular 17+):
+header = contentChild&lt;ElementRef&gt;('headerRef');
+tabs = contentChildren(TabComponent);</code></pre>
+  </div>
+</div>

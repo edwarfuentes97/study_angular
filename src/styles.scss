@@ -185,3 +185,36 @@ pre code { background: transparent; padding: 0; color: var(--text); }
   left: 0;
   transform: none;
 }
+
+/* ===== Code References ===== */
+.code-ref {
+  margin-top: 0.6rem;
+  padding: 0.5rem 0.7rem;
+  background: rgba(88, 166, 255, 0.06);
+  border-left: 3px solid var(--accent-blue);
+  border-radius: 0 6px 6px 0;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+.code-ref code {
+  background: var(--bg-code);
+  padding: 0.1rem 0.35rem;
+  border-radius: 3px;
+  font-size: 0.78rem;
+  color: var(--accent-blue);
+  font-family: 'SF Mono', 'Fira Code', monospace;
+}
+.code-ref ul {
+  margin: 0.3rem 0 0 1.2rem;
+  padding: 0;
+  list-style: none;
+}
+.code-ref ul li {
+  padding: 0.15rem 0;
+}
+.code-ref ul li::before {
+  content: '→ ';
+  color: var(--accent-blue);
+  opacity: 0.6;
+}

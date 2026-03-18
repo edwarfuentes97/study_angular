@@ -53,6 +53,9 @@ const obs$ = new Observable(subscriber => {{ '{' }}
   subscriber.next(3);
   subscriber.complete();
 {{ '}' }});</code></pre>
+        <div class="code-ref">
+          📂 <code>features/rxjs-lab/observable-types.ts</code> — Demostración interactiva de Observable, Subject, BehaviorSubject
+        </div>
       </div>
 
       <div class="card">
@@ -105,6 +108,9 @@ messages$.next('msg4');
 
 // Late subscriber recibe: msg2, msg3, msg4
 messages$.subscribe(m => console.log(m));</code></pre>
+        <div class="code-ref">
+          📂 <code>features/rxjs-lab/observable-types.ts</code> — Subject, BehaviorSubject, ReplaySubject, AsyncSubject en acción
+        </div>
       </div>
 
       <div class="card">
@@ -152,6 +158,14 @@ searchInput$.pipe(
 loginClick$.pipe(
   exhaustMap(() => this.auth.login(credentials))
 ).subscribe(user => this.router.navigate(['/home']));</code></pre>
+        <div class="code-ref">
+          📂 Implementación en el proyecto:
+          <ul>
+            <li><code>features/rxjs-lab/flattening-operators.ts</code> — Comparación interactiva de los 4 operadores</li>
+            <li><code>features/ngrx-lab/store/product.effects.ts</code> — switchMap (load), exhaustMap (create), mergeMap (update/delete)</li>
+            <li><code>features/rxjs-lab/search-typeahead.ts</code> — switchMap en búsqueda real con debounceTime</li>
+          </ul>
+        </div>
       </div>
 
       <div class="card">
@@ -181,6 +195,9 @@ saveClick$.pipe(
   withLatestFrom(formData$),
   switchMap(([_, data]) => this.api.save(data))
 );</code></pre>
+        <div class="code-ref">
+          📂 <code>features/rxjs-lab/combining-operators.ts</code> — combineLatest, forkJoin, withLatestFrom en acción
+        </div>
       </div>
 
       <div class="card">
@@ -209,5 +226,8 @@ destroyRef.onDestroy(() => sub.unsubscribe());
 // 4. toSignal() — Angular signals, se limpia solo
 const count = toSignal(interval(1000), {{ '{' }} initialValue: 0 {{ '}' }});</code></pre>
         <p><strong>Regla:</strong> Si no usas <code>async</code> pipe, <code>toSignal()</code>, o <code>takeUntilDestroyed()</code>, necesitas cancelar manualmente.</p>
+        <div class="code-ref">
+          📂 <code>features/rxjs-lab/memory-leaks.ts</code> — Demostración de leak + 3 patrones de solución (takeUntil, DestroyRef, async pipe)
+        </div>
       </div>
     </div>

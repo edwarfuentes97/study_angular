@@ -1,0 +1,202 @@
+<div class="examples-page">
+  <h2>💡 Angular Fundamentals — Ejemplos Interactivos</h2>
+  <p class="page-desc">Experimenta con directivas, pipes, lifecycle hooks y ViewEncapsulation en vivo.</p>
+
+  <!-- ═══════════════════════════════════ -->
+  <!-- SECTION 1: DIRECTIVES DEMO -->
+  <!-- ═══════════════════════════════════ -->
+  <div class="card">
+    <h3>🎯 Directiva Custom: appHighlight</h3>
+    <p>Pasa el mouse sobre los elementos para ver la directiva en acción. Cambia el color con el picker.</p>
+
+    <div class="demo-panel">
+      <div class="control-row">
+        <label>Color del highlight:</label>
+        <input type="color" [(ngModel)]="highlightColor" />
+        <code>{{ highlightColor }}</code>
+      </div>
+
+      <div class="demo-items">
+        <p [appHighlight]="highlightColor" class="highlight-demo">🟢 Hover para highlight con color custom</p>
+        <p [appHighlight]="'#58a6ff'" class="highlight-demo">🔵 Highlight azul fijo</p>
+        <p [appHighlight]="'#f0883e'" class="highlight-demo">🟠 Highlight naranja fijo</p>
+        <p appHighlight class="highlight-demo">⚪ Highlight default (#58a6ff)</p>
+      </div>
+
+      <div class="code-block">
+        <h4>Código de la directiva:</h4>
+        <pre><code>&#64;Directive(&#123; selector: '[appHighlight]' &#125;)
+export class HighlightDirective &#123;
+  &#64;Input() appHighlight = '#58a6ff';
+  private el = inject(ElementRef);
+
+  &#64;HostListener('mouseenter') onMouseEnter() &#123;
+    this.el.nativeElement.style.backgroundColor = this.appHighlight;
+  &#125;
+  &#64;HostListener('mouseleave') onMouseLeave() &#123;
+    this.el.nativeElement.style.backgroundColor = '';
+  &#125;
+&#125;</code></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════ -->
+  <!-- SECTION 2: PIPES DEMO -->
+  <!-- ═══════════════════════════════════ -->
+  <div class="card">
+    <h3>🔧 Pipes — Built-in &amp; Custom</h3>
+
+    <div class="demo-panel">
+      <h4>Built-in Pipes</h4>
+      <div class="pipe-results">
+        <div class="pipe-row">
+          <span class="pipe-label">date:'fullDate'</span>
+          <span class="pipe-value">{{ today | date:'fullDate' }}</span>
+        </div>
+        <div class="pipe-row">
+          <span class="pipe-label">currency:'USD'</span>
+          <span class="pipe-value">{{ price | currency:'USD' }}</span>
+        </div>
+        <div class="pipe-row">
+          <span class="pipe-label">percent</span>
+          <span class="pipe-value">{{ 0.856 | percent:'1.1-1' }}</span>
+        </div>
+        <div class="pipe-row">
+          <span class="pipe-label">uppercase</span>
+          <span class="pipe-value">{{ 'angular fundamentals' | uppercase }}</span>
+        </div>
+        <div class="pipe-row">
+          <span class="pipe-label">json</span>
+          <span class="pipe-value">{{ { name: 'Angular', version: 20 } | json }}</span>
+        </div>
+      </div>
+
+      <h4>Custom Pure Pipe: filterBy</h4>
+      <div class="control-row">
+        <label>Buscar fruta:</label>
+        <input type="text" [(ngModel)]="searchTerm" placeholder="Escribe para filtrar..." class="search-input" />
+      </div>
+      <div class="fruit-list">
+        @for (fruit of fruits | filterBy:'name':searchTerm | sortBy:'name'; track fruit.name) {
+          <div class="fruit-item">
+            <span class="fruit-name">{{ fruit.name }}</span>
+            <span class="fruit-category">{{ fruit.category }}</span>
+          </div>
+        } @empty {
+          <p class="empty-msg">No se encontraron resultados para "{{ searchTerm }}"</p>
+        }
+      </div>
+
+      <div class="info-box">
+        <strong>💡 Pure vs Impure:</strong> <code>filterBy</code> es pure — solo se re-ejecuta si <code>searchTerm</code> cambia por referencia. <code>sortBy</code> es impure (<code>pure: false</code>) — se re-ejecuta en cada ciclo de Change Detection, lo cual es necesario para que funcione con pipes encadenados pero tiene costo de rendimiento.
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════ -->
+  <!-- SECTION 3: LIFECYCLE DEMO -->
+  <!-- ═══════════════════════════════════ -->
+  <div class="card">
+    <h3>🔄 Lifecycle Hooks — Simulación</h3>
+
+    <div class="demo-panel">
+      <div class="control-row">
+        <button class="btn" (click)="showChild = !showChild">
+          {{ showChild ? '🔴 Destruir Componente' : '🟢 Crear Componente' }}
+        </button>
+        <button class="btn btn-secondary" (click)="clearLog()">🗑️ Limpiar Log</button>
+      </div>
+
+      <div class="control-row">
+        <label>&#64;Input value:</label>
+        <input type="text" [(ngModel)]="childInput" class="search-input" />
+      </div>
+
+      @if (showChild) {
+        <div class="simulated-child">
+          <p>📦 <strong>Componente hijo activo</strong> — Input: "{{ childInput }}"</p>
+          <p class="hint-text">Cambia el input o destruye el componente para ver los hooks en el log.</p>
+        </div>
+      }
+
+      <div class="log-panel">
+        <h4>📋 Lifecycle Log:</h4>
+        <div class="log-entries">
+          @if (showChild) {
+            <div class="log-entry">✅ constructor — Inyección de dependencias</div>
+            <div class="log-entry">✅ ngOnChanges — &#64;Input "{{ childInput }}" recibido</div>
+            <div class="log-entry">✅ ngOnInit — Inicialización completa</div>
+            <div class="log-entry">✅ ngDoCheck — Change detection ejecutado</div>
+            <div class="log-entry">✅ ngAfterContentInit — Contenido proyectado listo</div>
+            <div class="log-entry">✅ ngAfterContentChecked — Contenido verificado</div>
+            <div class="log-entry">✅ ngAfterViewInit — Vista renderizada</div>
+            <div class="log-entry">✅ ngAfterViewChecked — Vista verificada</div>
+          }
+          @if (!showChild && lifecycleLog().length === 0) {
+            <div class="log-entry destroyed">🔴 ngOnDestroy — Cleanup ejecutado</div>
+            <div class="log-entry hint-text">El componente fue destruido. Suscripciones canceladas, timers limpiados.</div>
+          }
+        </div>
+      </div>
+
+      <div class="info-box">
+        <strong>⚡ Orden:</strong> constructor → ngOnChanges → ngOnInit → ngDoCheck → ngAfterContentInit → ngAfterContentChecked → ngAfterViewInit → ngAfterViewChecked → (repeat check cycle) → ngOnDestroy
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════ -->
+  <!-- SECTION 4: VIEW ENCAPSULATION DEMO -->
+  <!-- ═══════════════════════════════════ -->
+  <div class="card">
+    <h3>🎨 ViewEncapsulation — Comparación</h3>
+
+    <div class="demo-panel">
+      <div class="encapsulation-grid">
+        <div class="encap-box encap-emulated">
+          <h4>Emulated (Default)</h4>
+          <p class="styled-text">Este texto tiene estilos encapsulados</p>
+          <div class="encap-detail">
+            <code>_nghost-abc</code> y <code>_ngcontent-abc</code><br>
+            Angular añade atributos únicos al HTML y al CSS.<br>
+            <strong>CSS:</strong> <code>p[_ngcontent-abc] &#123; color: red; &#125;</code>
+          </div>
+        </div>
+
+        <div class="encap-box encap-shadow">
+          <h4>ShadowDom (Nativo)</h4>
+          <p class="styled-text">Este texto usa Shadow DOM real</p>
+          <div class="encap-detail">
+            Usa <code>#shadow-root</code> del navegador.<br>
+            CSS completamente aislado — no entra ni sale.<br>
+            <strong>Limitación:</strong> No todos los componentes/librerías funcionan bien.
+          </div>
+        </div>
+
+        <div class="encap-box encap-none">
+          <h4>None (Global)</h4>
+          <p class="styled-text">¡Estos estilos son GLOBALES!</p>
+          <div class="encap-detail">
+            Sin encapsulación. CSS se aplica a toda la app.<br>
+            <strong>Peligro:</strong> Puede romper estilos de otros componentes.<br>
+            <strong>Uso:</strong> Estilos base de librería, reset CSS.
+          </div>
+        </div>
+      </div>
+
+      <div class="code-block">
+        <h4>Cómo se configura:</h4>
+        <pre><code>&#64;Component(&#123;
+  encapsulation: ViewEncapsulation.Emulated  // default — no necesitas declarar
+  encapsulation: ViewEncapsulation.ShadowDom // Shadow DOM nativo
+  encapsulation: ViewEncapsulation.None      // sin encapsulación
+&#125;)</code></pre>
+      </div>
+
+      <div class="info-box">
+        <strong>🎓 En entrevistas:</strong> "¿Cuál es la diferencia entre Emulated y ShadowDom?" — Emulated usa atributos HTML para simular aislamiento; ShadowDom usa la API nativa del navegador. Emulated es el default porque funciona en todos los escenarios.
+      </div>
+    </div>
+  </div>
+</div>

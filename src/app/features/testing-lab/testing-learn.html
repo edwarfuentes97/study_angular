@@ -25,6 +25,16 @@
     expect(el.textContent).toContain('Mi Título');
   &#125;);
 &#125;);</code></pre>
+        <div class="code-ref">
+          📂 <code>features/testing-lab/testing-demo.spec.ts</code> — TestBed.configureTestingModule con ComponentFixture
+        </div>
+        <div class="code-ref">
+          📂 Implementación en el proyecto:
+          <ul>
+            <li><code>features/testing-lab/testing-demo.spec.ts</code> — 13 tests: render, clicks, async, mocking</li>
+            <li><code>app.spec.ts</code> — Test básico del componente raíz</li>
+          </ul>
+        </div>
       </div>
 
       <div class="card">
@@ -39,6 +49,9 @@
   fixture.detectChanges();
   expect(component.data().length).toBeGreaterThan(0);
 &#125;));</code></pre>
+        <div class="code-ref">
+          📂 <code>features/testing-lab/testing-demo.spec.ts</code> — fakeAsync + tick para operaciones asíncronas
+        </div>
       </div>
 
       <div class="card">
@@ -77,6 +90,9 @@
   &#125;);
   store = TestBed.inject(MockStore);
 &#125;);</code></pre>
+        <div class="code-ref">
+          📂 Pendiente de implementar — consulta el ejercicio en la pestaña Lab 🧪
+        </div>
       </div>
 
       <div class="card">

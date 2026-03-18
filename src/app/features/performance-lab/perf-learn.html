@@ -16,6 +16,13 @@
     &#125;
   \`
 &#125;)</code></pre>
+        <div class="code-ref">
+          📂 Implementación en el proyecto:
+          <ul>
+            <li><code>features/ngrx-lab/components/product-card.ts</code> — OnPush change detection</li>
+            <li><code>features/performance-lab/perf-demo.ts</code> — trackBy comparación (con y sin)</li>
+          </ul>
+        </div>
       </div>
 
       <div class="card">
@@ -37,6 +44,9 @@
 &#125; &#64;error &#123;
   &lt;div class="error"&gt;Error al cargar&lt;/div&gt;
 &#125;</code></pre>
+        <div class="code-ref">
+          📂 <code>features/performance-lab/perf-demo.ts</code> — &#64;defer (on viewport) con &#64;placeholder y &#64;loading
+        </div>
       </div>
 
       <div class="card">
@@ -52,6 +62,9 @@
     &#123;&#123; item.name &#125;&#125;
   &lt;/div&gt;
 &lt;/cdk-virtual-scroll-viewport&gt;</code></pre>
+        <div class="code-ref">
+          📂 <code>features/performance-lab/perf-demo.ts</code> — cdk-virtual-scroll-viewport con 10,000 items
+        </div>
       </div>
 
       <div class="card">
@@ -65,6 +78,9 @@
         <pre><code>// angular.json → "sourceMap": true
 // Terminal:
 // npx source-map-explorer dist/app/browser/*.js</code></pre>
+        <div class="code-ref">
+          📂 <code>app.routes.ts</code> — Lazy loading de todas las features reduce el bundle inicial
+        </div>
       </div>
 
       <div class="card">
@@ -76,6 +92,9 @@
           con <code>data: &#123; preload: true &#125;</code>.
         </p>
         <pre><code>provideRouter(routes, withPreloading(PreloadAllModules))</code></pre>
+        <div class="code-ref">
+          📂 <code>app.routes.ts</code> — Rutas lazy-loaded listas para preloading strategies
+        </div>
       </div>
 
       <div class="card">

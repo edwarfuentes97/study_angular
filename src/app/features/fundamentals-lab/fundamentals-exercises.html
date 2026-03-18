@@ -1,0 +1,158 @@
+<div class="exercises-page">
+  <h2 class="page-title">🧪 Angular Fundamentals — Laboratorio</h2>
+  <p class="page-desc">Completa cada ejercicio para dominar los fundamentos de Angular. Estos conceptos aparecen en TODAS las entrevistas Senior.</p>
+
+  <!-- Exercise 1 -->
+  <div class="card exercise">
+    <h3>1️⃣ Ejercicio: Directiva Custom — appTooltipCustom</h3>
+    <p>
+      Crea una directiva de atributo <code>appTooltipCustom</code> que muestre un tooltip al hacer
+      hover sobre un elemento. Debe aceptar un <code>&#64;Input</code> con el texto del tooltip.
+      El tooltip debe aparecer como un pequeño popup encima del elemento.
+    </p>
+    <div class="criteria">
+      <h4>✅ Criterios de aceptación</h4>
+      <ul>
+        <li>La directiva se llama <code>[appTooltipCustom]</code> y acepta un string como input</li>
+        <li>Al hacer <code>mouseenter</code>, se muestra un elemento tooltip posicionado sobre el host</li>
+        <li>Al hacer <code>mouseleave</code>, el tooltip desaparece</li>
+        <li>El tooltip tiene estilos propios (background oscuro, texto blanco, border-radius)</li>
+        <li>Usa <code>inject(ElementRef)</code> y <code>Renderer2</code> para crear el tooltip dinámicamente</li>
+        <li><strong>Bonus:</strong> Posiciona el tooltip arriba del elemento usando <code>getBoundingClientRect()</code></li>
+      </ul>
+    </div>
+    <div class="hint">
+      💡 <strong>Tip:</strong> Usa <code>Renderer2.createElement()</code> y <code>Renderer2.appendChild()</code>
+      para crear el tooltip. Guárdalo en una variable privada para poder removerlo en <code>mouseleave</code>.
+      Usa <code>position: absolute</code> y calcula el <code>top</code> con <code>getBoundingClientRect()</code>.
+    </div>
+  </div>
+
+  <!-- Exercise 2 -->
+  <div class="card exercise">
+    <h3>2️⃣ Ejercicio: Pipe Custom — timeAgo</h3>
+    <p>
+      Crea un pipe <code>timeAgo</code> que convierta un <code>Date</code> a texto relativo:
+      "hace 5 min", "hace 2 horas", "hace 3 días". El pipe debe ser <strong>pure</strong>.
+    </p>
+    <div class="criteria">
+      <h4>✅ Criterios de aceptación</h4>
+      <ul>
+        <li>El pipe se llama <code>timeAgo</code> y recibe un <code>Date</code> o string de fecha</li>
+        <li>Retorna texto en español: "hace X segundos", "hace X minutos", "hace X horas", "hace X días"</li>
+        <li>Maneja correctamente: segundos (&lt;60s), minutos (&lt;60m), horas (&lt;24h), días</li>
+        <li>El pipe es <strong>pure</strong> (default)</li>
+        <li>Incluye un comentario explicando: ¿por qué NO debería ser impure? (rendimiento vs precisión)</li>
+        <li>Muestra en template al menos 3 fechas diferentes con el pipe aplicado</li>
+      </ul>
+    </div>
+    <div class="hint">
+      💡 <strong>Tip:</strong> Un pipe impure se re-ejecutaría en cada ciclo de Change Detection
+      (potencialmente cientos de veces por segundo), lo cual es innecesario para mostrar "hace 5 min".
+      Si necesitas actualización en tiempo real, usa un <code>interval()</code> + signal para cambiar la referencia del Date.
+    </div>
+  </div>
+
+  <!-- Exercise 3 -->
+  <div class="card exercise">
+    <h3>3️⃣ Ejercicio: Lifecycle Hooks — Mutación vs Reemplazo</h3>
+    <p>
+      Crea un componente padre-hijo. El padre pasa un objeto por <code>&#64;Input()</code>.
+      Implementa <code>ngOnChanges</code> en el hijo y documenta: ¿se detecta el cambio si
+      <strong>mutas</strong> el objeto vs lo <strong>reemplazas</strong>?
+    </p>
+    <div class="criteria">
+      <h4>✅ Criterios de aceptación</h4>
+      <ul>
+        <li>Componente padre con un objeto <code>user = &#123; name: 'Ana', age: 25 &#125;</code></li>
+        <li>Componente hijo recibe <code>&#64;Input() user</code> e implementa <code>ngOnChanges</code></li>
+        <li>Botón "Mutar" que hace <code>this.user.name = 'Nuevo'</code> (misma referencia)</li>
+        <li>Botón "Reemplazar" que hace <code>this.user = &#123; ...this.user, name: 'Nuevo' &#125;</code> (nueva referencia)</li>
+        <li>Log visible mostrando si <code>ngOnChanges</code> se ejecutó o no en cada caso</li>
+        <li>Comentario con la conclusión: mutar NO trigger ngOnChanges, reemplazar SÍ</li>
+      </ul>
+    </div>
+    <div class="hint">
+      💡 <strong>Tip:</strong> <code>ngOnChanges</code> usa <code>===</code> para comparar — solo detecta
+      cambios de <strong>referencia</strong>, no mutaciones internas. Por eso Angular promueve inmutabilidad.
+      Con <code>OnPush</code> change detection, esto es aún más crítico.
+    </div>
+  </div>
+
+  <!-- Exercise 4 -->
+  <div class="card exercise">
+    <h3>4️⃣ Ejercicio: Content Projection — Multi-Slot Card</h3>
+    <p>
+      Crea un componente <code>&lt;app-card&gt;</code> con multi-slot content projection:
+      header, body y footer, cada uno usando <code>&lt;ng-content select="..."&gt;</code>.
+    </p>
+    <div class="criteria">
+      <h4>✅ Criterios de aceptación</h4>
+      <ul>
+        <li>Componente <code>&lt;app-card&gt;</code> con 3 slots: <code>.card-header</code>, default (body), <code>[card-footer]</code></li>
+        <li>Cada slot tiene estilos diferentes (header con background, footer con borde top)</li>
+        <li>Contenido que no matchea ningún selector va al slot default</li>
+        <li>Ejemplo de uso con los 3 slots poblados</li>
+        <li>Ejemplo de uso con solo 1-2 slots (los vacíos no deben generar espacio)</li>
+        <li><strong>Bonus:</strong> Usa <code ngNonBindable>&#64;if</code> con una referencia para ocultar el header si no hay contenido proyectado</li>
+      </ul>
+    </div>
+    <div class="hint">
+      💡 <strong>Tip:</strong> Para detectar si hay contenido proyectado, puedes usar
+      <code>&#64;ContentChild</code> o verificar <code>ngAfterContentInit</code>.
+      La alternativa moderna es usar <code>contentChild()</code> signal query.
+    </div>
+  </div>
+
+  <!-- Exercise 5 -->
+  <div class="card exercise">
+    <h3>5️⃣ Ejercicio: ViewEncapsulation — Las 3 Versiones</h3>
+    <p>
+      Crea 3 versiones del mismo componente, cada una con una <code>ViewEncapsulation</code> diferente:
+      <code>Emulated</code>, <code>ShadowDom</code> y <code>None</code>. Aplica el mismo CSS a los 3
+      y observa las diferencias en el DOM inspector.
+    </p>
+    <div class="criteria">
+      <h4>✅ Criterios de aceptación</h4>
+      <ul>
+        <li>3 componentes: <code>StyledEmulated</code>, <code>StyledShadow</code>, <code>StyledNone</code></li>
+        <li>Los 3 tienen exactamente el mismo template y CSS: <code>p &#123; color: red; font-weight: bold; &#125;</code></li>
+        <li>Se renderizan lado a lado en la misma página</li>
+        <li>Documenta qué ves en el DOM inspector para cada uno</li>
+        <li>Explica por qué <code>None</code> afecta TODOS los <code>&lt;p&gt;</code> de la app</li>
+        <li>Explica cuándo usarías <code>ShadowDom</code> (Web Components, widgets embebidos)</li>
+      </ul>
+    </div>
+    <div class="hint">
+      💡 <strong>Tip:</strong> Abre Chrome DevTools → Elements y observa cómo Angular genera atributos
+      <code>_nghost</code> y <code>_ngcontent</code> para Emulated, usa <code>#shadow-root</code> para
+      ShadowDom, y no hace nada especial para None.
+    </div>
+  </div>
+
+  <!-- Exercise 6 -->
+  <div class="card exercise">
+    <h3>6️⃣ Ejercicio: DI Avanzado — InjectionToken con Jerarquía</h3>
+    <p>
+      Crea un <code>InjectionToken&lt;string&gt;</code> para <code>API_URL</code>. Provéelo a nivel
+      raíz con un valor y a nivel de componente con otro valor. Verifica qué valor recibe cada componente.
+    </p>
+    <div class="criteria">
+      <h4>✅ Criterios de aceptación</h4>
+      <ul>
+        <li>Crea <code>API_URL = new InjectionToken&lt;string&gt;('API URL')</code></li>
+        <li>Provéelo en <code>app.config.ts</code> con valor <code>'https://api.global.com'</code></li>
+        <li>Crea un componente que lo provee localmente con <code>'https://api.local.com'</code></li>
+        <li>Componente padre muestra el valor global</li>
+        <li>Componente hijo (con provider local) muestra el valor local</li>
+        <li>Documenta: "El ElementInjector del hijo tiene prioridad sobre el ModuleInjector"</li>
+        <li><strong>Bonus:</strong> Usa <code>useFactory</code> para crear el valor dinámicamente basado en el environment</li>
+      </ul>
+    </div>
+    <div class="hint">
+      💡 <strong>Tip:</strong> Angular resuelve DI subiendo por el árbol de injectors. Si encuentra
+      el provider en el <code>ElementInjector</code> del componente, lo usa. Si no, sube al
+      <code>ModuleInjector</code>. Esto permite override per-componente.
+    </div>
+  </div>
+</div>

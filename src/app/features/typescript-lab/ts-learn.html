@@ -51,6 +51,14 @@ class Cache&lt;T = string&gt; &#123;
 
 const stringCache = new Cache();        // Cache&lt;string&gt;
 const numberCache = new Cache&lt;number&gt;(); // Cache&lt;number&gt;</code></pre>
+        <div class="code-ref">
+          📂 Implementación en el proyecto:
+          <ul>
+            <li><code>features/typescript-lab/ts-playground.ts</code> — Generic interfaces y funciones</li>
+            <li><code>features/ngrx-lab/store/product.reducer.ts</code> — EntityAdapter&lt;Product&gt;</li>
+            <li><code>shared/models/product.model.ts</code> — AsyncState&lt;T&gt; genérico</li>
+          </ul>
+        </div>
       </div>
 
       <div class="card">
@@ -115,6 +123,9 @@ function makeSound(animal: Cat | Dog): void &#123;
     animal.bark(); // TS sabe que es Dog
   &#125;
 &#125;</code></pre>
+        <div class="code-ref">
+          📂 <code>features/typescript-lab/ts-playground.ts</code> — Type Guards con is, instanceof, in operator
+        </div>
       </div>
 
       <div class="card">
@@ -175,6 +186,13 @@ function reducer(state: string[], action: Action): string[] &#123;
       return [];
   &#125;
 &#125;</code></pre>
+        <div class="code-ref">
+          📂 Implementación en el proyecto:
+          <ul>
+            <li><code>features/typescript-lab/ts-playground.ts</code> — ApiResponse con status discriminante</li>
+            <li><code>shared/models/product.model.ts</code> — AsyncState con status: idle | loading | success | error</li>
+          </ul>
+        </div>
       </div>
 
       <div class="card">
@@ -228,5 +246,8 @@ type Created = ReturnType&lt;typeof createProduct&gt;;
 // Combinaciones avanzadas
 type ProductPreview = Readonly&lt;Pick&lt;Product, 'name' | 'price'&gt;&gt;;
 type ProductDraft = Partial&lt;Omit&lt;Product, 'id'&gt;&gt; &amp; &#123; id?: never &#125;;</code></pre>
+        <div class="code-ref">
+          📂 <code>features/typescript-lab/ts-playground.ts</code> — Partial, Pick, Omit, Record ejemplos
+        </div>
       </div>
     </div>

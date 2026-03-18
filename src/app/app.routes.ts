@@ -14,6 +14,10 @@ export const routes: Routes = [
     loadChildren: () => import('./features/rxjs-lab/rxjs-lab.routes').then(m => m.RXJS_LAB_ROUTES)
   },
   {
+    path: 'lab/fundamentals',
+    loadChildren: () => import('./features/fundamentals-lab/fundamentals-lab.routes').then(m => m.FUNDAMENTALS_LAB_ROUTES)
+  },
+  {
     path: 'lab/angular',
     loadChildren: () => import('./features/angular-lab/angular-lab.routes').then(m => m.ANGULAR_LAB_ROUTES)
   },

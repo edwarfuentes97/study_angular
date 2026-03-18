@@ -24,6 +24,9 @@ export class ChildComponent &#123;
 // En el padre — mutar NO dispara CD en OnPush
 this.user.name = 'Nuevo';           // ❌ misma referencia
 this.user = &#123; name: 'Nuevo' &#125;;     // ✅ nueva referencia</code></pre>
+        <div class="code-ref">
+          📂 <code>features/angular-lab/change-detection/cd-demo.ts</code> — Default vs OnPush lado a lado
+        </div>
       </div>
 
       <div class="card">
@@ -57,6 +60,13 @@ selected.set(items()[2]); // se puede sobrescribir manualmente
 
 // Integración con RxJS
 const data = toSignal(this.http.get('/api'), &#123; initialValue: [] &#125;);</code></pre>
+        <div class="code-ref">
+          📂 Implementación en el proyecto:
+          <ul>
+            <li><code>features/angular-lab/signals/signals-demo.ts</code> — signal(), computed(), effect(), linkedSignal()</li>
+            <li><code>core/services/progress.service.ts</code> — Servicio real con Signals para tracking de progreso</li>
+          </ul>
+        </div>
       </div>
 
       <div class="card">
@@ -90,6 +100,9 @@ function forbiddenName(name: string): ValidatorFn &#123;
 // Acceder a errores
 form.get('email')?.errors;    // &#123; required: true &#125; | &#123; email: true &#125; | null
 form.get('email')?.touched;   // boolean</code></pre>
+        <div class="code-ref">
+          📂 <code>features/angular-lab/forms/reactive-form-demo.ts</code> — FormGroup, FormArray, validadores custom
+        </div>
       </div>
 
       <div class="card">
@@ -122,6 +135,13 @@ export const routes: Routes = [
 
 // Preloading strategy en provideRouter
 provideRouter(routes, withPreloading(PreloadAllModules));</code></pre>
+        <div class="code-ref">
+          📂 Implementación en el proyecto:
+          <ul>
+            <li><code>app.routes.ts</code> — loadComponent() y loadChildren() en todas las rutas</li>
+            <li><code>features/angular-lab/lazy-feature/lazy-demo.routes.ts</code> — Feature con rutas hijas lazy</li>
+          </ul>
+        </div>
       </div>
 
       <div class="card">
@@ -158,6 +178,14 @@ export const authGuard: CanActivateFn = () =&gt;
 
 // Registro
 provideHttpClient(withInterceptors([authInterceptor]));</code></pre>
+        <div class="code-ref">
+          📂 Implementación en el proyecto:
+          <ul>
+            <li><code>core/interceptors/auth.interceptor.ts</code> — HttpInterceptorFn funcional</li>
+            <li><code>core/guards/auth.guard.ts</code> — CanActivateFn funcional</li>
+            <li><code>app.config.ts</code> — provideHttpClient(withInterceptors([...]))</li>
+          </ul>
+        </div>
       </div>
 
     </div>
