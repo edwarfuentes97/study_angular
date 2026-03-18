@@ -4,7 +4,7 @@ import { LabLayoutComponent } from '../../shared/components/lab-layout';
 @Component({
   selector: 'app-ts-layout',
   imports: [LabLayoutComponent],
-  template: `<app-lab-layout title="TypeScript Avanzado" icon="🔵" [steps]="steps" />`
+  templateUrl: './ts-layout.html'
 })
 export class TsLayoutComponent {
   steps = [

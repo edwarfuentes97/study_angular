@@ -1,0 +1,37 @@
+<div class="lab-header">
+  <h2>🔀 Flattening Operators</h2>
+  <p>Click rapidly to see how switchMap, mergeMap, concatMap, and exhaustMap differ</p>
+  <nav class="lab-nav">
+    <a routerLink="/lab/rxjs" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Observable Types</a>
+    <a routerLink="/lab/rxjs/operators" routerLinkActive="active">Operators</a>
+    <a routerLink="/lab/rxjs/search" routerLinkActive="active">Search</a>
+    <a routerLink="/lab/rxjs/combining" routerLinkActive="active">Combining</a>
+    <a routerLink="/lab/rxjs/memory" routerLinkActive="active">Memory Leaks</a>
+  </nav>
+</div>
+
+<div class="controls">
+  <button class="btn btn-primary" (click)="clickAll()">🖱️ Click (simulates request)</button>
+  <button class="btn btn-danger" (click)="resetAll()">Reset All</button>
+  <span class="hint">Click rapidly 3-5 times, then watch the columns</span>
+</div>
+
+<div class="columns">
+  @for (col of columns(); track col.name) {
+    <div class="column card">
+      <h3>{{ col.name }}</h3>
+      <p class="description">{{ col.description }}</p>
+      <div class="output-log">
+        @if (col.logs.length === 0) {
+          <div class="log-entry" style="color: var(--text-muted)">No requests yet...</div>
+        }
+        @for (entry of col.logs; track $index) {
+          <div class="log-entry">
+            <span class="log-time">{{ entry.time }}</span>
+            <span>{{ entry.status }} #{{ entry.id }}</span>
+          </div>
+        }
+      </div>
+    </div>
+  }
+</div>

@@ -7,27 +7,8 @@ import { ScrollingModule } from '@angular/cdk/scrolling';
   selector: 'app-heavy',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `
-    <div class="heavy-inner">
-      <p class="heavy-title">🏋️ Heavy Component Loaded!</p>
-      <p class="heavy-info">This component renders {{ rows.length }} rows — loaded only when scrolled into viewport.</p>
-      <div class="heavy-list">
-        @for (row of rows; track row) {
-          <div class="heavy-row">Row #{{ row }} — computed value: {{ row * 17 % 97 }}</div>
-        }
-      </div>
-    </div>
-  `,
-  styles: `
-    .heavy-inner { padding: 0.5rem; }
-    .heavy-title { font-weight: 700; color: var(--accent-green); margin-bottom: 0.3rem; }
-    .heavy-info { font-size: 0.82rem; color: var(--text-muted); margin-bottom: 0.5rem; }
-    .heavy-list { max-height: 200px; overflow-y: auto; }
-    .heavy-row {
-      font-size: 0.78rem; padding: 0.2rem 0.4rem; color: var(--text-muted);
-      border-bottom: 1px solid rgba(48,54,61,0.3);
-    }
-  `,
+  templateUrl: './perf-demo.html',
+  styleUrl: './perf-demo.css',
 })
 export class HeavyComponent {
   readonly rows = Array.from({ length: 200 }, (_, i) => i + 1);

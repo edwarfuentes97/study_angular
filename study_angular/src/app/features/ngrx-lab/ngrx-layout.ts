@@ -3,7 +3,7 @@ import { LabLayoutComponent } from '../../shared/components/lab-layout';
 
 @Component({
   imports: [LabLayoutComponent],
-  template: `<app-lab-layout title="NgRx — State Management" icon="🔴" [steps]="steps" />`
+  templateUrl: './ngrx-layout.html'
 })
 export class NgrxLayoutComponent {
   steps = [

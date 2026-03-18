@@ -1,0 +1,72 @@
+<section class="lab">
+  <header class="lab-header">
+    <h2>🧪 Testing Lab</h2>
+    <p>A testable component with counter logic and service dependency</p>
+  </header>
+
+  <!-- Counter Section -->
+  <div class="lab-section">
+    <h3>Counter</h3>
+    <div class="card">
+      <div class="counter-display">
+        <span class="counter-value" data-testid="counter-value">{{ counter() }}</span>
+      </div>
+      <div class="counter-controls">
+        <button class="btn" data-testid="decrement-btn" (click)="decrement()">− Decrement</button>
+        <button class="btn btn-primary" data-testid="increment-btn" (click)="increment()">+ Increment</button>
+        <button class="btn btn-danger" data-testid="reset-btn" (click)="reset()">↺ Reset</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Products Section (loaded from service) -->
+  <div class="lab-section">
+    <h3>Products from MockApiService</h3>
+    <div class="card">
+      <div class="controls">
+        <button class="btn btn-primary" data-testid="load-btn" (click)="loadProducts()">
+          Load Products
+        </button>
+      </div>
+
+      @if (loading()) {
+        <div class="loading-bar" data-testid="loading-indicator"></div>
+      }
+
+      @if (error()) {
+        <div class="error-banner" data-testid="error-message">⚠️ {{ error() }}</div>
+      }
+
+      <div class="product-list" data-testid="product-list">
+        @for (product of products(); track product.id) {
+          <div class="product-row" data-testid="product-row">
+            <span class="product-name">{{ product.name }}</span>
+            <span class="product-category">{{ product.category }}</span>
+            <span class="product-price">\${{ product.price.toFixed(2) }}</span>
+            <span class="product-score" [attr.data-score]="product.sustainabilityScore">
+              🌱 {{ product.sustainabilityScore }}
+            </span>
+          </div>
+        } @empty {
+          @if (!loading()) {
+            <p class="empty" data-testid="empty-message">No products loaded. Click "Load Products".</p>
+          }
+        }
+      </div>
+    </div>
+  </div>
+
+  <!-- Test hints -->
+  <div class="lab-section">
+    <h3>Testing Hints</h3>
+    <div class="card">
+      <div class="output-log">
+        <div class="log-entry"><span class="log-time">Tip 1:</span> Use <code>data-testid</code> attributes for reliable selectors</div>
+        <div class="log-entry"><span class="log-time">Tip 2:</span> Mock <code>MockApiService</code> with <code>jasmine.createSpyObj</code></div>
+        <div class="log-entry"><span class="log-time">Tip 3:</span> Use <code>fakeAsync</code> + <code>tick</code> for async operations</div>
+        <div class="log-entry"><span class="log-time">Tip 4:</span> Always call <code>fixture.detectChanges()</code> after state changes</div>
+        <div class="log-entry"><span class="log-time">Tip 5:</span> Test behavior, not implementation details</div>
+      </div>
+    </div>
+  </div>
+</section>

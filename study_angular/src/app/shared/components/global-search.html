@@ -1,0 +1,43 @@
+<div class="search-container" [class.active]="results().length > 0 && query().length > 0">
+  <div class="search-input-wrap">
+    <span class="search-icon">🔍</span>
+    <input
+      type="text"
+      placeholder="Buscar término, concepto o tema..."
+      [ngModel]="query()"
+      (ngModelChange)="onQueryChange($event)"
+      (focus)="onFocus()"
+      (keydown)="onKeydown($event)"
+      class="search-input"
+    />
+    @if (query().length > 0) {
+      <button class="search-clear" (click)="clear()">✕</button>
+    }
+  </div>
+  @if (showResults() && results().length > 0) {
+    <div class="search-results">
+      @for (group of groupedResults(); track group.topic) {
+        <div class="result-group">
+          <div class="result-topic-header">{{ group.topicLabel }}</div>
+          @for (result of group.items; track result.term; let i = $index) {
+            <a class="result-item" [class.highlighted]="isHighlighted(group, i)"
+               [routerLink]="result.route"
+               (click)="selectResult(result)"
+               (mouseenter)="highlightedIndex.set(getGlobalIndex(group, i))">
+              <span class="result-term">{{ result.term }}</span>
+              <span class="result-def">{{ result.definition | slice:0:80 }}{{ result.definition.length > 80 ? '...' : '' }}</span>
+            </a>
+          }
+        </div>
+      }
+      <div class="result-footer">
+        {{ results().length }} resultado{{ results().length !== 1 ? 's' : '' }} encontrado{{ results().length !== 1 ? 's' : '' }}
+      </div>
+    </div>
+  }
+  @if (showResults() && query().length >= 2 && results().length === 0) {
+    <div class="search-results">
+      <div class="no-results">No se encontraron resultados para "{{ query() }}"</div>
+    </div>
+  }
+</div>

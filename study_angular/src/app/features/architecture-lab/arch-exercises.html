@@ -1,0 +1,47 @@
+<div class="cards">
+  <!-- Ejercicio 1 -->
+  <div class="card">
+    <h3>1 · Smart / Dumb</h3>
+    <p>
+      Refactora un componente monolítico en un Smart container + 3 Dumb
+      presentacionales. El Smart maneja Store/service, los Dumb solo
+      &#64;Input/&#64;Output + OnPush.
+    </p>
+    <ul class="criteria">
+      <li>Smart container creado</li>
+      <li>3 componentes Dumb con OnPush</li>
+      <li>Comunicación vía &#64;Input/&#64;Output</li>
+    </ul>
+    <div class="tip">El Smart component es el único que inyecta servicios o Store</div>
+  </div>
+
+  <!-- Ejercicio 2 -->
+  <div class="card">
+    <h3>2 · Comunicación</h3>
+    <p>
+      Implementa el mismo feature usando 4 patrones: &#64;Input/&#64;Output,
+      shared service con BehaviorSubject, Signals, NgRx Store.
+    </p>
+    <ul class="criteria">
+      <li>Los 4 patrones implementados y funcionando</li>
+      <li>Se documenta cuándo usar cada uno</li>
+    </ul>
+    <div class="tip">Empieza con &#64;Input/&#64;Output para flujos padre→hijo simples, usa servicios para hermanos</div>
+  </div>
+
+  <!-- Ejercicio 3 -->
+  <div class="card">
+    <h3>3 · Folder Structure</h3>
+    <p>
+      Organiza el proyecto con core/ (servicios singleton), shared/
+      (componentes reutilizables), features/ (por dominio). Agrega barrel
+      exports (index.ts).
+    </p>
+    <ul class="criteria">
+      <li>Estructura core/shared/features correcta</li>
+      <li>Barrel exports funcionando</li>
+      <li>Imports limpios</li>
+    </ul>
+    <div class="tip">Usa providedIn: 'root' para servicios en core/ — no necesitan módulo</div>
+  </div>
+</div>

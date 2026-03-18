@@ -33,35 +33,8 @@ class ItemBusService {
   selector: 'app-item-list',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `
-    <div class="item-list">
-      <h4>📋 Item List <span class="tag tag-blue">Presentational</span></h4>
-      @for (item of items; track item.id) {
-        <div
-          class="list-row"
-          [class.selected]="item.id === selectedId"
-          (click)="select.emit(item)">
-          <span class="item-name">{{ item.name }}</span>
-          <span class="item-desc">{{ item.description }}</span>
-        </div>
-      } @empty {
-        <p class="empty">No items yet.</p>
-      }
-    </div>
-  `,
-  styles: `
-    .item-list h4 { margin-bottom: 0.5rem; font-size: 0.95rem; }
-    .list-row {
-      display: flex; justify-content: space-between; align-items: center;
-      padding: 0.45rem 0.6rem; border-radius: 4px; cursor: pointer;
-      font-size: 0.85rem; transition: background 0.15s;
-    }
-    .list-row:hover { background: rgba(88,166,255,0.08); }
-    .list-row.selected { background: rgba(88,166,255,0.15); border-left: 3px solid var(--accent-blue); }
-    .item-name { font-weight: 600; }
-    .item-desc { color: var(--text-muted); font-size: 0.8rem; }
-    .empty { color: var(--text-muted); font-size: 0.85rem; padding: 0.5rem; }
-  `,
+  templateUrl: './architecture-lab.html',
+  styleUrl: './architecture-lab.css',
 })
 export class ItemListComponent {
   @Input() items: Item[] = [];

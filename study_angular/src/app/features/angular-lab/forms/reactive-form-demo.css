@@ -1,0 +1,66 @@
+.lab-tabs {
+  display: flex; gap: 0.5rem; margin-bottom: 1.5rem;
+  border-bottom: 1px solid var(--border); padding-bottom: 0.75rem;
+}
+.lab-tabs a {
+  padding: 0.5rem 1rem; border-radius: 6px 6px 0 0;
+  color: var(--text-muted); text-decoration: none; font-weight: 500;
+  border: 1px solid transparent; transition: all 0.2s;
+}
+.lab-tabs a:hover { color: var(--text); background: var(--bg-card); }
+.lab-tabs a.active {
+  color: var(--accent-purple); border-color: var(--border);
+  border-bottom-color: var(--bg); background: var(--bg-card);
+}
+
+/* Step indicator */
+.step-indicator { display: flex; gap: 1rem; margin-bottom: 1.5rem; }
+.step {
+  display: flex; align-items: center; gap: 0.5rem;
+  color: var(--text-muted); font-size: 0.9rem;
+}
+.step-num {
+  width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center;
+  border: 2px solid var(--border); font-weight: 700; font-size: 0.8rem;
+}
+.step.active .step-num {
+  border-color: var(--accent-purple); color: var(--accent-purple); background: rgba(139,92,246,0.1);
+}
+.step.active .step-label { color: var(--text); }
+.step.done .step-num {
+  border-color: var(--accent-green); color: var(--accent-green); background: rgba(63,185,80,0.1);
+}
+.step.done .step-label { color: var(--accent-green); }
+
+/* Form fields */
+.field { display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 1rem; }
+.field span { font-size: 0.85rem; color: var(--text-muted); }
+.field input, .field select {
+  padding: 0.6rem 0.75rem; border-radius: 6px; border: 1px solid var(--border);
+  background: var(--bg); color: var(--text); font-size: 0.95rem;
+}
+.field input:focus, .field select:focus { outline: none; border-color: var(--accent-purple); }
+.error { color: var(--accent-red); font-size: 0.8rem; }
+.hint { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.75rem; }
+
+h4 { margin: 0 0 1rem; color: var(--accent-blue); }
+
+/* Skills */
+.skill-row {
+  display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem;
+}
+.skill-input {
+  flex: 1; padding: 0.5rem 0.75rem; border-radius: 6px;
+  border: 1px solid var(--border); background: var(--bg); color: var(--text);
+}
+.skill-select {
+  padding: 0.5rem; border-radius: 6px; border: 1px solid var(--border);
+  background: var(--bg); color: var(--text);
+}
+.btn-sm { padding: 0.35rem 0.6rem; font-size: 0.8rem; }
+
+/* Nav & result */
+.form-nav { display: flex; gap: 0.75rem; margin-top: 1.5rem; }
+.result-card { margin-top: 1.5rem; }
+.result-card pre { margin: 0.5rem 0 0; }
+@media (max-width: 500px) { .step-label { display: none; } }

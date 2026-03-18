@@ -1,0 +1,43 @@
+<div class="lab-header">
+  <h2>🏪 NgRx Lab — Products CRUD</h2>
+  <p class="subtitle">State management with @ngrx/store + @ngrx/entity + @ngrx/effects</p>
+</div>
+
+@if (error$ | async; as error) {
+  <div class="error-banner">⚠️ {{ error }}</div>
+}
+
+@if (showForm) {
+  <app-product-form
+    [product]="editingProduct"
+    (save)="onSave($event)"
+    (cancel)="onCancelForm()" />
+}
+
+<div class="toolbar">
+  <button class="btn btn-primary" (click)="onAddProduct()">+ Add Product</button>
+  <span class="product-count">
+    @if (loading$ | async) {
+      Loading…
+    } @else {
+      {{ (products$ | async)?.length ?? 0 }} products
+    }
+  </span>
+</div>
+
+@if (loading$ | async) {
+  <div class="loading-bar"></div>
+}
+
+<div class="grid">
+  @for (product of products$ | async; track product.id) {
+    <app-product-card
+      [product]="product"
+      (edit)="onEdit($event)"
+      (delete)="onDelete($event)" />
+  } @empty {
+    @if (!(loading$ | async)) {
+      <p class="empty">No products yet. Click "Add Product" to get started.</p>
+    }
+  }
+</div>

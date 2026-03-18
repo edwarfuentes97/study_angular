@@ -1,0 +1,29 @@
+:host { display: block; }
+.lab-nav {
+  display: flex; gap: 0.5rem; margin-top: 0.6rem; flex-wrap: wrap;
+}
+.lab-nav a {
+  padding: 0.3rem 0.7rem; border-radius: 6px; font-size: 0.85rem;
+  border: 1px solid var(--border); color: var(--text-muted); text-decoration: none;
+  transition: all 0.15s;
+}
+.lab-nav a:hover { border-color: var(--accent-blue); color: var(--text); }
+.lab-nav a.active { background: var(--accent-blue); color: #000; border-color: var(--accent-blue); }
+
+.instructions {
+  color: var(--text-muted); font-size: 0.85rem; margin: 0.8rem 0;
+  padding: 0.6rem; background: var(--bg-code); border-radius: 6px;
+}
+.demos-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 0.8rem; margin-top: 0.5rem;
+}
+.demo-card h3 { font-size: 1rem; margin-bottom: 0.3rem; }
+.demo-card .description { color: var(--text-muted); font-size: 0.8rem; margin-bottom: 0.5rem; }
+.controls { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; }
+.status { margin-bottom: 0.5rem; min-height: 1.6rem; }
+.tracker {
+  display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;
+  padding-top: 0.4rem; border-top: 1px solid var(--border);
+  font-size: 0.85rem;
+}

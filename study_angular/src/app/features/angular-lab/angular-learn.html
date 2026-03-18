@@ -1,0 +1,163 @@
+    <div class="cards" appAutoGlossary>
+
+      <div class="card">
+        <h3>1. Change Detection</h3>
+        <p>
+          Angular usa Zone.js para interceptar eventos asíncronos (clicks, HTTP, timers) y disparar
+          un ciclo de Change Detection (CD) desde la raíz del árbol de componentes. En modo
+          <strong>Default</strong>, cada componente se revisa en cada ciclo. Con
+          <strong>OnPush</strong>, Angular solo revisa el componente cuando cambian sus &#64;Input()
+          por referencia, se dispara un evento del template, o se llama manualmente a
+          <code>markForCheck()</code>. Esto reduce drásticamente el trabajo del CD en apps grandes.
+        </p>
+        <pre ngNonBindable><code>// Componente con OnPush — solo se re-renderiza si cambia la referencia del input
+&#64;Component(&#123;
+  selector: 'app-child',
+  imports: [AutoGlossaryDirective],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: \`&lt;p&gt;&#123;&#123; data.name &#125;&#125;&lt;/p&gt;\`
+&#125;)
+export class ChildComponent &#123;
+  &#64;Input() data!: &#123; name: string &#125;;
+&#125;
+
+// En el padre — mutar NO dispara CD en OnPush
+this.user.name = 'Nuevo';           // ❌ misma referencia
+this.user = &#123; name: 'Nuevo' &#125;;     // ✅ nueva referencia</code></pre>
+      </div>
+
+      <div class="card">
+        <h3>2. Signals</h3>
+        <p>
+          Signals son primitivas reactivas introducidas en Angular 16+ que permiten rastrear estado
+          de forma granular sin Zone.js. <code>signal()</code> crea un valor reactivo,
+          <code>computed()</code> deriva valores automáticamente, y <code>effect()</code> ejecuta
+          side-effects cuando las dependencias cambian. <code>linkedSignal()</code> (Angular 19+)
+          conecta un signal derivado que también puede escribirse. Comparado con RxJS, los Signals
+          son sincrónicos, más simples para estado local, y se integran con templates sin
+          <code>async</code> pipe.
+        </p>
+        <pre><code>import &#123; signal, computed, effect, linkedSignal &#125; from '&#64;angular/core';
+import &#123; toSignal &#125; from '&#64;angular/core/rxjs-interop';
+
+// signal — valor reactivo mutable
+const count = signal(0);
+count.set(5);
+count.update(v =&gt; v + 1);
+
+// computed — derivado, se recalcula automáticamente
+const double = computed(() =&gt; count() * 2);
+
+// effect — side-effect que corre cuando cambian sus deps
+effect(() =&gt; console.log('Count:', count()));
+
+// linkedSignal — signal derivado que también es writable
+const selected = linkedSignal(() =&gt; items()[0]);
+selected.set(items()[2]); // se puede sobrescribir manualmente
+
+// Integración con RxJS
+const data = toSignal(this.http.get('/api'), &#123; initialValue: [] &#125;);</code></pre>
+      </div>
+
+      <div class="card">
+        <h3>3. Reactive Forms</h3>
+        <p>
+          Reactive Forms ofrecen un modelo imperativo para construir formularios complejos.
+          <code>FormGroup</code> agrupa controles, <code>FormControl</code> maneja valores
+          individuales, y <code>FormArray</code> permite listas dinámicas. Los
+          <code>Validators</code> built-in cubren casos comunes (required, minLength, pattern), y
+          puedes crear validadores custom como funciones puras. El estado del formulario (valid,
+          dirty, touched) se actualiza automáticamente.
+        </p>
+        <pre><code>import &#123; FormGroup, FormControl, FormArray, Validators &#125; from '&#64;angular/forms';
+
+// FormGroup con validadores
+const form = new FormGroup(&#123;
+  name:  new FormControl('', [Validators.required, Validators.minLength(3)]),
+  email: new FormControl('', [Validators.required, Validators.email]),
+  skills: new FormArray([new FormControl('Angular')])
+&#125;);
+
+// Agregar dinámicamente al FormArray
+(form.get('skills') as FormArray).push(new FormControl('RxJS'));
+
+// Validador custom
+function forbiddenName(name: string): ValidatorFn &#123;
+  return (control: AbstractControl) =&gt;
+    control.value === name ? &#123; forbiddenName: &#123; value: control.value &#125; &#125; : null;
+&#125;
+
+// Acceder a errores
+form.get('email')?.errors;    // &#123; required: true &#125; | &#123; email: true &#125; | null
+form.get('email')?.touched;   // boolean</code></pre>
+      </div>
+
+      <div class="card">
+        <h3>4. Lazy Loading</h3>
+        <p>
+          Lazy loading permite cargar módulos o componentes standalone bajo demanda, reduciendo el
+          bundle inicial. Con <code>loadComponent</code> se carga un componente standalone
+          directamente en una ruta. Con <code>loadChildren</code> se carga un archivo de rutas
+          completo. Las estrategias de preloading (<code>PreloadAllModules</code>,
+          <code>NoPreloading</code>, o custom) controlan cuándo se descargan los chunks en
+          segundo plano.
+        </p>
+        <pre><code>import &#123; Routes &#125; from '&#64;angular/router';
+import &#123; PreloadAllModules &#125; from '&#64;angular/router';
+
+// Lazy load de un componente standalone
+export const routes: Routes = [
+  &#123;
+    path: 'dashboard',
+    loadComponent: () =&gt;
+      import('./dashboard/dashboard').then(m =&gt; m.DashboardComponent)
+  &#125;,
+  // Lazy load de rutas hijas
+  &#123;
+    path: 'admin',
+    loadChildren: () =&gt;
+      import('./admin/admin.routes').then(m =&gt; m.ADMIN_ROUTES)
+  &#125;,
+];
+
+// Preloading strategy en provideRouter
+provideRouter(routes, withPreloading(PreloadAllModules));</code></pre>
+      </div>
+
+      <div class="card">
+        <h3>5. Interceptors &amp; Guards</h3>
+        <p>
+          Desde Angular 15+, los interceptors y guards se escriben como funciones en vez de clases.
+          Los interceptors funcionales reciben <code>req</code> y <code>next</code>, permitiendo
+          modificar requests, manejar errores, y encadenar lógica. Los guards funcionales
+          (<code>CanActivateFn</code>, <code>CanMatchFn</code>) simplifican la protección de rutas
+          usando <code>inject()</code> para acceder a servicios. Se registran con
+          <code>withInterceptors()</code> en <code>provideHttpClient()</code>.
+        </p>
+        <pre><code>import &#123; HttpInterceptorFn &#125; from '&#64;angular/common/http';
+import &#123; inject &#125; from '&#64;angular/core';
+import &#123; CanActivateFn, Router &#125; from '&#64;angular/router';
+
+// Interceptor funcional — agrega token y maneja 401
+export const authInterceptor: HttpInterceptorFn = (req, next) =&gt; &#123;
+  const token = inject(AuthService).getToken();
+  const cloned = req.clone(&#123;
+    setHeaders: &#123; Authorization: \`Bearer $&#123;token&#125;\` &#125;
+  &#125;);
+  return next(cloned).pipe(
+    catchError(err =&gt; &#123;
+      if (err.status === 401) inject(Router).navigate(['/login']);
+      return throwError(() =&gt; err);
+    &#125;)
+  );
+&#125;;
+
+// Guard funcional
+export const authGuard: CanActivateFn = () =&gt;
+  inject(AuthService).isLoggedIn() || inject(Router).createUrlTree(['/login']);
+
+// Registro
+provideHttpClient(withInterceptors([authInterceptor]));</code></pre>
+      </div>
+
+    </div>

@@ -3,7 +3,7 @@ import { LabLayoutComponent } from '../../shared/components/lab-layout';
 
 @Component({
   imports: [LabLayoutComponent],
-  template: `<app-lab-layout title="RxJS — Programación Reactiva" icon="🔴" [steps]="steps" />`
+  templateUrl: './rxjs-layout.html'
 })
 export class RxjsLayoutComponent {
   steps = [

@@ -1,0 +1,9 @@
+<div class="heavy-inner">
+  <p class="heavy-title">🏋️ Heavy Component Loaded!</p>
+  <p class="heavy-info">This component renders {{ rows.length }} rows — loaded only when scrolled into viewport.</p>
+  <div class="heavy-list">
+    @for (row of rows; track row) {
+      <div class="heavy-row">Row #{{ row }} — computed value: {{ row * 17 % 97 }}</div>
+    }
+  </div>
+</div>

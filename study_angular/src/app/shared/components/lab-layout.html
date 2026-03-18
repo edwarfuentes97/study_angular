@@ -1,0 +1,17 @@
+<div class="lab-shell">
+  <div class="lab-top">
+    <h2>{{ icon }} {{ title }}</h2>
+    <nav class="step-nav">
+      @for (step of steps; track step.path) {
+        <a [routerLink]="step.path" routerLinkActive="active"
+           [routerLinkActiveOptions]="{ exact: step.path === '' || step.path === '.' }">
+          <span class="step-icon">{{ step.icon }}</span>
+          {{ step.label }}
+        </a>
+      }
+    </nav>
+  </div>
+  <div class="lab-body">
+    <router-outlet />
+  </div>
+</div>

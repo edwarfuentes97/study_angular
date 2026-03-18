@@ -1,0 +1,62 @@
+<div class="lab-header">
+  <h2>🔬 Observable Types</h2>
+  <p>Interactive demo: Subject vs BehaviorSubject vs ReplaySubject vs AsyncSubject</p>
+  <nav class="lab-nav">
+    <a routerLink="/lab/rxjs" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Observable Types</a>
+    <a routerLink="/lab/rxjs/operators" routerLinkActive="active">Operators</a>
+    <a routerLink="/lab/rxjs/search" routerLinkActive="active">Search</a>
+    <a routerLink="/lab/rxjs/combining" routerLinkActive="active">Combining</a>
+    <a routerLink="/lab/rxjs/memory" routerLinkActive="active">Memory Leaks</a>
+  </nav>
+</div>
+
+<div class="tabs">
+  @for (tab of subjectTypes; track tab) {
+    <button class="tab-btn" [class.active]="activeTab() === tab" (click)="switchTab(tab)">
+      {{ tab }}
+    </button>
+  }
+</div>
+
+<div class="tab-content card">
+  <h3>{{ activeTab() }}</h3>
+  <p class="description">{{ descriptions[activeTab()] }}</p>
+
+  <div class="controls">
+    <button class="btn btn-primary" (click)="createSubject()" [disabled]="subjectActive()">
+      Create Subject
+    </button>
+    <button class="btn" (click)="emit()" [disabled]="!subjectActive() || completed()">
+      Emit Value
+    </button>
+    <button class="btn" (click)="subscribeLate()" [disabled]="!subjectActive()">
+      Subscribe Late
+    </button>
+    <button class="btn btn-danger" (click)="complete()" [disabled]="!subjectActive() || completed()">
+      Complete
+    </button>
+    <button class="btn" (click)="reset()">Reset</button>
+  </div>
+
+  <div class="info-bar">
+    <span class="tag tag-blue">Subscribers: {{ subscriberCount() }}</span>
+    <span class="tag tag-green">Emissions: {{ emissionCount() }}</span>
+    @if (completed()) {
+      <span class="tag tag-red">Completed</span>
+    }
+  </div>
+
+  <div class="output-log" #logContainer>
+    @if (logs().length === 0) {
+      <div class="log-entry" style="color: var(--text-muted)">
+        Click "Create Subject" to start the demo...
+      </div>
+    }
+    @for (entry of logs(); track $index) {
+      <div class="log-entry">
+        <span class="log-time">{{ entry.time }}</span>
+        <span>{{ entry.message }}</span>
+      </div>
+    }
+  </div>
+</div>

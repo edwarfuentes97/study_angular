@@ -1,0 +1,14 @@
+<div class="item-list">
+  <h4>📋 Item List <span class="tag tag-blue">Presentational</span></h4>
+  @for (item of items; track item.id) {
+    <div
+      class="list-row"
+      [class.selected]="item.id === selectedId"
+      (click)="select.emit(item)">
+      <span class="item-name">{{ item.name }}</span>
+      <span class="item-desc">{{ item.description }}</span>
+    </div>
+  } @empty {
+    <p class="empty">No items yet.</p>
+  }
+</div>

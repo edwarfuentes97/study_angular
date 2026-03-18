@@ -1,0 +1,65 @@
+<div class="cards">
+  <div class="card">
+    <h3>1. Component Test</h3>
+    <p>
+      Testa el TestingDemoComponent: verifica render inicial, click en botones
+      cambia el contador, async carga de productos.
+    </p>
+    <ul class="criteria">
+      <li>Test de render inicial pasa</li>
+      <li>Test de click pasa</li>
+      <li>Test async con fakeAsync pasa</li>
+    </ul>
+    <div class="tip">Usa fixture.debugElement.query(By.css('button')).triggerEventHandler('click')</div>
+  </div>
+
+  <div class="card">
+    <h3>2. NgRx Reducer</h3>
+    <p>
+      Testa productReducer: que loadProductsSuccess agregue productos, que
+      deleteProductSuccess elimine, que loadProducts setee loading=true.
+    </p>
+    <ul class="criteria">
+      <li>3 tests de reducer pasando</li>
+      <li>Estado verificado después de cada acción</li>
+    </ul>
+    <div class="tip">Los reducers son funciones puras: estado + acción = nuevo estado. Fácil de testear.</div>
+  </div>
+
+  <div class="card">
+    <h3>3. NgRx Selectors</h3>
+    <p>
+      Testa selectAllProducts, selectHighSustainability con estado mock.
+    </p>
+    <ul class="criteria">
+      <li>Selectores retornan datos correctos del estado mock</li>
+      <li>Filtros funcionan</li>
+    </ul>
+    <div class="tip">Usa projector() para testear selectores con createSelector</div>
+  </div>
+
+  <div class="card">
+    <h3>4. NgRx Effects</h3>
+    <p>
+      Testa loadProducts$ effect: que llame a MockApiService y despache success/failure.
+    </p>
+    <ul class="criteria">
+      <li>Effect testado con provideMockActions</li>
+      <li>Success y failure cubiertos</li>
+    </ul>
+    <div class="tip">Usa provideMockActions(() =&gt; actions$) con un Subject para emitir acciones</div>
+  </div>
+
+  <div class="card">
+    <h3>5. Service Test</h3>
+    <p>
+      Testa MockApiService con HttpTestingController (o directamente): verifica
+      getProducts, createProduct, search.
+    </p>
+    <ul class="criteria">
+      <li>3+ tests de servicio pasando</li>
+      <li>HTTP mock o spy correctos</li>
+    </ul>
+    <div class="tip">Para servicios sin HTTP real, puedes testear directamente sin HttpTestingController</div>
+  </div>
+</div>

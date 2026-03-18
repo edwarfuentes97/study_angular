@@ -1,0 +1,58 @@
+<div class="cards">
+  <div class="card">
+    <h3>1. &#64;defer — Lazy Loading Declarativo</h3>
+    <p>
+      Crea un componente pesado (chart/tabla grande). Cárgalo con <code>&#64;defer (on viewport)</code>.
+      Agrega placeholder y loading. Prueba otros triggers: <code>on hover</code>,
+      <code>on timer(3s)</code>, <code>when condition</code>.
+    </p>
+    <ul class="criteria">
+      <li>&#64;defer funciona con on viewport</li>
+      <li>placeholder y loading visibles</li>
+      <li>Al menos 2 triggers probados</li>
+    </ul>
+    <div class="tip">&#64;defer (on viewport) solo carga cuando el elemento entra al viewport — perfecto para below-the-fold</div>
+  </div>
+
+  <div class="card">
+    <h3>2. trackBy — Optimización de Listas</h3>
+    <p>
+      Crea una lista de 1000 items. Sin trackBy, shuffle la lista y mide re-renders.
+      Con trackBy, mide la diferencia.
+    </p>
+    <ul class="criteria">
+      <li>Lista de 1000 items renderizada</li>
+      <li>Medición con/sin trackBy</li>
+      <li>Diferencia documentada</li>
+    </ul>
+    <div class="tip">Usa Chrome DevTools Performance tab para medir el rendering time</div>
+  </div>
+
+  <div class="card">
+    <h3>3. Virtual Scrolling — Listas Masivas</h3>
+    <p>
+      Genera 10,000 items. Muestra en <code>cdk-virtual-scroll-viewport</code>.
+      Compara DOM nodes vs lista normal.
+    </p>
+    <ul class="criteria">
+      <li>Virtual scroll funcionando</li>
+      <li>Comparación de DOM nodes documentada</li>
+      <li>Scroll suave</li>
+    </ul>
+    <div class="tip">Inspecciona el DOM: virtual scroll solo renderiza ~20 nodos vs 10,000</div>
+  </div>
+
+  <div class="card">
+    <h3>4. OnPush Everywhere</h3>
+    <p>
+      Convierte todos los componentes del NgRx lab a OnPush.
+      Verifica que todo sigue funcionando. ¿Qué necesitas cambiar?
+    </p>
+    <ul class="criteria">
+      <li>Todos los componentes con OnPush</li>
+      <li>Funcionalidad intacta</li>
+      <li>Documentar cambios necesarios</li>
+    </ul>
+    <div class="tip">Con NgRx y async pipe/signals, OnPush funciona sin cambios extra</div>
+  </div>
+</div>

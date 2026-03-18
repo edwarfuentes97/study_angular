@@ -4,7 +4,7 @@ import { LabLayoutComponent } from '../../shared/components/lab-layout';
 @Component({
   selector: 'app-testing-layout',
   imports: [LabLayoutComponent],
-  template: `<app-lab-layout title="Testing" icon="🟠" [steps]="steps" />`
+  templateUrl: './testing-layout.html'
 })
 export class TestingLayoutComponent {
   steps = [

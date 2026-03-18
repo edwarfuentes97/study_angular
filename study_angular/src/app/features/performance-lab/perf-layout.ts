@@ -4,7 +4,7 @@ import { LabLayoutComponent } from '../../shared/components/lab-layout';
 @Component({
   selector: 'app-perf-layout',
   imports: [LabLayoutComponent],
-  template: `<app-lab-layout title="Performance" icon="🟠" [steps]="steps" />`
+  templateUrl: './perf-layout.html'
 })
 export class PerfLayoutComponent {
   steps = [

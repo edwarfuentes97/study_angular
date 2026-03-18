@@ -12,22 +12,8 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
 @Component({
   selector: 'app-cd-default-child',
   changeDetection: ChangeDetectionStrategy.Default,
-  template: `
-    <div class="card child-card">
-      <h4>Default Strategy</h4>
-      <p class="check-count">Template checked: <strong>{{ checkCount }}</strong> times</p>
-      <p>Counter input: <strong>{{ counter }}</strong></p>
-      <p>Object name: <strong>{{ data?.name }}</strong></p>
-      <p class="text-muted">Re-renders on <em>every</em> CD cycle, regardless of input changes.</p>
-    </div>
-  `,
-  styles: `
-    .child-card { border-left: 3px solid var(--accent-orange); }
-    .check-count { color: var(--accent-orange); font-size: 1.25rem; }
-    .text-muted { color: var(--text-muted); font-size: 0.85rem; margin-top: 0.5rem; }
-    h4 { color: var(--accent-orange); margin: 0 0 0.75rem; }
-    p { margin: 0.25rem 0; }
-  `,
+  templateUrl: './cd-demo.html',
+  styleUrl: './cd-demo.css',
 })
 export class CdDefaultChildComponent {
   @Input() counter = 0;

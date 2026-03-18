@@ -4,7 +4,7 @@ import { LabLayoutComponent } from '../../shared/components/lab-layout';
 @Component({
   selector: 'app-angular-layout',
   imports: [LabLayoutComponent],
-  template: `<app-lab-layout title="Angular Core Avanzado" icon="🔴" [steps]="steps" />`
+  templateUrl: './angular-layout.html'
 })
 export class AngularLayoutComponent {
   steps = [

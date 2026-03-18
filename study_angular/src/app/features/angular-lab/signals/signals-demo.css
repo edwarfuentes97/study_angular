@@ -1,0 +1,27 @@
+.lab-tabs {
+  display: flex; gap: 0.5rem; margin-bottom: 1.5rem;
+  border-bottom: 1px solid var(--border); padding-bottom: 0.75rem;
+}
+.lab-tabs a {
+  padding: 0.5rem 1rem; border-radius: 6px 6px 0 0;
+  color: var(--text-muted); text-decoration: none; font-weight: 500;
+  border: 1px solid transparent; transition: all 0.2s;
+}
+.lab-tabs a:hover { color: var(--text); background: var(--bg-card); }
+.lab-tabs a.active {
+  color: var(--accent-purple); border-color: var(--border);
+  border-bottom-color: var(--bg); background: var(--bg-card);
+}
+.controls { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-top: 0.75rem; }
+.big-value { font-size: 1.5rem; color: var(--accent-blue); }
+.derived-list { list-style: none; padding: 0; margin: 0; }
+.derived-list li { padding: 0.35rem 0; border-bottom: 1px solid var(--border); }
+.derived-list li:last-child { border-bottom: none; }
+.hint { color: var(--text-muted); font-size: 0.85rem; }
+.hint code {
+  background: var(--bg-code); padding: 0.1rem 0.35rem;
+  border-radius: 4px; font-size: 0.8rem;
+}
+.interop-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.interop-grid h4 { margin: 0 0 0.5rem; color: var(--accent-green); }
+@media (max-width: 700px) { .interop-grid { grid-template-columns: 1fr; } }

@@ -1,0 +1,132 @@
+    <section class="lab">
+      <header class="lab-header">
+        <h2>🔷 TypeScript Playground</h2>
+        <p>Advanced TypeScript concepts with interactive examples</p>
+      </header>
+
+      <!-- Generics Section -->
+      <div class="lab-section">
+        <h3>1. Generics — DataService&lt;T&gt;</h3>
+        <div class="card">
+          <p class="explanation">
+            Generics let you write reusable code that works with any type while preserving type safety.
+          </p>
+          <pre><code>class DataService&lt;T&gt; {{ '{' }}
+  private items: T[] = [];
+  add(item: T): void {{ '{' }} this.items.push(item); {{ '}' }}
+  getAll(): T[] {{ '{' }} return [...this.items]; {{ '}' }}
+  findById(predicate: (item: T) =&gt; boolean): T | undefined {{ '{' }}
+    return this.items.find(predicate);
+  {{ '}' }}
+{{ '}' }}</code></pre>
+
+          <div class="controls">
+            <span class="label">Select type parameter:</span>
+            @for (type of genericTypes; track type) {
+              <button
+                class="btn"
+                [class.btn-active]="selectedGeneric() === type"
+                (click)="selectedGeneric.set(type)">
+                {{ type }}
+              </button>
+            }
+          </div>
+
+          <div class="output-log">
+            <div class="log-entry">
+              <span class="log-time">Type:</span>
+              DataService&lt;{{ selectedGeneric() }}&gt;
+            </div>
+            <div class="log-entry">
+              <span class="log-time">Resolved:</span>
+              <pre><code>{{ genericResolution() }}</code></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Type Guards Section -->
+      <div class="lab-section">
+        <h3>2. Type Guards & Discriminated Unions</h3>
+        <div class="card">
+          <pre><code>type LoadingState = {{ '{' }} status: 'loading' {{ '}' }};
+type SuccessState&lt;T&gt; = {{ '{' }} status: 'success'; data: T {{ '}' }};
+type ErrorState = {{ '{' }} status: 'error'; message: string {{ '}' }};
+
+type ApiResponse = LoadingState | SuccessState&lt;Product[]&gt; | ErrorState;
+
+// The discriminant "status" narrows the type automatically
+function handle(response: ApiResponse) {{ '{' }}
+  switch (response.status) {{ '{' }}
+    case 'loading': // response is LoadingState
+    case 'success': // response is SuccessState&lt;Product[]&gt; → response.data
+    case 'error':   // response is ErrorState → response.message
+  {{ '}' }}
+{{ '}' }}</code></pre>
+
+          <div class="controls">
+            <span class="label">Switch state:</span>
+            <button class="btn" [class.btn-active]="currentState() === 'loading'" (click)="currentState.set('loading')">Loading</button>
+            <button class="btn" [class.btn-active]="currentState() === 'success'" (click)="currentState.set('success')">Success</button>
+            <button class="btn" [class.btn-active]="currentState() === 'error'" (click)="currentState.set('error')">Error</button>
+          </div>
+
+          <div class="output-log">
+            <div class="log-entry">
+              <span class="log-time">Current type:</span>
+              <span class="type-tag" [attr.data-state]="currentState()">{{ stateTypeInfo().typeName }}</span>
+            </div>
+            <div class="log-entry">
+              <span class="log-time">Available properties:</span>
+              {{ stateTypeInfo().properties }}
+            </div>
+            <div class="log-entry">
+              <span class="log-time">Value:</span>
+              <pre><code>{{ stateTypeInfo().value }}</code></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Utility Types Section -->
+      <div class="lab-section">
+        <h3>3. Utility Types</h3>
+        <div class="card">
+          <pre><code>interface Product {{ '{' }}
+  id: string;
+  name: string;
+  category: string;
+  price: number;
+  sustainabilityScore: number;
+  description?: string;
+{{ '}' }}</code></pre>
+
+          <div class="controls">
+            <span class="label">Apply utility type:</span>
+            @for (ut of utilityTypes; track ut) {
+              <button
+                class="btn"
+                [class.btn-active]="selectedUtility() === ut"
+                (click)="selectedUtility.set(ut)">
+                {{ ut }}
+              </button>
+            }
+          </div>
+
+          <div class="output-log">
+            <div class="log-entry">
+              <span class="log-time">Expression:</span>
+              {{ utilityInfo().expression }}
+            </div>
+            <div class="log-entry">
+              <span class="log-time">Result type:</span>
+              <pre><code>{{ utilityInfo().result }}</code></pre>
+            </div>
+            <div class="log-entry">
+              <span class="log-time">Use case:</span>
+              {{ utilityInfo().useCase }}
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>

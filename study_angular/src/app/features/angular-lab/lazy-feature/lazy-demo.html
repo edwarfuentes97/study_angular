@@ -1,0 +1,39 @@
+<div class="lab-header">
+  <h2>⚡ Angular Core Lab</h2>
+  <p>Explore Angular's core concepts: change detection, signals, forms, and lazy loading.</p>
+</div>
+
+<nav class="lab-tabs">
+  <a routerLink="/lab/angular" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">
+    Change Detection
+  </a>
+  <a routerLink="/lab/angular/signals" routerLinkActive="active">Signals</a>
+  <a routerLink="/lab/angular/forms" routerLinkActive="active">Forms</a>
+  <a routerLink="/lab/angular/lazy" routerLinkActive="active">Lazy Loading</a>
+</nav>
+
+<section class="lab-section">
+  <h3>Lazy-Loaded Feature Module</h3>
+
+  <div class="card banner">
+    <span class="banner-icon">🚀</span>
+    <div>
+      <p><strong>This component was lazy-loaded!</strong></p>
+      <p class="hint">Loaded at: <code>{{ loadedAt }}</code></p>
+      <p class="hint">
+        The entire <code>lazy-feature/</code> bundle is only fetched when you navigate to this route,
+        reducing the initial bundle size.
+      </p>
+    </div>
+  </div>
+
+  <nav class="child-tabs">
+    <a routerLink="/lab/angular/lazy" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">
+      Overview
+    </a>
+    <a routerLink="/lab/angular/lazy/child-a" routerLinkActive="active">Child A</a>
+    <a routerLink="/lab/angular/lazy/child-b" routerLinkActive="active">Child B</a>
+  </nav>
+
+  <router-outlet />
+</section>

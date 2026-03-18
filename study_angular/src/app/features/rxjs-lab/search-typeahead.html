@@ -1,0 +1,80 @@
+    <div class="lab-header">
+      <h2>🔍 Search Typeahead</h2>
+      <p>Debounced search with switchMap — type to search products</p>
+      <nav class="lab-nav">
+        <a routerLink="/lab/rxjs" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Observable Types</a>
+        <a routerLink="/lab/rxjs/operators" routerLinkActive="active">Operators</a>
+        <a routerLink="/lab/rxjs/search" routerLinkActive="active">Search</a>
+        <a routerLink="/lab/rxjs/combining" routerLinkActive="active">Combining</a>
+        <a routerLink="/lab/rxjs/memory" routerLinkActive="active">Memory Leaks</a>
+      </nav>
+    </div>
+
+    <div class="lab-section">
+      <h3>RxJS Pipeline</h3>
+      <pre><code>valueChanges.pipe(
+  debounceTime(300),
+  distinctUntilChanged(),
+  filter(term => term.length >= 2),
+  switchMap(term => mockApi.search(term)),
+  catchError(() => of([]))
+)</code></pre>
+    </div>
+
+    <div class="search-box">
+      <input
+        [formControl]="searchControl"
+        type="text"
+        placeholder="Search products... (try 'cotton', 'bag', 'accessories')"
+        class="search-input"
+      />
+      @if (searching()) {
+        <span class="search-indicator">⏳ Searching...</span>
+      }
+    </div>
+
+    <div class="results-info">
+      @if (searchControl.value && searchControl.value.length >= 2) {
+        <span class="tag tag-blue">{{ results().length }} result(s) for "{{ lastSearchTerm() }}"</span>
+      } @else if (searchControl.value && searchControl.value.length > 0) {
+        <span class="tag tag-orange">Type at least 2 characters</span>
+      }
+    </div>
+
+    <div class="results-grid">
+      @for (product of results(); track product.id) {
+        <div class="product-card card">
+          <div class="product-header">
+            <h4>{{ product.name }}</h4>
+            <span class="price">\${{ product.price.toFixed(2) }}</span>
+          </div>
+          <div class="product-meta">
+            <span class="tag tag-blue">{{ product.category }}</span>
+            <span class="score" [style.color]="product.sustainabilityScore >= 80 ? 'var(--accent-green)' : 'var(--accent-orange)'">
+              🌱 {{ product.sustainabilityScore }}/100
+            </span>
+          </div>
+          @if (product.description) {
+            <p class="product-desc">{{ product.description }}</p>
+          }
+        </div>
+      }
+      @if (results().length === 0 && lastSearchTerm() && !searching()) {
+        <div class="no-results">No products found for "{{ lastSearchTerm() }}"</div>
+      }
+    </div>
+
+    <div class="lab-section">
+      <h3>Event Log</h3>
+      <div class="output-log">
+        @for (entry of logs(); track $index) {
+          <div class="log-entry">
+            <span class="log-time">{{ entry.time }}</span>
+            <span>{{ entry.message }}</span>
+          </div>
+        }
+        @if (logs().length === 0) {
+          <div class="log-entry" style="color: var(--text-muted)">Start typing to see events...</div>
+        }
+      </div>
+    </div>

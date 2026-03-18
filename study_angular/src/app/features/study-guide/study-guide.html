@@ -1,0 +1,29 @@
+<section class="guide">
+  <header class="guide-header">
+    <h1>📚 Guía de Estudio — 50 Preguntas Clave</h1>
+    <p class="guide-subtitle">
+      Repasa las preguntas organizadas por nivel y tema.
+      <a href="/index.html" target="_blank" class="full-guide-link">
+        Ver guía completa con respuestas ↗
+      </a>
+    </p>
+  </header>
+
+  @for (section of sections; track section.title) {
+    <div class="guide-section" [attr.data-level]="section.level">
+      <h2 class="section-title">{{ section.title }}</h2>
+
+      <ol class="question-list">
+        @for (q of section.questions; track q; let i = $index) {
+          <li class="question-item" (click)="toggle(section.title, i)">
+            <span class="q-marker">{{ i + 1 }}</span>
+            <span class="q-text">{{ q }}</span>
+            @if (isOpen(section.title, i)) {
+              <span class="q-hint">Respuesta detallada en la guía completa.</span>
+            }
+          </li>
+        }
+      </ol>
+    </div>
+  }
+</section>

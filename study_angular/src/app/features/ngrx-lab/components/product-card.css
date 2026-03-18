@@ -1,0 +1,36 @@
+.card {
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px;
+  padding: 1.25rem; display: flex; flex-direction: column; gap: .75rem;
+  transition: border-color .2s;
+}
+.card:hover { border-color: var(--accent-blue); }
+.card-header { display: flex; justify-content: space-between; align-items: center; }
+.category {
+  font-size: .75rem; text-transform: uppercase; letter-spacing: .05em;
+  color: var(--accent-purple); font-weight: 600;
+}
+.price { font-weight: 700; color: var(--accent-green); }
+.name { margin: 0; font-size: 1.1rem; color: var(--text); }
+.desc { margin: 0; color: var(--text-muted); font-size: .85rem; line-height: 1.4; }
+.sustainability { display: flex; flex-direction: column; gap: .3rem; }
+.bar-label {
+  display: flex; justify-content: space-between; font-size: .8rem; color: var(--text-muted);
+}
+.bar-track {
+  height: 6px; background: var(--border); border-radius: 3px; overflow: hidden;
+}
+.bar-fill {
+  height: 100%; border-radius: 3px; transition: width .4s ease;
+}
+.score-high { color: var(--accent-green); font-weight: 600; }
+.score-mid { color: var(--accent-yellow); font-weight: 600; }
+.score-low { color: var(--accent-red); font-weight: 600; }
+.actions { display: flex; gap: .5rem; margin-top: auto; }
+.btn {
+  flex: 1; padding: .4rem .75rem; border-radius: 6px; border: 1px solid var(--border);
+  background: var(--bg-card); color: var(--text); cursor: pointer; font-size: .8rem;
+  transition: background .15s;
+}
+.btn:hover { background: var(--border); }
+.btn-danger { border-color: var(--accent-red); color: var(--accent-red); }
+.btn-danger:hover { background: rgba(248, 81, 73, .15); }

@@ -1,0 +1,47 @@
+<div class="backdrop" (click)="cancel.emit()"></div>
+<form class="form-card" [formGroup]="form" (ngSubmit)="onSubmit()">
+  <h3>{{ product ? 'Edit Product' : 'New Product' }}</h3>
+
+  <label>
+    <span>Name *</span>
+    <input formControlName="name" placeholder="Product name" />
+    @if (form.controls.name.touched && form.controls.name.invalid) {
+      <span class="error">Name is required</span>
+    }
+  </label>
+
+  <label>
+    <span>Category</span>
+    <input formControlName="category" placeholder="e.g. Textiles" />
+  </label>
+
+  <div class="row">
+    <label class="half">
+      <span>Price *</span>
+      <input formControlName="price" type="number" step="0.01" min="0" placeholder="0.00" />
+      @if (form.controls.price.touched && form.controls.price.invalid) {
+        <span class="error">Min 0</span>
+      }
+    </label>
+
+    <label class="half">
+      <span>Sustainability (0–100) *</span>
+      <input formControlName="sustainabilityScore" type="number" min="0" max="100" placeholder="0" />
+      @if (form.controls.sustainabilityScore.touched && form.controls.sustainabilityScore.invalid) {
+        <span class="error">0–100</span>
+      }
+    </label>
+  </div>
+
+  <label>
+    <span>Description</span>
+    <textarea formControlName="description" rows="3" placeholder="Optional description"></textarea>
+  </label>
+
+  <div class="actions">
+    <button type="button" class="btn" (click)="cancel.emit()">Cancel</button>
+    <button type="submit" class="btn btn-primary" [disabled]="form.invalid">
+      {{ product ? 'Update' : 'Create' }}
+    </button>
+  </div>
+</form>

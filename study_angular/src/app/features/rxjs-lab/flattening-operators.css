@@ -1,0 +1,23 @@
+:host { display: block; }
+.lab-nav {
+  display: flex; gap: 0.5rem; margin-top: 0.6rem; flex-wrap: wrap;
+}
+.lab-nav a {
+  padding: 0.3rem 0.7rem; border-radius: 6px; font-size: 0.85rem;
+  border: 1px solid var(--border); color: var(--text-muted); text-decoration: none;
+  transition: all 0.15s;
+}
+.lab-nav a:hover { border-color: var(--accent-blue); color: var(--text); }
+.lab-nav a.active { background: var(--accent-blue); color: #000; border-color: var(--accent-blue); }
+
+.controls {
+  display: flex; gap: 0.5rem; align-items: center; margin: 1rem 0; flex-wrap: wrap;
+}
+.hint { color: var(--text-muted); font-size: 0.82rem; font-style: italic; }
+
+.columns {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.8rem;
+}
+.column h3 { color: var(--accent-purple); font-size: 0.95rem; margin-bottom: 0.3rem; }
+.column .description { color: var(--text-muted); font-size: 0.78rem; margin-bottom: 0.5rem; }
