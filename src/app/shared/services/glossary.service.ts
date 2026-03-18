@@ -133,6 +133,13 @@ export class GlossaryService {
     { term: 'ActivatedRoute', definition: 'Servicio con info de la ruta activa: params, queryParams, data, url. snapshot (estático) vs observable (reactivo).', topic: 'fundamentals' },
     { term: 'NgModule', definition: 'Clase con @NgModule que agrupa declarations, imports, exports, providers. Reemplazado por Standalone en Angular 20.', topic: 'fundamentals' },
     { term: 'DestroyRef', definition: 'Angular 16+ alternativa a ngOnDestroy. inject(DestroyRef).onDestroy(() => cleanup()). Funcional y composable.', topic: 'fundamentals' },
+    { term: 'HttpClient', definition: 'Servicio de Angular para llamadas HTTP. Retorna Observables. Se configura con provideHttpClient().', topic: 'fundamentals' },
+    { term: 'HttpParams', definition: 'Clase inmutable para construir query params: new HttpParams().set("q", term).set("page", 1).', topic: 'fundamentals' },
+    { term: 'HttpHeaders', definition: 'Clase inmutable para headers HTTP: new HttpHeaders().set("Authorization", "Bearer token").', topic: 'fundamentals' },
+    { term: 'HttpErrorResponse', definition: 'Objeto de error HTTP con status, message, url. Se captura con catchError() en el pipe del Observable.', topic: 'fundamentals' },
+    { term: 'HttpTestingController', definition: 'Mock de HttpClient para tests. expectOne() verifica la URL, flush() envía respuesta mock, verify() confirma que no hay requests pendientes.', topic: 'fundamentals' },
+    { term: 'withFetch', definition: 'Opción de provideHttpClient() que usa fetch() API nativa en vez de XMLHttpRequest. Mejor para SSR.', topic: 'fundamentals' },
+    { term: 'idempotente', definition: 'Operación que produce el mismo resultado sin importar cuántas veces se ejecute. GET, PUT, DELETE son idempotentes; POST no.', topic: 'fundamentals' },
   ];
 
   // Map topic IDs to routes and labels

@@ -5,7 +5,7 @@
   <!-- ═══════════════════════════════════════════════ -->
   <!-- A. DIRECTIVAS -->
   <!-- ═══════════════════════════════════════════════ -->
-  <div class="card">
+  <div class="card" id="a-directivas-los-3-tipos">
     <h3>A. Directivas — Los 3 Tipos</h3>
     <p>Las <strong>Directivas</strong> son clases que modifican elementos del DOM. Todo en Angular es una directiva bajo el capó — incluso los componentes.</p>
 
@@ -86,7 +86,7 @@ export class UnlessDirective &#123;
   <!-- ═══════════════════════════════════════════════ -->
   <!-- B. PIPES -->
   <!-- ═══════════════════════════════════════════════ -->
-  <div class="card">
+  <div class="card" id="b-pipes-pure-vs-impure">
     <h3>B. Pipes — Pure vs Impure</h3>
     <p>Los <strong>Pipes</strong> transforman datos en el template. Sintaxis: <code ngNonBindable>&#123;&#123; value | pipeName:arg1:arg2 &#125;&#125;</code></p>
 
@@ -151,7 +151,7 @@ export class SortByPipe implements PipeTransform &#123;
   <!-- ═══════════════════════════════════════════════ -->
   <!-- C. LIFECYCLE HOOKS -->
   <!-- ═══════════════════════════════════════════════ -->
-  <div class="card">
+  <div class="card" id="c-ciclo-de-vida-de-componentes-lifecycle-hooks">
     <h3>C. Ciclo de Vida de Componentes (Lifecycle Hooks)</h3>
     <p>Angular llama estos métodos en momentos específicos del ciclo de vida del componente.</p>
 
@@ -246,7 +246,7 @@ export class AnimComponent &#123;
   <!-- ═══════════════════════════════════════════════ -->
   <!-- D. CONTENT PROJECTION -->
   <!-- ═══════════════════════════════════════════════ -->
-  <div class="card">
+  <div class="card" id="d-content-projection-ng-content">
     <h3>D. Content Projection (ng-content)</h3>
     <p>Mecanismo para pasar HTML del componente padre al hijo. Similar a "slots" en Vue/Web Components.</p>
 
@@ -337,7 +337,7 @@ export class ListComponent &#123;
   <!-- ═══════════════════════════════════════════════ -->
   <!-- E. VIEW ENCAPSULATION -->
   <!-- ═══════════════════════════════════════════════ -->
-  <div class="card">
+  <div class="card" id="e-viewencapsulation-shadow-dom">
     <h3>E. ViewEncapsulation (Shadow DOM)</h3>
     <p>Controla cómo Angular encapsula los estilos CSS de cada componente.</p>
 
@@ -404,7 +404,7 @@ export class StyledComponent &#123;&#125;
   <!-- ═══════════════════════════════════════════════ -->
   <!-- F. DEPENDENCY INJECTION -->
   <!-- ═══════════════════════════════════════════════ -->
-  <div class="card">
+  <div class="card" id="f-dependency-injection-di">
     <h3>F. Dependency Injection (DI)</h3>
     <p>El sistema de DI de Angular es jerárquico. Resuelve dependencias subiendo por el árbol de injectors.</p>
 
@@ -495,7 +495,7 @@ export class UserService &#123;
   <!-- ═══════════════════════════════════════════════ -->
   <!-- G. TEMPLATE REFS & VIEWCHILD -->
   <!-- ═══════════════════════════════════════════════ -->
-  <div class="card">
+  <div class="card" id="g-template-reference-variables-amp-viewchild">
     <h3>G. Template Reference Variables &amp; ViewChild</h3>
     <p>Acceder a elementos del DOM o instancias de componentes hijos desde la clase.</p>
 
@@ -570,10 +570,277 @@ export class MyComponent &#123;
   </div>
 
   <!-- ═══════════════════════════════════════════════ -->
-  <!-- H. ROUTING AVANZADO -->
+  <!-- H. HttpClient & LLAMADAS API -->
   <!-- ═══════════════════════════════════════════════ -->
-  <div class="card">
-    <h3>H. Routing Avanzado</h3>
+  <div class="card" id="h-httpclient-amp-llamadas-api">
+    <h3>H. HttpClient &amp; Llamadas API</h3>
+
+    <h4>Configuración</h4>
+    <p>
+      Angular usa <strong>HttpClient</strong> del paquete <code>&#64;angular/common/http</code>.
+      Se registra con <code>provideHttpClient()</code> en la configuración de la app:
+    </p>
+    <pre ngNonBindable><code class="language-typescript">// app.config.ts
+import &#123; provideHttpClient, withInterceptors, withFetch &#125; from '&#64;angular/common/http';
+
+export const appConfig = &#123;
+  providers: [
+    provideHttpClient(
+      withInterceptors([authInterceptor, loggingInterceptor]),
+      withFetch()  // usa fetch() API en vez de XMLHttpRequest
+    ),
+  ]
+&#125;;</code></pre>
+
+    <h4>Métodos HTTP principales</h4>
+    <p>HttpClient retorna <strong>Observables</strong> — son lazy, no se ejecutan hasta <code>.subscribe()</code> o <code>| async</code>:</p>
+    <pre ngNonBindable><code class="language-typescript">import &#123; HttpClient, HttpParams, HttpHeaders &#125; from '&#64;angular/common/http';
+
+&#64;Injectable(&#123; providedIn: 'root' &#125;)
+export class ProductService &#123;
+  private http = inject(HttpClient);
+  private apiUrl = '/api/products';
+
+  // GET — obtener lista
+  getAll(): Observable&lt;Product[]&gt; &#123;
+    return this.http.get&lt;Product[]&gt;(this.apiUrl);
+  &#125;
+
+  // GET con params — búsqueda/paginación
+  search(term: string, page = 1): Observable&lt;Product[]&gt; &#123;
+    const params = new HttpParams()
+      .set('q', term)
+      .set('page', page)
+      .set('limit', 20);
+    return this.http.get&lt;Product[]&gt;(this.apiUrl, &#123; params &#125;);
+  &#125;
+
+  // GET por ID
+  getById(id: string): Observable&lt;Product&gt; &#123;
+    return this.http.get&lt;Product&gt;(`$&#123;this.apiUrl&#125;/$&#123;id&#125;`);
+  &#125;
+
+  // POST — crear
+  create(product: Partial&lt;Product&gt;): Observable&lt;Product&gt; &#123;
+    return this.http.post&lt;Product&gt;(this.apiUrl, product);
+  &#125;
+
+  // PUT — reemplazar completo
+  update(id: string, product: Product): Observable&lt;Product&gt; &#123;
+    return this.http.put&lt;Product&gt;(`$&#123;this.apiUrl&#125;/$&#123;id&#125;`, product);
+  &#125;
+
+  // PATCH — actualización parcial
+  patch(id: string, changes: Partial&lt;Product&gt;): Observable&lt;Product&gt; &#123;
+    return this.http.patch&lt;Product&gt;(`$&#123;this.apiUrl&#125;/$&#123;id&#125;`, changes);
+  &#125;
+
+  // DELETE
+  delete(id: string): Observable&lt;void&gt; &#123;
+    return this.http.delete&lt;void&gt;(`$&#123;this.apiUrl&#125;/$&#123;id&#125;`);
+  &#125;
+&#125;</code></pre>
+
+    <h4>Headers personalizados</h4>
+    <pre ngNonBindable><code class="language-typescript">const headers = new HttpHeaders()
+  .set('Authorization', `Bearer $&#123;token&#125;`)
+  .set('Content-Type', 'application/json');
+
+this.http.get&lt;Data&gt;('/api/data', &#123; headers &#125;);</code></pre>
+
+    <h4>Manejo de errores</h4>
+    <p>Los errores HTTP llegan como <code>HttpErrorResponse</code>. Se manejan con <code>catchError</code> de RxJS:</p>
+    <pre ngNonBindable><code class="language-typescript">import &#123; catchError, retry, throwError &#125; from 'rxjs';
+import &#123; HttpErrorResponse &#125; from '&#64;angular/common/http';
+
+getProducts(): Observable&lt;Product[]&gt; &#123;
+  return this.http.get&lt;Product[]&gt;(this.apiUrl).pipe(
+    retry(2),  // reintentar 2 veces antes de fallar
+    catchError((error: HttpErrorResponse) =&gt; &#123;
+      if (error.status === 0) &#123;
+        // Error de red (sin conexión)
+        console.error('Network error:', error.error);
+      &#125; else if (error.status === 401) &#123;
+        // No autorizado — redirigir a login
+        this.router.navigate(['/login']);
+      &#125; else if (error.status === 404) &#123;
+        // No encontrado
+        console.error('Not found');
+      &#125; else &#123;
+        // Error del servidor (500, etc)
+        console.error(`Server error $&#123;error.status&#125;:`, error.message);
+      &#125;
+      return throwError(() =&gt; error);
+    &#125;)
+  );
+&#125;</code></pre>
+
+    <h4>Interceptors (funcionales, Angular 15+)</h4>
+    <p>Los interceptors procesan TODAS las peticiones/respuestas HTTP en un pipeline:</p>
+    <pre ngNonBindable><code class="language-typescript">// auth.interceptor.ts
+import &#123; HttpInterceptorFn &#125; from '&#64;angular/common/http';
+
+export const authInterceptor: HttpInterceptorFn = (req, next) =&gt; &#123;
+  const token = inject(AuthService).getToken();
+  
+  if (token) &#123;
+    req = req.clone(&#123;
+      setHeaders: &#123; Authorization: `Bearer $&#123;token&#125;` &#125;
+    &#125;);
+  &#125;
+  
+  return next(req);
+&#125;;
+
+// logging.interceptor.ts — medir tiempo de respuesta
+export const loggingInterceptor: HttpInterceptorFn = (req, next) =&gt; &#123;
+  const start = Date.now();
+  return next(req).pipe(
+    tap(&#123;
+      next: () =&gt; console.log(`$&#123;req.method&#125; $&#123;req.url&#125; — $&#123;Date.now() - start&#125;ms`),
+      error: (err) =&gt; console.error(`$&#123;req.method&#125; $&#123;req.url&#125; FAILED — $&#123;err.status&#125;`)
+    &#125;)
+  );
+&#125;;
+
+// error-handler.interceptor.ts — manejo global de errores
+export const errorHandlerInterceptor: HttpInterceptorFn = (req, next) =&gt; &#123;
+  return next(req).pipe(
+    catchError((error: HttpErrorResponse) =&gt; &#123;
+      if (error.status === 401) &#123;
+        inject(Router).navigate(['/login']);
+      &#125;
+      return throwError(() =&gt; error);
+    &#125;)
+  );
+&#125;;</code></pre>
+
+    <h4>Patrones comunes en componentes</h4>
+    <pre ngNonBindable><code class="language-typescript">// ❌ MAL — suscripción manual, posible memory leak
+&#64;Component(&#123;...&#125;)
+export class ProductsComponent &#123;
+  products: Product[] = [];
+  ngOnInit() &#123;
+    this.productService.getAll().subscribe(p =&gt; this.products = p);
+  &#125;
+&#125;
+
+// ✅ BIEN — async pipe (auto-unsubscribe)
+&#64;Component(&#123;
+  template: `
+    &#64;if (products$ | async; as products) &#123;
+      &#64;for (p of products; track p.id) &#123;
+        &lt;app-product-card [product]="p" /&gt;
+      &#125;
+    &#125; &#64;else &#123;
+      &lt;p&gt;Cargando...&lt;/p&gt;
+    &#125;
+  `
+&#125;)
+export class ProductsComponent &#123;
+  products$ = inject(ProductService).getAll();
+&#125;
+
+// ✅ MEJOR — con Signals (Angular 18+)
+&#64;Component(&#123;
+  template: `
+    &#64;for (p of products(); track p.id) &#123;
+      &lt;app-product-card [product]="p" /&gt;
+    &#125;
+  `
+&#125;)
+export class ProductsComponent &#123;
+  products = toSignal(inject(ProductService).getAll(), &#123;
+    initialValue: []
+  &#125;);
+&#125;</code></pre>
+
+    <h4>HttpClient + NgRx Effects</h4>
+    <p>En apps con NgRx, las llamadas HTTP van en <strong>Effects</strong>, NO en componentes:</p>
+    <pre ngNonBindable><code class="language-typescript">// product.effects.ts
+loadProducts$ = createEffect(() =&gt;
+  this.actions$.pipe(
+    ofType(ProductActions.loadProducts),
+    switchMap(() =&gt;
+      this.http.get&lt;Product[]&gt;('/api/products').pipe(
+        map(products =&gt; ProductActions.loadProductsSuccess(&#123; products &#125;)),
+        catchError(error =&gt;
+          of(ProductActions.loadProductsFailure(&#123; error: error.message &#125;))
+        )
+      )
+    )
+  )
+);</code></pre>
+
+    <h4>Testing con HttpTestingController</h4>
+    <pre ngNonBindable><code class="language-typescript">// product.service.spec.ts
+describe('ProductService', () =&gt; &#123;
+  let service: ProductService;
+  let httpTesting: HttpTestingController;
+
+  beforeEach(() =&gt; &#123;
+    TestBed.configureTestingModule(&#123;
+      providers: [provideHttpClient(), provideHttpClientTesting()]
+    &#125;);
+    service = TestBed.inject(ProductService);
+    httpTesting = TestBed.inject(HttpTestingController);
+  &#125;);
+
+  it('should GET products', () =&gt; &#123;
+    const mockProducts = [&#123; id: '1', name: 'Test' &#125;];
+    
+    service.getAll().subscribe(products =&gt; &#123;
+      expect(products).toEqual(mockProducts);
+    &#125;);
+
+    const req = httpTesting.expectOne('/api/products');
+    expect(req.request.method).toBe('GET');
+    req.flush(mockProducts);
+  &#125;);
+
+  afterEach(() =&gt; &#123;
+    httpTesting.verify(); // ninguna petición pendiente
+  &#125;);
+&#125;);</code></pre>
+
+    <h4>Tabla resumen: GET vs POST vs PUT vs PATCH vs DELETE</h4>
+    <table class="comparison-table">
+      <tr>
+        <th>Método</th><th>Uso</th><th>Body</th><th>Idempotente</th>
+      </tr>
+      <tr>
+        <td><strong>GET</strong></td><td>Obtener datos</td><td>No</td><td>Sí</td>
+      </tr>
+      <tr>
+        <td><strong>POST</strong></td><td>Crear recurso</td><td>Sí</td><td>No</td>
+      </tr>
+      <tr>
+        <td><strong>PUT</strong></td><td>Reemplazar recurso completo</td><td>Sí</td><td>Sí</td>
+      </tr>
+      <tr>
+        <td><strong>PATCH</strong></td><td>Actualización parcial</td><td>Sí</td><td>No*</td>
+      </tr>
+      <tr>
+        <td><strong>DELETE</strong></td><td>Eliminar recurso</td><td>Opcional</td><td>Sí</td>
+      </tr>
+    </table>
+
+    <div class="code-ref">
+      📂 Implementación en el proyecto:
+      <ul>
+        <li><code>core/services/mock-api.service.ts</code> — Servicio simulado con getProducts, createProduct, updateProduct, deleteProduct</li>
+        <li><code>core/interceptors/auth.interceptor.ts</code> — Interceptor funcional que agrega Authorization header</li>
+        <li><code>features/ngrx-lab/store/product.effects.ts</code> — HttpClient en Effects con switchMap + catchError</li>
+        <li><code>app.config.ts</code> — provideHttpClient(withInterceptors([...]))</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- I. ROUTING AVANZADO -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div class="card" id="i-routing-avanzado">
+    <h3>I. Routing Avanzado</h3>
 
     <h4>Route Params, Query Params &amp; Fragments</h4>
     <pre ngNonBindable><code class="language-typescript">// Definir ruta con parámetro
@@ -671,8 +938,8 @@ export const authGuard: CanActivateFn = (route, state) =&gt; &#123;
   <!-- ═══════════════════════════════════════════════ -->
   <!-- I. MODULES VS STANDALONE -->
   <!-- ═══════════════════════════════════════════════ -->
-  <div class="card">
-    <h3>I. Modules vs Standalone</h3>
+  <div class="card" id="j-modules-vs-standalone">
+    <h3>J. Modules vs Standalone</h3>
 
     <h4>NgModule (Clásico — Angular 2-13)</h4>
     <pre ngNonBindable><code class="language-typescript">&#64;NgModule(&#123;
@@ -733,8 +1000,8 @@ bootstrapApplication(AppComponent, &#123;
   <!-- ═══════════════════════════════════════════════ -->
   <!-- J. DECORADORES IMPORTANTES -->
   <!-- ═══════════════════════════════════════════════ -->
-  <div class="card">
-    <h3>J. Decoradores Importantes</h3>
+  <div class="card" id="k-decoradores-importantes">
+    <h3>K. Decoradores Importantes</h3>
 
     <h4>&#64;Input() / &#64;Output() — Comunicación Padre-Hijo</h4>
     <pre ngNonBindable><code class="language-typescript">// Hijo recibe datos del padre

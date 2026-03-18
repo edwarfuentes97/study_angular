@@ -50,7 +50,7 @@ export const STUDY_TOPICS: StudyTopic[] = [
   {
     id: 'fundamentals' as TopicId, title: 'Angular Fundamentals', icon: '🟢',
     level: 'critical', route: '/lab/fundamentals',
-    subtopics: ['Directivas', 'Pipes', 'Lifecycle Hooks', 'Content Projection', 'ViewEncapsulation', 'Dependency Injection', 'Template Refs & ViewChild', 'Routing Avanzado', 'Modules vs Standalone', 'Decoradores']
+    subtopics: ['Directivas', 'Pipes', 'Lifecycle Hooks', 'Content Projection', 'ViewEncapsulation', 'HttpClient & API', 'Dependency Injection', 'Template Refs & ViewChild', 'Routing Avanzado', 'Modules vs Standalone', 'Decoradores']
   },
   {
     id: 'behavioral', title: 'Behavioral & System Design', icon: '💬',

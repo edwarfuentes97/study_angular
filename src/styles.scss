@@ -218,3 +218,14 @@ pre code { background: transparent; padding: 0; color: var(--text); }
   color: var(--accent-blue);
   opacity: 0.6;
 }
+
+/* ===== Search Highlight Animation ===== */
+.search-highlight {
+  animation: highlightPulse 3s ease-out;
+  border-radius: 4px;
+}
+@keyframes highlightPulse {
+  0%   { background: rgba(88, 166, 255, 0.3); box-shadow: 0 0 12px rgba(88, 166, 255, 0.4); }
+  50%  { background: rgba(88, 166, 255, 0.15); box-shadow: 0 0 6px rgba(88, 166, 255, 0.2); }
+  100% { background: transparent; box-shadow: none; }
+}

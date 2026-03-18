@@ -21,7 +21,6 @@
           <div class="result-topic-header">{{ group.topicLabel }}</div>
           @for (result of group.items; track result.term; let i = $index) {
             <a class="result-item" [class.highlighted]="isHighlighted(group, i)"
-               [routerLink]="result.route"
                (click)="selectResult(result)"
                (mouseenter)="highlightedIndex.set(getGlobalIndex(group, i))">
               <span class="result-term">{{ result.term }}</span>

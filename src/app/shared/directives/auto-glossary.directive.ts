@@ -101,9 +101,11 @@ export class AutoGlossaryDirective implements AfterViewInit, OnDestroy {
           fragment.appendChild(document.createTextNode(currentText.slice(lastIndex, r.start)));
         }
         
-        // Create tooltip span
+        // Create tooltip span with anchor ID for search navigation
         const span = document.createElement('span');
+        const anchor = r.term.toLowerCase().replace(/[\s\/&]+/g, '-').replace(/[^a-z0-9\-@]/g, '');
         span.className = 'glossary-term';
+        span.id = anchor;
         span.setAttribute('tabindex', '0');
         span.setAttribute('role', 'term');
         span.innerHTML = `${currentText.slice(r.start, r.end)}<span class="glossary-icon">ⓘ</span><span class="glossary-tip">${r.definition}</span>`;

@@ -1,7 +1,7 @@
     <div class="learn-page" appAutoGlossary>
       <h2 class="page-title">📖 RxJS — Teoría y Conceptos</h2>
 
-      <div class="card">
+      <div class="card" id="observable-vs-promise">
         <h3>🔵 Observable vs Promise</h3>
         <table class="compare-table">
           <thead>
@@ -58,7 +58,7 @@ const obs$ = new Observable(subscriber => {{ '{' }}
         </div>
       </div>
 
-      <div class="card">
+      <div class="card" id="subject-types">
         <h3>📡 Subject Types</h3>
         <p>Los Subjects son Observables <strong>multicast</strong> que también son Observers (puedes emitir valores con <code>.next()</code>).</p>
         <table class="compare-table">
@@ -113,7 +113,7 @@ messages$.subscribe(m => console.log(m));</code></pre>
         </div>
       </div>
 
-      <div class="card">
+      <div class="card" id="operadores-de-flattening">
         <h3>🔀 Operadores de Flattening</h3>
         <p>Transforman un Observable que emite Observables internos en un stream plano. La diferencia está en cómo manejan la <strong>concurrencia</strong>:</p>
         <table class="compare-table">
@@ -168,7 +168,7 @@ loginClick$.pipe(
         </div>
       </div>
 
-      <div class="card">
+      <div class="card" id="combining-operators">
         <h3>🔗 Combining Operators</h3>
         <p>Combinan múltiples streams en uno solo:</p>
         <ul>
@@ -200,7 +200,7 @@ saveClick$.pipe(
         </div>
       </div>
 
-      <div class="card">
+      <div class="card" id="memory-leaks">
         <h3>🚨 Memory Leaks</h3>
         <p>
           Las suscripciones que no se cancelan siguen ejecutándose después de destruir el componente.
