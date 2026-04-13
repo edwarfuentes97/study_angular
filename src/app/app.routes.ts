@@ -37,5 +37,9 @@ export const routes: Routes = [
     path: 'lab/testing',
     loadChildren: () => import('./features/testing-lab/testing-lab.routes').then(m => m.TESTING_LAB_ROUTES)
   },
+  {
+    path: 'lab/playwright',
+    loadChildren: () => import('./features/playwright-lab/playwright-lab.routes').then(m => m.PLAYWRIGHT_LAB_ROUTES)
+  },
   { path: '**', redirectTo: '' }
 ];

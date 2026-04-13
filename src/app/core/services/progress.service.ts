@@ -48,6 +48,11 @@ export const STUDY_TOPICS: StudyTopic[] = [
     subtopics: ['Component Tests', 'NgRx Tests', 'Service Tests']
   },
   {
+    id: 'playwright' as TopicId, title: 'Playwright E2E Testing', icon: '🧪',
+    level: 'high', route: '/lab/playwright',
+    subtopics: ['Instalación & Configuración', 'Page Object Model', 'Fixtures & Auth', 'Inspector y Debug', 'CI/CD y Paralelismo']
+  },
+  {
     id: 'fundamentals' as TopicId, title: 'Angular Fundamentals', icon: '🟢',
     level: 'critical', route: '/lab/fundamentals',
     subtopics: ['Directivas', 'Pipes', 'Lifecycle Hooks', 'Content Projection', 'ViewEncapsulation', 'HttpClient & API', 'Dependency Injection', 'Template Refs & ViewChild', 'Routing Avanzado', 'Modules vs Standalone', 'Decoradores']

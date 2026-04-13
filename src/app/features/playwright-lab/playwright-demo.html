@@ -1,0 +1,50 @@
+<div class="cards">
+  <div class="card" id="config-ejemplo">
+    <h3>Configuración de ejemplo</h3>
+    <p>
+      Usa un archivo de configuración para definir directorio, browsers y servidor.
+      Esto garantiza que Angular esté disponible antes de ejecutar pruebas.
+    </p>
+    <pre><code [textContent]="configExampleCode"></code></pre>
+  </div>
+
+  <div class="card" id="page-object-model-demo">
+    <h3>Page Object Model</h3>
+    <p>
+      Centraliza selectores y acciones en clases para que los tests se mantengan legibles.
+    </p>
+    <pre><code [textContent]="pageObjectCode"></code></pre>
+  </div>
+
+  <div class="card" id="fixture-demo">
+    <h3>Fixture personalizado</h3>
+    <p>
+      Crea un fixture que navegue a la página de inicio y devuelva el objeto de página para pruebas.
+    </p>
+    <pre><code [textContent]="fixtureCode"></code></pre>
+  </div>
+
+  <div class="card" id="test-demo">
+    <h3>Ejemplo de prueba</h3>
+    <p>
+      Con un fixture y un page object la prueba queda muy sencilla y fácil de leer.
+    </p>
+    <pre><code [textContent]="exampleTestCode"></code></pre>
+  </div>
+
+  <div class="card" id="componentes-reutilizables">
+    <h3>Elementos reutilizables</h3>
+    <p>
+      Encapsula inputs, botones y componentes compartidos en clases de elemento para facilitar la reutilización.
+    </p>
+    <pre><code [textContent]="filterElementCode"></code></pre>
+  </div>
+
+  <div class="card" id="autenticacion-demo">
+    <h3>Estado de autenticación</h3>
+    <p>
+      Almacenar el estado de la sesión en un archivo permite iniciar tests autenticados sin repetir logins.
+      Esto mejora la velocidad y mantiene los tests independientes.
+    </p>
+  </div>
+</div>

@@ -1,0 +1,20 @@
+.cards {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.card h3 {
+  margin-top: 0;
+}
+
+.card pre {
+  background: #111827;
+  color: #f8fafc;
+  padding: 1rem;
+  overflow: auto;
+  border-radius: 0.5rem;
+}
+
+.card code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+}

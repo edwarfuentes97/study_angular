@@ -1,0 +1,59 @@
+<div class="cards">
+  <div class="card" id="ejercicio-01">
+    <h3>Ejercicio 1: Configura Playwright</h3>
+    <p>
+      Ejecuta <code>npm init playwright@latest</code> y elige TypeScript como lenguaje.
+      Crea la configuración básica y verifica que los navegadores estén instalados.
+    </p>
+    <p>
+      Asegúrate de definir <code>webServer</code> para que Playwright levante tu app Angular.
+    </p>
+  </div>
+
+  <div class="card" id="ejercicio-02">
+    <h3>Ejercicio 2: Agrega selectores test-id</h3>
+    <p>
+      Añade <code>data-testid</code> a elementos críticos como el título de inicio, campos de filtro y botones.
+      Estos selectores mejoran la estabilidad de los tests frente a cambios de estilo.
+    </p>
+  </div>
+
+  <div class="card" id="ejercicio-03">
+    <h3>Ejercicio 3: Crea un Page Object</h3>
+    <p>
+      Implementa una clase <code>StartPage</code> con método <code>goto()</code> y selectores para los elementos clave.
+      Usa esta clase en tus pruebas para separar navegación de assertions.
+    </p>
+  </div>
+
+  <div class="card" id="ejercicio-04">
+    <h3>Ejercicio 4: Escribe una prueba simple</h3>
+    <p>
+      Escribe un test que abra la página de inicio y verifique el mensaje de bienvenida.
+      Usa <code>expect(...).toContainText(...)</code> para validar el contenido.
+    </p>
+  </div>
+
+  <div class="card" id="ejercicio-05">
+    <h3>Ejercicio 5: Reutiliza un elemento compartido</h3>
+    <p>
+      Crea una clase <code>FilterInputElement</code> que encapsule el campo de filtro y el botón de reset.
+      Luego úsala desde un page object para interactuar con el formulario.
+    </p>
+  </div>
+
+  <div class="card" id="ejercicio-06">
+    <h3>Ejercicio 6: Prueba el modo UI y debug</h3>
+    <p>
+      Ejecuta <code>npx playwright test --ui</code> y explora la interfaz.
+      Luego ejecuta <code>npx playwright test --debug</code> para inspeccionar los pasos y usar el inspector.
+    </p>
+  </div>
+
+  <div class="card" id="ejercicio-07">
+    <h3>Ejercicio 7: Agrega un flujo autenticado</h3>
+    <p>
+      Crea un setup de autenticación que guarde el estado en un archivo y reutilízalo en pruebas posteriores.
+      Esto te ayudará a testear rutas protegidas sin repetir el login.</p>
+  </div>
+</div>

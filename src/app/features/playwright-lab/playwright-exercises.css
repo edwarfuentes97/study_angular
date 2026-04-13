@@ -1,0 +1,12 @@
+.cards {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.card h3 {
+  margin-top: 0;
+}
+
+.card code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+}

@@ -1323,6 +1323,7 @@ La pregunta clave no es 'cómo lo registro' sino 'qué scope necesito'.`,
     architecture: { route: '/lab/architecture', label: 'Architecture Lab' },
     performance: { route: '/lab/performance', label: 'Performance Lab' },
     testing: { route: '/lab/testing', label: 'Testing Lab' },
+    playwright: { route: '/lab/playwright', label: 'Playwright Lab' },
     fundamentals: { route: '/lab/fundamentals', label: 'Angular Fundamentals' },
   };
 

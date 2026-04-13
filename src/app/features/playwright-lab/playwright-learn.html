@@ -1,0 +1,172 @@
+<div class="cards">
+  <div class="card" id="introduccion">
+    <h3>Introducción</h3>
+    <p>
+      Playwright es un framework moderno de pruebas end-to-end creado por Microsoft.
+      Permite testear aplicaciones web de forma confiable, rápida y cross-browser,
+      ejecutando flujos reales del usuario en Chromium, Firefox y WebKit.
+    </p>
+    <p>
+      Para aplicaciones Angular esta herramienta es ideal porque automatiza la espera
+      de acciones, maneja múltiples contextos aislados y soporta pruebas en paralelo,
+      todo sin depender de un servidor real en cada ejecución.
+    </p>
+  </div>
+
+  <div class="card" id="por-que-playwright">
+    <h3>¿Por qué elegir Playwright?</h3>
+    <ul>
+      <li>Compatibilidad con múltiples navegadores: Chromium, Firefox y WebKit.</li>
+      <li>Auto-waiting integrado: espera que los elementos sean interactuables antes de actuar.</li>
+      <li>Control de red y contexto: intercepte requests, use múltiples tabs y orígenes separados.</li>
+      <li>Ejecuta pruebas aisladas: cada test obtiene un contexto fresco en el mismo proceso.</li>
+      <li>Depuración avanzada: inspector, grabador y trace viewer ayudan a diagnosticar fallas.</li>
+      <li>Paralelismo eficiente: ejecuta tests en workers simultáneos y reduce tiempos de ejecución.</li>
+    </ul>
+  </div>
+
+  <div class="card" id="cypress-vs-playwright">
+    <h3>Diferencias con Cypress</h3>
+    <p>
+      Cypress corre dentro del navegador, lo que entrega una experiencia de depuración muy fluida.
+      Sin embargo, su sandbox limita escenarios como múltiples pestañas, cross-origin y control externo del navegador.
+    </p>
+    <p>
+      Playwright corre fuera del navegador y controla su interno, lo que lo hace más flexible para
+      pruebas complejas, aunque a veces la configuración inicial puede ser un poco más detallada.
+    </p>
+  </div>
+
+  <div class="card" id="install">
+    <h3>Instalación</h3>
+    <p>
+      En un proyecto Angular puedes inicializar Playwright con este comando:
+    </p>
+    <pre><code [textContent]="installCode"></code></pre>
+    <p>
+      El asistente te pedirá opciones como TypeScript vs JavaScript, ubicación de tests, integración CI y si deseas instalar navegadores.
+    </p>
+  </div>
+
+  <div class="card" id="configuracion-inicial">
+    <h3>Configuración inicial para Angular</h3>
+    <p>
+      La configuración principal vive en <code>playwright.config.ts</code>. Para Angular conviene definir un servidor local
+      que arranque antes de las pruebas:
+    </p>
+    <pre><code [textContent]="configCode"></code></pre>
+    <p>
+      Estas opciones permiten ejecutar pruebas automáticamente contra la app Angular en desarrollo.
+    </p>
+  </div>
+
+  <div class="card" id="estructura-de-pruebas">
+    <h3>Cómo estructurar las pruebas</h3>
+    <p>
+      Organiza tus archivos en carpetas claras. Una convención útil es:
+    </p>
+    <ul>
+      <li><code>tests/shared/</code> para utilidades y elementos reutilizables.</li>
+      <li><code>tests/pages/</code> para page objects del Page Object Model.</li>
+      <li><code>tests/fixtures/</code> para extensiones de fixtures personalizadas.</li>
+      <li><code>tests/*.spec.ts</code> para los casos de prueba.</li>
+    </ul>
+    <p>
+      De esta forma cada prueba queda más legible y el mantenimiento se concentra en los objetos de página.
+    </p>
+  </div>
+
+  <div class="card" id="primer-test">
+    <h3>Escribir tu primer test E2E</h3>
+    <p>
+      Playwright sincroniza automáticamente las acciones, por lo que no necesitas timeouts manuales en la mayoría de los casos.
+    </p>
+    <pre><code [textContent]="firstTestCode"></code></pre>
+  </div>
+
+  <div class="card" id="page-object-model">
+    <h3>Page Object Model</h3>
+    <p>
+      El patrón POM abstrae selectores y flujos de la aplicación en clases, dejando los tests enfocados en el comportamiento.
+    </p>
+    <pre><code [textContent]="pageObjectCode"></code></pre>
+  </div>
+
+  <div class="card" id="fixtures-personalizados">
+    <h3>Fixtures personalizados</h3>
+    <p>
+      Playwright permite extender el fixture base para preparar la página o la sesión antes de cada test.
+    </p>
+    <pre><code [textContent]="fixtureCode"></code></pre>
+  </div>
+
+  <div class="card" id="autenticacion-persistente">
+    <h3>Autenticación persistente</h3>
+    <p>
+      Para evitar logins redundantes en cada prueba, guarda el estado de autenticación en un archivo.
+      Un proyecto de setup puede iniciar sesión y escribir <code>storageState</code>.
+    </p>
+    <p>
+      Luego el config de Playwright puede reutilizar ese archivo para pruebas autenticadas.
+    </p>
+  </div>
+
+  <div class="card" id="ejecucion-y-debug">
+    <h3>Ejecutar y depurar</h3>
+    <ul>
+      <li><code>npx playwright test</code> — ejecuta la suite completa.</li>
+      <li><code>npx playwright test --ui</code> — abre la interfaz gráfica.</li>
+      <li><code>npx playwright test --debug</code> — inicia el inspector y desactiva timeouts.</li>
+    </ul>
+    <p>
+      En modo debug cada prueba abre el navegador en headed mode y te permite inspeccionar locators en tiempo real.
+    </p>
+  </div>
+
+  <div class="card" id="inspector">
+    <h3>Playwright Inspector</h3>
+    <p>
+      El inspector permite pausar la prueba, ver la acción actual y seleccionar elementos en la página.
+      También puedes usar <code>page.pause()</code> dentro de un test para detener la ejecución en un punto específico.
+    </p>
+  </div>
+
+  <div class="card" id="paralelizacion">
+    <h3>Paralelización</h3>
+    <p>
+      Playwright ejecuta archivos de prueba en paralelo por defecto, usando múltiples workers.
+      Dentro de cada archivo los tests se ejecutan de forma secuencial a menos que actives:
+    </p>
+    <pre><code [textContent]="parallelCode"></code></pre>
+    <p>
+      Para desactivar el paralelismo usa <code>--workers=1</code> o <code>workers: 1</code> en la configuración.
+    </p>
+  </div>
+
+  <div class="card" id="cicd">
+    <h3>CI/CD</h3>
+    <p>
+      Las pruebas Playwright pueden ejecutarse en cualquier proveedor de CI.
+      Muchas integraciones usan el mismo comando de terminal y agregan la instalación de navegadores.
+    </p>
+    <p>
+      Un workflow típico de GitHub Actions solo necesita ejecutar <code>npm install</code> y <code>npx playwright test</code>.
+    </p>
+  </div>
+
+  <div class="card" id="vscode-extension">
+    <h3>Extensión de VS Code</h3>
+    <p>
+      La extensión Playwright Test para VS Code ofrece un panel de tests, grabador de locators y depuración desde el editor.
+      También puede generar workflows de GitHub Actions y ayuda a instalar navegadores.
+    </p>
+  </div>
+
+  <div class="card" id="conclusion">
+    <h3>Resumen</h3>
+    <p>
+      Playwright convierte las pruebas end-to-end en una experiencia moderna y escalable para Angular.
+      Su fortaleza está en la mezcla de confiabilidad, compatibilidad y herramientas de depuración.
+    </p>
+  </div>
+</div>
