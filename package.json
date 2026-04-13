@@ -8,7 +8,11 @@
     "deploy:pages": "bash ./scripts/deploy-gh-pages.sh",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:debug": "playwright test --debug",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:report": "playwright show-report"
   },
   "prettier": {
     "printWidth": 100,

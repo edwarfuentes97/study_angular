@@ -65,4 +65,94 @@ export { expect } from '@playwright/test';`;
 // o en config:
 fullyParallel: true
 workers: 4`;
+
+  angularExampleCode = `<input
+  type="text"
+  [(ngModel)]="query"
+  data-testid="search-input"
+  placeholder="Buscar..."
+/>
+
+<button
+  (click)="submit()"
+  data-testid="submit-button"
+  [disabled]="loading"
+  data-state="loading"
+>
+  {{ loading ? 'Enviando...' : 'Enviar' }}
+</button>`;
+
+  pageObjectExampleCode = `class DashboardPage {
+  constructor(private page: Page) {}
+
+  async navigateToLab(labName: string) {
+    await this.page.getByRole('link', { name: labName }).click();
+  }
+
+  async getTopicCards() {
+    return this.page.locator('article.topic-card');
+  }
+}`;
+
+  timeoutExampleCode = `test.setTimeout(30000); // Para tests largos
+await expect(element).toBeVisible({ timeout: 10000 });`;
+
+  formExampleCode = `await page.getByLabel('Nombre').fill('Juan');
+await page.getByLabel('Email').fill('juan@example.com');
+await page.getByRole('button', { name: 'Enviar' }).click();`;
+
+  networkExampleCode = `await page.route('**/api/data', route => route.fulfill({
+  status: 200,
+  body: JSON.stringify(mockData)
+}));`;
+
+  authExampleCode = `await page.addCookies([{
+  name: 'auth-token',
+  value: 'token123',
+  domain: 'localhost'
+}]);`;
+
+  screenshotExampleCode = `await page.screenshot({ path: 'debug.png' });`;
+
+  videoConfigExampleCode = `use: {
+  video: 'on'
+}`;
+
+  angularWaitExampleCode = `// Esperar que Angular termine de procesar
+await page.waitForFunction(() => {
+  return window.getAllAngularTestabilities().every(
+    testability => testability.isStable()
+  );
+});`;
+
+  angularRoutingExampleCode = `// Para navegación SPA
+await page.waitForURL(/.*\/lab\/ngrx/);
+await expect(page.locator('app-ngrx-layout')).toBeVisible();`;
+
+  getByTextExampleCode = `page.getByText('Angular Fundamentals', { exact: true })`;
+
+  typeExampleCode = `await input.type('texto', { delay: 50 })`;
+
+  ngrxStoreExampleCode = `// Verificar estado de store (si es accesible)
+await page.waitForFunction(() => {
+  return window.store?.getState()?.products?.length > 0;
+});`;
+
+  dynamicComponentsExampleCode = `// Esperar que Angular renderice componentes
+await page.locator('app-product-list').waitFor();
+await expect(page.locator('app-product-item')).toHaveCount(expectedCount);`;
+
+  locatorExamplesCode = `// Con selector CSS
+page.locator('h2');
+// Con texto
+page.locator('h2', { hasText: /NgRx/i });
+// Con otro locator
+page.locator('article', { has: page.locator('.topic-card') });`;
+
+  getByRoleExamplesCode = `// Botones
+page.getByRole('button', { name: /Add Product/i });
+// Enlaces
+page.getByRole('link', { name: /Estudiar/i });
+// Headings
+page.getByRole('heading', { name: /NgRx/i });`;
 }

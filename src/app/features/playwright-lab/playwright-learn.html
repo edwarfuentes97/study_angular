@@ -171,11 +171,260 @@
         </p>
     </div>
 
+    <div class="card" id="metodos-localizacion">
+        <h3>Métodos Principales de Localización</h3>
+        <h4>page.goto(url)</h4>
+        <p>Navega a una URL específica y espera automáticamente a que la página cargue.</p>
+        <pre><code>await page.goto('/lab/ngrx');</code></pre>
+        <p><strong>Cuándo usar:</strong> Para iniciar navegación a páginas específicas.</p>
+
+        <h4>page.locator(selector)</h4>
+        <p>Localiza elementos usando selectores CSS, XPath o texto.</p>
+        <pre><code [textContent]="locatorExamplesCode"></code></pre>
+        <p><strong>Cuándo usar:</strong> Para elementos específicos con selectores CSS o texto visible.</p>
+
+        <h4>page.getByRole(role, options)</h4>
+        <p>Localiza elementos por su rol semántico (ARIA).</p>
+        <pre><code [textContent]="getByRoleExamplesCode"></code></pre>
+        <p><strong>Roles comunes:</strong> button, link, heading, textbox, checkbox, radio, etc.</p>
+        <p><strong>Cuándo usar:</strong> Para elementos interactivos o semánticos. Mejor que selectores CSS porque es
+            más resistente a cambios de estilo.</p>
+
+        <h4>page.getByText(text, options)</h4>
+        <p>Localiza elementos por su texto visible.</p>
+        <pre><code [textContent]="getByTextExampleCode"></code></pre>
+        <p><strong>Cuándo usar:</strong> Cuando el texto es único y visible al usuario.</p>
+
+        <h4>page.getByLabel(text)</h4>
+        <p>Localiza elementos por su etiqueta asociada (label).</p>
+        <pre><code>page.getByLabel('Nombre del producto');</code></pre>
+        <p><strong>Cuándo usar:</strong> Para inputs con labels explícitos.</p>
+
+        <h4>page.getByPlaceholder(text)</h4>
+        <p>Localiza inputs por su placeholder.</p>
+        <pre><code>page.getByPlaceholder('Buscar...');</code></pre>
+        <p><strong>Cuándo usar:</strong> Para inputs con placeholders únicos.</p>
+
+        <h4>page.getByTestId(id)</h4>
+        <p>Localiza elementos por data-testid.</p>
+        <pre><code>page.getByTestId('submit-button');</code></pre>
+        <p><strong>Cuándo usar:</strong> Para elementos sin texto o rol claro, cuando se necesita estabilidad.</p>
+
+        <h4>page.waitForURL(url, options)</h4>
+        <p>Espera a que la URL cambie a un patrón específico.</p>
+        <pre><code>await page.waitForURL(/.*\/lab\/ngrx/);
+await page.waitForURL('https://example.com/dashboard');</code></pre>
+        <p><strong>Cuándo usar:</strong> Después de clics que cambian la ruta, para asegurar navegación completa.</p>
+
+        <h4>page.waitForLoadState(state)</h4>
+        <p>Espera a que la página alcance un estado de carga.</p>
+        <pre><code>await page.waitForLoadState('networkidle');</code></pre>
+        <p><strong>Estados:</strong> 'load' (default), 'domcontentloaded', 'networkidle'</p>
+        <p><strong>Cuándo usar:</strong> Cuando se necesita esperar a que todos los recursos carguen.</p>
+    </div>
+
+    <div class="card" id="acciones-elementos">
+        <h3>Acciones en Elementos</h3>
+        <h4>locator.click()</h4>
+        <p>Hace clic en el elemento y espera automáticamente a que sea clickable.</p>
+        <pre><code>await button.click();</code></pre>
+
+        <h4>locator.fill(text)</h4>
+        <p>Llena un input con texto (borra contenido previo).</p>
+        <pre><code>await input.fill('nuevo valor');</code></pre>
+
+        <h4>locator.type(text, options)</h4>
+        <p>Escribe texto carácter por carácter (simula usuario real).</p>
+        <pre><code [textContent]="typeExampleCode"></code></pre>
+
+        <h4>locator.check()</h4>
+        <p>Marca un checkbox.</p>
+        <pre><code>await checkbox.check();</code></pre>
+
+        <h4>locator.selectOption(value)</h4>
+        <p>Selecciona una opción en un select.</p>
+        <pre><code>await select.selectOption('option1');</code></pre>
+
+        <h4>locator.hover()</h4>
+        <p>Mueve el mouse sobre el elemento.</p>
+        <pre><code>await element.hover();</code></pre>
+
+        <h4>locator.focus()</h4>
+        <p>Enfoca el elemento.</p>
+        <pre><code>await input.focus();</code></pre>
+    </div>
+
+    <div class="card" id="assertions">
+        <h3>Assertions (Verificaciones)</h3>
+        <h4>expect(locator).toBeVisible()</h4>
+        <p>Verifica que el elemento sea visible.</p>
+        <pre><code>await expect(page.locator('h2')).toBeVisible();</code></pre>
+
+        <h4>expect(locator).toHaveText(text)</h4>
+        <p>Verifica el texto exacto del elemento.</p>
+        <pre><code>await expect(button).toHaveText('Guardar');</code></pre>
+
+        <h4>expect(locator).toContainText(text)</h4>
+        <p>Verifica que el elemento contenga el texto.</p>
+        <pre><code>await expect(div).toContainText('Error');</code></pre>
+
+        <h4>expect(page).toHaveURL(url)</h4>
+        <p>Verifica la URL actual.</p>
+        <pre><code>await expect(page).toHaveURL(/.*\/dashboard/);</code></pre>
+
+        <h4>expect(locator).toHaveCount(count)</h4>
+        <p>Verifica el número de elementos encontrados.</p>
+        <pre><code>await expect(cards).toHaveCount(10);</code></pre>
+
+        <h4>expect(locator).toBeChecked()</h4>
+        <p>Verifica que un checkbox esté marcado.</p>
+        <pre><code>await expect(checkbox).toBeChecked();</code></pre>
+
+        <h4>expect(locator).toBeDisabled()</h4>
+        <p>Verifica que un elemento esté deshabilitado.</p>
+        <pre><code>await expect(button).toBeDisabled();</code></pre>
+    </div>
+
+    <div class="card" id="atributos-datos">
+        <h3>Atributos de Datos en HTML</h3>
+        <p>Para hacer tests más robustos, agrega atributos data-* en el HTML:</p>
+
+        <h4>data-testid</h4>
+        <p>Para elementos sin texto único o rol claro.</p>
+        <pre><code>&lt;button data-testid="submit-btn"&gt;Enviar&lt;/button&gt;</code></pre>
+        <p>Uso en test: <code>page.getByTestId('submit-btn')</code></p>
+
+        <h4>data-cy (estilo Cypress)</h4>
+        <p>Similar a data-testid, popular en algunos equipos.</p>
+        <pre><code>&lt;input data-cy="username" /&gt;</code></pre>
+
+        <h4>data-inputid</h4>
+        <p>Para inputs específicos.</p>
+        <pre><code>&lt;input data-inputid="product-name" /&gt;</code></pre>
+
+        <h4>data-role</h4>
+        <p>Para roles personalizados.</p>
+        <pre><code>&lt;div data-role="notification"&gt;...&lt;/div&gt;</code></pre>
+
+        <h4>data-state</h4>
+        <p>Para estados dinámicos.</p>
+        <pre><code>&lt;button data-state="loading"&gt;Cargando...&lt;/button&gt;</code></pre>
+
+        <h4>Ejemplos en Angular</h4>
+        <pre><code [textContent]="angularExampleCode"></code></pre>
+    </div>
+
+    <div class="card" id="mejores-practicas">
+        <h3>Mejores Prácticas</h3>
+        <h4>Prioriza selectores semánticos</h4>
+        <p><code>getByRole() &gt; getByText() &gt; locator() con CSS &gt; getByTestId()</code></p>
+
+        <h4>Usa esperas explícitas solo cuando sea necesario</h4>
+        <p>Playwright auto-espera en la mayoría de acciones. Usa <code>waitForURL()</code> después de navegación.</p>
+
+        <h4>Escribe tests independientes</h4>
+        <p>Cada test debe ser autocontenido. No dependas del estado de tests previos.</p>
+
+        <h4>Usa Page Objects para tests complejos</h4>
+        <pre><code [textContent]="pageObjectExampleCode"></code></pre>
+
+        <h4>Maneja asincronía correctamente</h4>
+        <p>Siempre usa <code>await</code> en operaciones que devuelven promesas.</p>
+
+        <h4>Tests de accesibilidad</h4>
+        <p>Usa <code>getByRole()</code> para verificar estructura semántica y labels en formularios.</p>
+
+        <h4>Evita sleeps fijos</h4>
+        <p>Usa <code>waitFor*()</code> en lugar de <code>page.waitForTimeout()</code>.</p>
+
+        <h4>Configura timeouts apropiados</h4>
+        <pre><code [textContent]="timeoutExampleCode"></code></pre>
+    </div>
+
+    <div class="card" id="ejemplos-avanzados">
+        <h3>Ejemplos Avanzados</h3>
+        <h4>Navegación con espera paralela</h4>
+        <pre><code>await Promise.all([
+  page.waitForURL(/.*\/lab\/.*/),
+  link.click()
+]);</code></pre>
+
+        <h4>Completar formulario</h4>
+        <pre><code [textContent]="formExampleCode"></code></pre>
+
+        <h4>Verificar lista dinámica</h4>
+        <pre><code>const items = page.locator('.item');
+await expect(items).toHaveCount(5);
+await expect(items.first()).toContainText('Primer item');</code></pre>
+
+        <h4>Manejar dropdowns</h4>
+        <pre><code>await page.getByRole('combobox').selectOption('Opción 1');</code></pre>
+
+        <h4>Subir archivos</h4>
+        <pre><code>await page.getByTestId('file-input').setInputFiles('path/to/file.pdf');</code></pre>
+
+        <h4>Control de red</h4>
+        <pre><code [textContent]="networkExampleCode"></code></pre>
+
+        <h4>Autenticación programática</h4>
+        <pre><code [textContent]="authExampleCode"></code></pre>
+    </div>
+
+    <div class="card" id="depuracion">
+        <h3>Depuración y Troubleshooting</h3>
+        <h4>Modo debug interactivo</h4>
+        <pre><code>npx playwright test --debug</code></pre>
+        <p>Abre el navegador y permite inspeccionar en tiempo real.</p>
+
+        <h4>Pausar en código</h4>
+        <pre><code>await page.pause(); // Detiene ejecución para inspeccionar</code></pre>
+
+        <h4>Capturas de pantalla</h4>
+        <pre><code [textContent]="screenshotExampleCode"></code></pre>
+
+        <h4>Videos de tests</h4>
+        <p>Configura en <code>playwright.config.ts</code>:</p>
+        <pre><code [textContent]="videoConfigExampleCode"></code></pre>
+
+        <h4>Inspeccionar elementos</h4>
+        <pre><code>await page.locator('selector').highlight();</code></pre>
+
+        <h4>Logs de consola</h4>
+        <pre><code>page.on('console', msg => console.log(msg.text()));</code></pre>
+
+        <h4>Problemas comunes</h4>
+        <ul>
+            <li><strong>Elemento no encontrado:</strong> Verifica selectores y espera a que cargue.</li>
+            <li><strong>Timeout:</strong> Aumenta timeout o usa esperas más específicas.</li>
+            <li><strong>Flaky tests:</strong> Evita dependencias entre tests, usa selectores robustos.</li>
+            <li><strong>Cross-browser:</strong> Prueba en todos los navegadores soportados.</li>
+        </ul>
+    </div>
+
+    <div class="card" id="integracion-angular">
+        <h3>Integración con Angular</h3>
+        <h4>Esperar cambios de Angular</h4>
+        <pre><code [textContent]="angularWaitExampleCode"></code></pre>
+
+        <h4>Manejar routing de Angular</h4>
+        <pre><code [textContent]="angularRoutingExampleCode"></code></pre>
+
+        <h4>Tests con NgRx</h4>
+        <pre><code [textContent]="ngrxStoreExampleCode"></code></pre>
+
+        <h4>Componentes dinámicos</h4>
+        <pre><code [textContent]="dynamicComponentsExampleCode"></code></pre>
+    </div>
+
     <div class="card" id="conclusion">
         <h3>Resumen</h3>
         <p>
             Playwright convierte las pruebas end-to-end en una experiencia moderna y escalable para Angular.
             Su fortaleza está en la mezcla de confiabilidad, compatibilidad y herramientas de depuración.
+        </p>
+        <p>
+            Con esta guía completa tienes todas las herramientas necesarias para escribir tests robustos,
+            mantenibles y eficientes en tus aplicaciones Angular.
         </p>
     </div>
 </div>

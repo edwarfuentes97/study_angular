@@ -4,6 +4,7 @@
     <input
       type="text"
       placeholder="Buscar término, concepto o tema..."
+      aria-label="Buscar término, concepto o tema..."
       [ngModel]="query()"
       (ngModelChange)="onQueryChange($event)"
       (focus)="onFocus()"
