@@ -91,18 +91,73 @@
     <div class="card" id="page-object-model">
         <h3>Page Object Model</h3>
         <p>
-            El patrón POM abstrae selectores y flujos de la aplicación en clases, dejando los tests enfocados en el
-            comportamiento.
+            El patrón Page Object Model (POM) abstrae selectores y flujos de la aplicación en clases, dejando los tests
+            enfocados en el comportamiento y no en la implementación de la UI.
         </p>
+        <p>Un Page Object representa una página o una parte relevante de la interfaz, y expone métodos de alto nivel que
+            describen acciones de usuario, en lugar de exponer selectores directamente.</p>
+        <h4>¿Por qué usar POM?</h4>
+        <ul>
+            <li>Reduce la duplicación de selectores y flujos.</li>
+            <li>Hace los tests más legibles y fáciles de entender.</li>
+            <li>Protege los tests de cambios frecuentes en la UI.</li>
+            <li>Permite centralizar el mantenimiento de locators en un solo lugar.</li>
+        </ul>
+        <h4>Cuándo usarlo</h4>
+        <ul>
+            <li>Cuando una página tiene múltiples interacciones recurrentes.</li>
+            <li>Cuando quieres encapsular validaciones comunes.</li>
+            <li>Cuando tu suite crece y necesitas mantener tests escalables.</li>
+        </ul>
+        <h4>Estructura recomendada</h4>
+        <p>Una convención típica es usar carpetas como:</p>
+        <pre><code>tests/pages/dashboard.page.ts
+tests/pages/login.page.ts
+tests/pages/product.page.ts</code></pre>
+        <p>También puedes usar un archivo <code>tests/pages/base.page.ts</code> para compartir utilidades comunes.</p>
+        <h4>Ejemplo de clase Page Object</h4>
         <pre><code [textContent]="pageObjectCode"></code></pre>
+        <h4>Ejemplo de test usando POM</h4>
+        <pre><code [textContent]="pageObjectTestCode"></code></pre>
+        <h4>Buenas prácticas</h4>
+        <ul>
+            <li>Guarda los locators como propiedades privadas o readonly.</li>
+            <li>Expón solo métodos de alto nivel que representen comportamientos.</li>
+            <li>No pongas assertions complejas dentro del Page Object; deja las expectativas en el test.</li>
+            <li>Evita lógica de negocio en los Page Objects; solo encapsula interacción y consultas de UI.</li>
+            <li>Si una pantalla crece, divide la clase en page components (subobjetos) para mantenerla manejable.</li>
+        </ul>
     </div>
 
     <div class="card" id="fixtures-personalizados">
         <h3>Fixtures personalizados</h3>
         <p>
-            Playwright permite extender el fixture base para preparar la página o la sesión antes de cada test.
+            Playwright permite extender el fixture base para preparar el entorno antes de cada test y limpiar después.
+            Si el POM sirve para organizar tus páginas, las Fixtures sirven para organizar el entorno de tus tests.
         </p>
+        <h4>¿Qué resuelven?</h4>
+        <p>Sin fixtures, cada test tendría que crear y configurar manualmente los objetos necesarios:</p>
+        <pre><code [textContent]="fixtureProblemBeforeCode"></code></pre>
+        <p>Con fixtures, le dices a Playwright: "Oye, siempre que necesite loginPage, créalo tú automáticamente y pásamelo listo para usar".</p>
+        <pre><code [textContent]="fixtureProblemAfterCode"></code></pre>
+        <h4>Cómo se configuran (Ejemplo Real)</h4>
+        <p>1. Define la interfaz</p>
+        <pre><code [textContent]="fixtureInterfaceCode"></code></pre>
+        <p>2. Crea la fixture</p>
         <pre><code [textContent]="fixtureCode"></code></pre>
+        <p>3. Úsala en tu test</p>
+        <pre><code [textContent]="fixtureUseCode"></code></pre>
+        <h4>Ventajas de nivel Senior</h4>
+        <ul>
+            <li><strong>Inyección de dependencias:</strong> El test no sabe cómo se crea la página, solo la pide y la usa.</li>
+            <li><strong>Encapsulamiento:</strong> Puedes meter lógica de setup compleja dentro de la fixture.</li>
+            <li><strong>Paralelización segura:</strong> Playwright garantiza que cada test tenga su propia instancia aislada.</li>
+            <li><strong>Legibilidad extrema:</strong> Los tests se enfocan 100% en la lógica de negocio.</li>
+        </ul>
+        <p>Playwright ya trae fixtures integradas por defecto, como <code>page</code>, <code>browser</code> y <code>context</code>. Al crear las tuyas, personalizas las herramientas de tu taller.</p>
+        <h4>Auth Storage</h4>
+        <p>Usa una fixture para cargar un estado de autenticación ya guardado y evitar logins repetidos.</p>
+        <pre><code [textContent]="authStorageExampleCode"></code></pre>
     </div>
 
     <div class="card" id="autenticacion-persistente">

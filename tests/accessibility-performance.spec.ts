@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 
 /**
  * Accessibility Tests
@@ -6,14 +6,14 @@ import { test, expect } from '@playwright/test';
  */
 
 test.describe('Accessibility', () => {
-  test('should display the main dashboard heading', async ({ page }) => {
-    await page.goto('/');
-    await expect(page.getByRole('heading', { name: /Plan de Estudios/i })).toBeVisible();
+  test('should display the main dashboard heading', async ({ app }) => {
+    await app.dashboard().goto();
+    await expect(app.dashboard().page.getByRole('heading', { name: /Plan de Estudios/i })).toBeVisible();
   });
 
-  test('should have accessible navigation links', async ({ page }) => {
-    await page.goto('/');
-    const links = page.getByRole('link');
+  test('should have accessible navigation links', async ({ app }) => {
+    await app.dashboard().goto();
+    const links = app.dashboard().page.getByRole('link');
     const linkCount = await links.count();
     expect(linkCount).toBeGreaterThan(0);
 
@@ -24,15 +24,15 @@ test.describe('Accessibility', () => {
     }
   });
 
-  test('should support keyboard navigation to focusable elements', async ({ page }) => {
-    await page.goto('/');
-    await page.keyboard.press('Tab');
-    await expect(page.locator(':focus')).toBeVisible();
+  test('should support keyboard navigation to focusable elements', async ({ app }) => {
+    await app.dashboard().goto();
+    await app.dashboard().page.keyboard.press('Tab');
+    await expect(app.dashboard().page.locator(':focus')).toBeVisible();
   });
 
-  test('should have alt text for images if any exist', async ({ page }) => {
-    await page.goto('/');
-    const images = page.locator('img');
+  test('should have alt text for images if any exist', async ({ app }) => {
+    await app.dashboard().goto();
+    const images = app.dashboard().page.locator('img');
     const imageCount = await images.count();
     for (let i = 0; i < imageCount; i++) {
       const alt = await images.nth(i).getAttribute('alt');
@@ -40,9 +40,9 @@ test.describe('Accessibility', () => {
     }
   });
 
-  test('should have form labels when forms are present', async ({ page }) => {
-    await page.goto('/');
-    const inputs = page.locator('input, select, textarea');
+  test('should have form labels when forms are present', async ({ app }) => {
+    await app.dashboard().goto();
+    const inputs = app.dashboard().page.locator('input, select, textarea');
     const count = await inputs.count();
     for (let i = 0; i < count; i++) {
       const input = inputs.nth(i);
@@ -50,7 +50,7 @@ test.describe('Accessibility', () => {
       const ariaLabel = await input.getAttribute('aria-label');
       const wrappedLabel = await input.evaluate(el => el.closest('label') !== null);
       if (id) {
-        const label = page.locator(`label[for="${id}"]`);
+        const label = app.dashboard().page.locator(`label[for="${id}"]`);
         expect(await label.count() > 0 || ariaLabel || wrappedLabel).toBeTruthy();
       } else {
         expect(ariaLabel || wrappedLabel).toBeTruthy();
@@ -65,22 +65,22 @@ test.describe('Accessibility', () => {
  */
 
 test.describe('Performance', () => {
-  test('should load dashboard quickly', async ({ page }) => {
+  test('should load dashboard quickly', async ({ app }) => {
     const startTime = Date.now();
-    await page.goto('/');
+    await app.dashboard().goto();
     const loadTime = Date.now() - startTime;
     expect(loadTime).toBeLessThan(3000);
   });
 
-  test('should load Playwright lab content', async ({ page }) => {
-    await page.goto('/lab/playwright');
-    await page.waitForURL('**/lab/playwright');
-    await expect(page.locator('h2', { hasText: /Playwright/ })).toBeVisible();
+  test('should load Playwright lab content', async ({ playwrightLabPage }) => {
+    await playwrightLabPage.goto();
+    await playwrightLabPage.page.waitForURL('**/lab/playwright');
+    await expect(playwrightLabPage.page.locator('h2', { hasText: /Playwright/ })).toBeVisible();
   });
 
-  test('should not have broken images', async ({ page }) => {
-    await page.goto('/');
-    const images = page.locator('img');
+  test('should not have broken images', async ({ app }) => {
+    await app.dashboard().goto();
+    const images = app.dashboard().page.locator('img');
     const imageCount = await images.count();
     for (let i = 0; i < imageCount; i++) {
       const isBroken = await images.nth(i).evaluate(el => {

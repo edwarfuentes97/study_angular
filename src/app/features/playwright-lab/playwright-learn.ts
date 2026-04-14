@@ -48,18 +48,74 @@ export class StartPage {
   }
 }`;
 
+  pageObjectTestCode = `import { test, expect } from '@playwright/test';
+import { DashboardPage } from '../pages/dashboard.page';
+
+test('navega al lab desde el dashboard usando POM', async ({ page }) => {
+  const dashboard = new DashboardPage(page);
+  await dashboard.goto();
+  await dashboard.navigateToLab('Playwright E2E Testing');
+  await expect(page).toHaveURL(/.*\/lab\/playwright/);
+});`;
+
   fixtureCode = `import { test as base } from '@playwright/test';
 import { StartPage } from '../pages/start.page';
 
-export const test = base.extend<{ startPage: StartPage }>({
+type MyFixtures = {
+  startPage: StartPage;
+};
+
+export const test = base.extend<MyFixtures>({
   startPage: async ({ page }, use) => {
     const startPage = new StartPage(page);
     await startPage.goto();
     await use(startPage);
+    // cleanup opcional aquí
   },
 });
 
 export { expect } from '@playwright/test';`;
+
+  fixtureProblemBeforeCode = `test('mi prueba', async ({ page }) => {
+  const loginPage = new LoginPage(page); // Repetitivo
+  const dashboardPage = new DashboardPage(page); // Repetitivo
+  await loginPage.goto();
+  // ...
+});`;
+
+  fixtureProblemAfterCode = `import { test } from './my-fixtures';
+
+test('mi test limpio', async ({ loginPage }) => {
+  await loginPage.login('user', 'pass');
+});`;
+
+  fixtureInterfaceCode = `import { test as base } from '@playwright/test';
+import { LoginPage } from './LoginPage';
+
+type MyFixtures = {
+  loginPage: LoginPage;
+};`;
+
+  fixtureUseCode = `import { test, expect } from './my-fixtures';
+
+test('mi test limpio', async ({ loginPage }) => {
+  await loginPage.login('user', 'pass');
+  await expect(loginPage.page).toHaveURL(/.*\/dashboard/);
+});`;
+
+  authStorageExampleCode = `import { test as base } from '@playwright/test';
+import { LoginPage } from './LoginPage';
+
+export const test = base.extend({
+  authPage: async ({ page }, use) => {
+    await page.context().addCookies([
+      { name: 'auth-token', value: 'token123', domain: 'localhost' }
+    ]);
+    const loginPage = new LoginPage(page);
+    await loginPage.goto();
+    await use(loginPage);
+  },
+});`;
 
   parallelCode = `test.describe.configure({ mode: 'parallel' });
 // o en config:
