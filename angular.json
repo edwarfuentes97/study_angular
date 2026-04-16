@@ -90,6 +90,13 @@
             "styles": [
               "src/styles.scss"
             ]
+          },
+          "configurations": {
+            "ci": {
+              "watch": false,
+              "browsers": ["ChromeHeadless"],
+              "codeCoverage": true
+            }
           }
         }
       }
