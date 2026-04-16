@@ -10,6 +10,8 @@ jobs:
   build-and-test:
     timeout-minutes: 60
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     
     steps:
       - uses: actions/checkout@v4
@@ -33,23 +35,6 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
       
-      # Start the application in the background
-      - name: Start Angular app
-        run: npm start &
-        
-      - name: Wait for app to be ready
-        run: |
-          for i in {1..30}; do
-            if curl -f http://localhost:4200/index.html > /dev/null 2>&1; then
-              echo "App is ready!"
-              exit 0
-            fi
-            echo "Waiting for app to be ready... (attempt $i/30)"
-            sleep 2
-          done
-          echo "App failed to start"
-          exit 1
-      
       # Run Playwright E2E tests
       - name: Run Playwright E2E tests
         run: npm run test:e2e
@@ -69,3 +54,8 @@ jobs:
           name: coverage-report
           path: coverage/
           retention-days: 30
+      
+      # Deploy to GitHub Pages (only on push to main)
+      - name: Deploy to GitHub Pages
+        if: success() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: npm run deploy:pages
