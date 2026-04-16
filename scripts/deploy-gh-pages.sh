@@ -7,6 +7,13 @@ WORKTREE_DIR="$(mktemp -d)"
 PUBLISH_DIR="$(mktemp -d)"
 REMOTE_URL="$(git -C "$REPO_ROOT" config --get remote.origin.url)"
 
+if [[ -z "${GITHUB_TOKEN:-}" ]]; then
+  echo "GITHUB_TOKEN no está disponible. Asegúrate de ejecutar este script desde GitHub Actions." >&2
+  exit 1
+fi
+
+AUTH_REMOTE="https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+
 cleanup() {
   git -C "$REPO_ROOT" worktree remove --force "$WORKTREE_DIR" >/dev/null 2>&1 || true
   rm -rf "$WORKTREE_DIR" "$PUBLISH_DIR"
@@ -49,7 +56,7 @@ git add .
 git -c user.name="$(git -C "$REPO_ROOT" config user.name || echo 'GitHub Pages Deploy')" \
     -c user.email="$(git -C "$REPO_ROOT" config user.email || echo 'pages@example.com')" \
     commit -m "Deploy static site to gh-pages" >/dev/null
-git remote add origin "$REMOTE_URL"
+git remote add origin "$AUTH_REMOTE"
 
 echo "▶ Pushing to gh-pages..."
 git push -f origin gh-pages

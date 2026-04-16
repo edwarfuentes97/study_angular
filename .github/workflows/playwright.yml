@@ -58,4 +58,6 @@ jobs:
       # Deploy to GitHub Pages (only on push to main)
       - name: Deploy to GitHub Pages
         if: success() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npm run deploy:pages
