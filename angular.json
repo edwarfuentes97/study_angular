@@ -94,7 +94,7 @@
           "configurations": {
             "ci": {
               "watch": false,
-              "browsers": ["ChromeHeadless"],
+              "browsers": "ChromeHeadless",
               "codeCoverage": true
             }
           }
