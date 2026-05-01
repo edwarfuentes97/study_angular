@@ -1,1 +1,1 @@
-export { test, expect } from './app-fixtures';
+export { test, expect } from '../hooks/generate-documentation';

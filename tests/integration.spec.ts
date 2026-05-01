@@ -6,7 +6,7 @@ import { test, expect } from './fixtures';
  */
 
 test.describe('Integration Tests', () => {
-  test('complete user journey through a lab', async ({ app }) => {
+  test('[@smoke] complete user journey through a lab', async ({ app }) => {
     await app.dashboard().goto();
     await expect(app.dashboard().page).toHaveTitle(/StudyAngular/);
 
@@ -28,7 +28,7 @@ test.describe('Integration Tests', () => {
     await expect(app.dashboard().page.locator('.overall-pct')).toBeVisible();
   });
 
-  test('cross-lab navigation works', async ({ app }) => {
+  test('[@regression] cross-lab navigation works', async ({ app }) => {
     const labs = [
       { title: /NgRx — State Management/i, path: /lab\/ngrx/ },
       { title: /RxJS — Programación Reactiva/i, path: /lab\/rxjs/ },
@@ -47,14 +47,14 @@ test.describe('Integration Tests', () => {
     await expect(app.dashboard().page.locator('.overall-pct')).toBeVisible();
   });
 
-  test('invalid routes should recover back to dashboard', async ({ app }) => {
+  test('[@smoke] invalid routes should recover back to dashboard', async ({ app }) => {
     await app.dashboard().page.goto('/invalid-route');
     await expect(app.dashboard().page.locator('body')).toBeVisible();
     await app.dashboard().goto();
     await expect(app.dashboard().page).toHaveTitle(/StudyAngular/);
   });
 
-  test('data persistence with localStorage works', async ({ app }) => {
+  test('[@regression] data persistence with localStorage works', async ({ app }) => {
     await app.dashboard().goto();
     await app.dashboard().page.evaluate(() => {
       localStorage.setItem('playwright-test', 'active');

@@ -67,6 +67,25 @@ Esta suite de pruebas E2E cubre exhaustivamente la aplicación Angular Study App
 npm run test:e2e
 ```
 
+### Smoke vs Regression (con tags)
+Usamos tags en el nombre del test:
+- `[@smoke]` para flujos críticos y rápidos (gate de PR / deploy).
+- `[@regression]` para cobertura amplia (nightly / pre-release).
+
+Comandos:
+```bash
+# Solo smoke
+npm run test:e2e:smoke
+
+# Solo regression
+npm run test:e2e:regression
+```
+
+Ejemplos reales en este proyecto:
+- `tests/dashboard.spec.ts`: heading y navegación principal como smoke.
+- `tests/integration.spec.ts`: journey crítico como smoke, persistencia como regression.
+- `tests/accessibility-performance.spec.ts`: carga básica como smoke, checks de a11y detallados como regression.
+
 ### Tests específicos
 ```bash
 # Un archivo específico
