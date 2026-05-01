@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en" data-beasties-container>
+<head>
+  <meta charset="utf-8">
+  <title>StudyAngular</title>
+  <base href="/study_angular/">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <script>
+    (function (location) {
+      if (!location.search.startsWith('?/')) {
+        return;
+      }
+
+      const decoded = location.search
+        .slice(1)
+        .split('&')
+        .map((segment) => segment.replace(/~and~/g, '&'))
+        .join('?');
+
+      window.history.replaceState(
+        null,
+        '',
+        `${location.pathname.replace(/\\/$/, '')}${decoded}${location.hash}`,
+      );
+    })(window.location);
+  </script>
+<style>:root{--bg:#0d1117;--bg-card:#161b22;--bg-code:#1c2128;--text:#e6edf3;--text-muted:#8b949e;--border:#30363d;--accent-red:#f85149;--accent-orange:#d29922;--accent-yellow:#e3b341;--accent-green:#3fb950;--accent-blue:#58a6ff;--accent-purple:#bc8cff;--sidebar-width:260px}*,*:before,*:after{box-sizing:border-box;margin:0;padding:0}html{font-size:15px;scroll-behavior:smooth}body{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--text);line-height:1.5;min-height:100vh}</style><link rel="stylesheet" href="styles-3HXI3OV4.css" media="print" onload="this.media='all'"><noscript><link rel="stylesheet" href="styles-3HXI3OV4.css"></noscript></head>
+<body>
+  <app-root></app-root>
+<link rel="modulepreload" href="chunk-PNDP3RLX.js"><link rel="modulepreload" href="chunk-QEPLSD5L.js"><link rel="modulepreload" href="chunk-WS4L6SOG.js"><link rel="modulepreload" href="chunk-YMK7EDE7.js"><link rel="modulepreload" href="chunk-SK7MFG6F.js"><link rel="modulepreload" href="chunk-TLYXWQFA.js"><link rel="modulepreload" href="chunk-N3I6XRHE.js"><link rel="modulepreload" href="chunk-ER3DZHFF.js"><link rel="modulepreload" href="chunk-G73V3KC4.js"><link rel="modulepreload" href="chunk-2NFLSA4Y.js"><script src="polyfills-ELRZNAHQ.js" type="module"></script><script src="main-7VY2SZVK.js" type="module"></script></body>
+</html>

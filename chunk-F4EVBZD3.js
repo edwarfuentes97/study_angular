@@ -1,0 +1,1 @@
+import"./chunk-2NFLSA4Y.js";var t=[{path:"",loadComponent:()=>import("./chunk-2GBYKAEV.js").then(o=>o.LazyDemoComponent)},{path:"child-a",loadComponent:()=>import("./chunk-JYNEJDTK.js").then(o=>o.LazyChildAComponent)},{path:"child-b",loadComponent:()=>import("./chunk-MBJYISK5.js").then(o=>o.LazyChildBComponent)}];export{t as LAZY_ROUTES};
