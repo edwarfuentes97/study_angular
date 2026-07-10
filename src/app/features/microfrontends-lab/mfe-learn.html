@@ -1,0 +1,1004 @@
+<div class="cards" appAutoGlossary>
+
+  <!-- 1. ¿Qué son los microfrontends? -->
+  <div class="card" id="1-que-son-los-microfrontends">
+    <h3>1 · ¿Qué son los microfrontends?</h3>
+    <p>
+      Los <strong>microfrontends</strong> (MFE) extienden la idea de los microservicios al frontend:
+      en lugar de una única SPA monolítica, la aplicación se compone de <strong>piezas independientes</strong>,
+      cada una desarrollada, testeada y desplegada por un equipo autónomo. Un <strong>shell</strong>
+      (también llamado host o contenedor) orquesta la carga de cada pieza en runtime.
+    </p>
+    <p>
+      La motivación principal <strong>no es técnica, es organizacional</strong>: cuando 5+ equipos
+      trabajan sobre el mismo repositorio frontend, los merges se vuelven dolorosos, los releases se
+      bloquean entre sí y un bug de un equipo detiene el deploy de todos. Los MFE alinean la
+      arquitectura con la estructura de equipos (Ley de Conway) y permiten <strong>deploys
+      independientes</strong>.
+    </p>
+<pre><code>┌──────────────────────────────────────────────────────┐
+│                    Shell (host)                      │
+│  header · navegación · auth · orquestación de MFEs   │
+│                                                      │
+│  ┌────────────────┐ ┌───────────────┐ ┌───────────┐  │
+│  │  MFE Catálogo  │ │  MFE Carrito  │ │ MFE Pagos │  │
+│  │  Equipo A      │ │  Equipo B     │ │ Equipo C  │  │
+│  │  deploy propio │ │  deploy propio│ │ deploy    │  │
+│  └────────────────┘ └───────────────┘ └───────────┘  │
+└──────────────────────────────────────────────────────┘
+Cada MFE: repo/carpeta propia · pipeline propio · release propio</code></pre>
+
+    <h4>Monolito frontend vs microfrontends</h4>
+    <table>
+      <thead>
+        <tr><th>Aspecto</th><th>SPA monolítica</th><th>Microfrontends</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Deploy</td><td>Todo o nada, releases coordinados</td><td>Independiente por equipo</td></tr>
+        <tr><td>Ownership</td><td>Difuso, código compartido por todos</td><td>Claro: un equipo, un dominio</td></tr>
+        <tr><td>Complejidad operativa</td><td>Baja (un build, un pipeline)</td><td>Alta (N pipelines, versionado, manifest)</td></tr>
+        <tr><td>Consistencia UX</td><td>Natural (mismo código)</td><td>Requiere design system compartido</td></tr>
+        <tr><td>Peso del bundle</td><td>Optimizable globalmente</td><td>Riesgo de duplicar dependencias</td></tr>
+        <tr><td>Onboarding</td><td>Un solo proyecto que entender</td><td>Cada MFE es pequeño y enfocado</td></tr>
+      </tbody>
+    </table>
+
+    <h4>Cuándo SÍ usar microfrontends</h4>
+    <ul>
+      <li>Varios equipos (3+) con dominios de negocio bien separados (catálogo, checkout, cuenta…).</li>
+      <li>Necesitas <strong>ciclos de release independientes</strong>: un equipo despliega a diario, otro cada mes.</li>
+      <li>Migración incremental: convivir con un legacy (AngularJS, jQuery) mientras migras por partes.</li>
+      <li>Distintas partes de la app tienen ciclos de vida o stacks distintos y eso está justificado.</li>
+    </ul>
+
+    <h4>Cuándo NO (trade-offs honestos)</h4>
+    <ul>
+      <li>Un solo equipo o una app pequeña/mediana: los MFE añaden <strong>complejidad operacional</strong>
+        (infra, versionado, debugging distribuido) sin devolver nada a cambio.</li>
+      <li>Si la UX exige transiciones y estado íntimamente compartidos entre secciones: la frontera de
+        MFE se vuelve artificial y acabarás acoplándolos.</li>
+      <li>Presupuesto de performance estricto: la <strong>duplicación de dependencias</strong> y la carga
+        remota tienen coste real en KB y latencia.</li>
+      <li>Sin design system maduro, la <strong>consistencia visual</strong> se degrada rápido entre equipos.</li>
+    </ul>
+
+    <div class="warn">
+      <strong>⚠️ Errores comunes</strong>
+      <ul>
+        <li>Adoptar MFE "porque lo hace Netflix" sin tener el problema organizacional que resuelven.</li>
+        <li>Cortar los MFE por capas técnicas (header-MFE, footer-MFE) en vez de por <strong>dominios de negocio</strong>.</li>
+        <li>Convertir el shell en un mini-monolito con lógica de negocio de todos los equipos.</li>
+        <li>Ignorar el coste de mantener N pipelines, N repos y N versiones de Angular sincronizadas.</li>
+      </ul>
+    </div>
+    <div class="interview">
+      <strong>🎤 Preguntas de entrevista</strong>
+      <ul>
+        <li>¿Qué problema resuelven los microfrontends y cuál es su coste? (Respuesta esperada: autonomía
+          de equipos y deploy independiente, a cambio de complejidad operativa y riesgo de inconsistencia UX.)</li>
+        <li>¿Cómo decidirías las fronteras entre microfrontends? (Por dominio de negocio / bounded context,
+          nunca por conveniencia técnica.)</li>
+        <li>¿En qué escenario recomendarías NO usar MFE aunque el equipo lo pida?</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- 2. Estrategias de integración -->
+  <div class="card" id="2-estrategias-de-integracion">
+    <h3>2 · Estrategias de integración</h3>
+    <p>
+      Hay varias formas de componer microfrontends en una sola experiencia. La decisión clave es
+      <strong>cuándo</strong> ocurre la composición: en build, en el servidor o en el navegador.
+    </p>
+
+    <h4>1. Build-time — paquetes npm</h4>
+    <p>
+      Cada "MFE" se publica como paquete npm y el shell los instala como dependencias. Es lo más
+      simple, pero <strong>no es un microfrontend real</strong>: cualquier cambio exige rebuild y
+      redeploy del shell, perdiendo el deploy independiente.
+    </p>
+<pre><code>// package.json del shell — composición en build-time
+&#123;
+  "dependencies": &#123;
+    "&#64;acme/mfe-catalog": "^2.1.0",   // ← nueva versión ⇒ rebuild del shell
+    "&#64;acme/mfe-checkout": "^1.4.0"
+  &#125;
+&#125;</code></pre>
+
+    <h4>2. Run-time en el cliente — Module Federation / import maps</h4>
+    <p>
+      El shell descarga los remotes <strong>en el navegador, en runtime</strong>. Es el enfoque
+      dominante hoy: Module Federation (webpack/rspack), Native Federation (esbuild) o
+      <strong>import maps</strong> nativos del navegador con módulos ES.
+    </p>
+<pre><code>&lt;!-- index.html — import map nativo del navegador --&gt;
+&lt;script type="importmap"&gt;
+&#123;
+  "imports": &#123;
+    "catalog/": "https://cdn.acme.com/catalog/v3/",
+    "checkout/": "https://cdn.acme.com/checkout/v7/"
+  &#125;
+&#125;
+&lt;/script&gt;
+
+&lt;script type="module"&gt;
+  // El navegador resuelve la URL usando el import map
+  const &#123; mount &#125; = await import('catalog/bootstrap.js');
+  mount(document.querySelector('#catalog-slot'));
+&lt;/script&gt;</code></pre>
+
+    <h4>3. iframes</h4>
+    <p>
+      Aislamiento total (CSS, JS, incluso versiones de framework) y seguridad fuerte. El precio:
+      comunicación incómoda (<code>postMessage</code>), routing y deep-linking difíciles, problemas
+      de tamaño/foco/accesibilidad. Útil para integrar apps de terceros o legacy intocable.
+    </p>
+
+    <h4>4. Server-side composition</h4>
+    <p>
+      El HTML se ensambla en el servidor o en el edge (SSI, ESI, Podium, Tailor, module federation
+      en SSR). Excelente para performance percibida y SEO; requiere infraestructura de composición.
+    </p>
+
+    <h4>Tabla comparativa</h4>
+    <table>
+      <thead>
+        <tr><th>Estrategia</th><th>Deploy independiente</th><th>Aislamiento</th><th>Complejidad</th><th>Ideal para</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>npm packages (build-time)</td><td>❌ No</td><td>Bajo</td><td>Baja</td><td>Design systems, librerías compartidas</td></tr>
+        <tr><td>Module/Native Federation</td><td>✅ Sí</td><td>Medio</td><td>Media</td><td>SPAs Angular/React con shell común</td></tr>
+        <tr><td>Import maps + ES modules</td><td>✅ Sí</td><td>Medio</td><td>Media</td><td>Stacks modernos sin bundler-lock</td></tr>
+        <tr><td>iframes</td><td>✅ Sí</td><td>Total</td><td>Media/Alta</td><td>Terceros, legacy, requisitos de seguridad</td></tr>
+        <tr><td>Server-side composition</td><td>✅ Sí</td><td>Medio</td><td>Alta</td><td>Sites con SEO/TTFB crítico</td></tr>
+      </tbody>
+    </table>
+
+    <div class="warn">
+      <strong>⚠️ Errores comunes</strong>
+      <ul>
+        <li>Llamar "microfrontends" a librerías npm: sin deploy independiente no hay autonomía real.</li>
+        <li>Descartar iframes por moda: para integrar un tercero no confiable siguen siendo la opción correcta.</li>
+        <li>Mezclar estrategias sin criterio (unos MFE por npm, otros federados) y duplicar Angular dos veces.</li>
+      </ul>
+    </div>
+    <div class="interview">
+      <strong>🎤 Preguntas de entrevista</strong>
+      <ul>
+        <li>Diferencia entre integración build-time y run-time, y qué implica para el deploy.</li>
+        <li>¿Cuándo elegirías iframes a pesar de sus limitaciones?</li>
+        <li>¿Qué son los import maps y qué problema resuelven frente a Module Federation?</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- 3. Module Federation (webpack) -->
+  <div class="card" id="3-module-federation-webpack">
+    <h3>3 · Module Federation (webpack)</h3>
+    <p>
+      <strong>Module Federation</strong> (webpack 5) permite que una app cargue código de otra app
+      <strong>compilada y desplegada por separado</strong>, compartiendo dependencias en runtime.
+      Dos roles: el <strong>host</strong> (shell) consume, y el <strong>remote</strong> expone.
+      Un mismo build puede ser host y remote a la vez (federación bidireccional).
+    </p>
+    <ul>
+      <li><code>remotes</code> — qué apps remotas consume el host y dónde está su <code>remoteEntry.js</code>.</li>
+      <li><code>exposes</code> — qué módulos publica un remote hacia el exterior.</li>
+      <li><code>shared</code> — dependencias que host y remotes intentan compartir en runtime.</li>
+    </ul>
+
+    <h4>webpack.config.js del remote (mfe-catalog)</h4>
+<pre><code>const &#123; ModuleFederationPlugin &#125; = require('webpack').container;
+
+module.exports = &#123;
+  output: &#123;
+    // URL pública desde la que se servirá este remote
+    publicPath: 'https://cdn.acme.com/catalog/',
+    uniqueName: 'catalog',            // evita colisiones de webpack runtime
+  &#125;,
+  plugins: [
+    new ModuleFederationPlugin(&#123;
+      name: 'catalog',                // nombre global del contenedor remoto
+      filename: 'remoteEntry.js',     // manifiesto que descargará el host
+
+      // ── Qué expone este MFE ─────────────────────────────
+      exposes: &#123;
+        // alias público            → archivo interno
+        './Routes':   './src/app/catalog/catalog.routes.ts',
+        './Widget':   './src/app/widget/best-sellers.component.ts',
+      &#125;,
+
+      // ── Dependencias compartidas ────────────────────────
+      shared: &#123;
+        '&#64;angular/core': &#123;
+          singleton: true,            // UNA sola instancia en toda la página
+          strictVersion: true,        // error si las versiones no son compatibles
+          requiredVersion: '^20.0.0', // rango que este remote necesita
+        &#125;,
+        '&#64;angular/common':  &#123; singleton: true, strictVersion: true, requiredVersion: '^20.0.0' &#125;,
+        '&#64;angular/router':  &#123; singleton: true, strictVersion: true, requiredVersion: '^20.0.0' &#125;,
+        rxjs:               &#123; singleton: true, requiredVersion: '^7.8.0' &#125;,
+      &#125;,
+    &#125;),
+  ],
+&#125;;</code></pre>
+
+    <h4>webpack.config.js del host (shell)</h4>
+<pre><code>new ModuleFederationPlugin(&#123;
+  name: 'shell',
+  remotes: &#123;
+    // alias local → nombreGlobal&#64;URL del remoteEntry
+    catalog:  'catalog&#64;https://cdn.acme.com/catalog/remoteEntry.js',
+    checkout: 'checkout&#64;https://cdn.acme.com/checkout/remoteEntry.js',
+  &#125;,
+  shared: &#123; /* mismas dependencias y flags que los remotes */ &#125;,
+&#125;);
+
+// En el código del shell — import dinámico federado:
+const routes = await import('catalog/Routes');   // resuelto en runtime</code></pre>
+
+    <h4>Cómo funciona <code>shared</code></h4>
+    <ul>
+      <li><code>singleton: true</code> — obligatorio para Angular y RxJS: dos instancias de
+        <code>&#64;angular/core</code> rompen la DI y la detección de cambios.</li>
+      <li><code>strictVersion: true</code> — lanza error en runtime si el rango no se satisface;
+        sin él, solo un warning (y bugs sutiles después).</li>
+      <li><code>requiredVersion</code> — rango semver que cada parte declara necesitar; el runtime
+        negocia la versión más alta compatible.</li>
+      <li><code>eager: true</code> — incluye la dependencia en el bundle inicial (evita el
+        bootstrap asíncrono, pero pierde el compartido dinámico). Úsalo con cuidado.</li>
+    </ul>
+
+    <div class="warn">
+      <strong>⚠️ Errores comunes</strong>
+      <ul>
+        <li>Olvidar <code>singleton: true</code> en Angular/RxJS ⇒ errores tipo
+          <code>NG0203 inject() must be called from an injection context</code> por dos runtimes de Angular.</li>
+        <li>No usar bootstrap asíncrono (<code>import('./bootstrap')</code> en <code>main.ts</code>):
+          webpack necesita ese salto para negociar las dependencias compartidas.</li>
+        <li>Hardcodear las URLs de remotes en el build ⇒ imposible promover el mismo artefacto entre entornos.</li>
+        <li>Exponer componentes internos sueltos en vez de una API estable (rutas o un módulo de entrada).</li>
+      </ul>
+    </div>
+    <div class="interview">
+      <strong>🎤 Preguntas de entrevista</strong>
+      <ul>
+        <li>Explica host, remote, <code>exposes</code> y <code>shared</code> en Module Federation.</li>
+        <li>¿Qué pasa si el host pide <code>^19</code> y un remote fue compilado con <code>^20</code> de Angular
+          y <code>strictVersion</code> está activo?</li>
+        <li>¿Por qué el <code>main.ts</code> de una app federada suele hacer un import dinámico del bootstrap?</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- 4. Native Federation -->
+  <div class="card" id="4-native-federation">
+    <h3>4 · Native Federation (&#64;angular-architects/native-federation)</h3>
+    <p>
+      Desde Angular 17 el builder por defecto usa <strong>esbuild</strong>, no webpack, así que el
+      plugin clásico de Module Federation no aplica. <strong>Native Federation</strong> reimplementa
+      la misma idea sobre estándares del navegador: <strong>módulos ES + import maps</strong>.
+      Es la opción recomendada para MFE con Angular moderno y es agnóstica del bundler.
+    </p>
+<pre><code># Instalar y activar en cada app (shell y remotes)
+npm i &#64;angular-architects/native-federation
+ng g &#64;angular-architects/native-federation:init \
+  --project mfe-catalog --port 4201 --type remote
+
+ng g &#64;angular-architects/native-federation:init \
+  --project shell --port 4200 --type dynamic-host</code></pre>
+
+    <h4>federation.config.js del remote</h4>
+<pre><code>const &#123; withNativeFederation, shareAll &#125; =
+  require('&#64;angular-architects/native-federation/config');
+
+module.exports = withNativeFederation(&#123;
+  name: 'mfe-catalog',
+
+  exposes: &#123;
+    // El remote expone sus rutas como punto de entrada estable
+    './routes': './src/app/catalog/catalog.routes.ts',
+  &#125;,
+
+  shared: &#123;
+    // Comparte todo lo de package.json como singleton
+    ...shareAll(&#123;
+      singleton: true,
+      strictVersion: true,
+      requiredVersion: 'auto',   // toma la versión del package.json
+    &#125;),
+  &#125;,
+
+  // Paquetes que NO deben federarse (solo tipos, server-only…)
+  skip: ['rxjs/ajax', 'rxjs/testing'],
+&#125;);</code></pre>
+
+    <h4>Bootstrap del shell: initFederation + manifest</h4>
+<pre><code>// main.ts del shell — inicializa la federación ANTES de arrancar Angular
+import &#123; initFederation &#125; from '&#64;angular-architects/native-federation';
+
+initFederation('/assets/federation.manifest.json')
+  .catch(err =&gt; console.error(err))
+  .then(() =&gt; import('./bootstrap'))   // ← bootstrap diferido obligatorio
+  .catch(err =&gt; console.error(err));
+
+// bootstrap.ts
+import &#123; bootstrapApplication &#125; from '&#64;angular/platform-browser';
+import &#123; appConfig &#125; from './app/app.config';
+import &#123; App &#125; from './app/app';
+
+bootstrapApplication(App, appConfig);</code></pre>
+<pre><code>// assets/federation.manifest.json — un archivo POR ENTORNO
+// El shell lo carga en runtime: mismo build, distintas URLs
+&#123;
+  "mfe-catalog":  "https://cdn.acme.com/catalog/remoteEntry.json",
+  "mfe-checkout": "https://cdn.acme.com/checkout/remoteEntry.json"
+&#125;</code></pre>
+
+    <h4>Rutas lazy con loadRemoteModule</h4>
+<pre><code>// app.routes.ts del shell
+import &#123; loadRemoteModule &#125; from '&#64;angular-architects/native-federation';
+
+export const routes: Routes = [
+  &#123;
+    path: 'catalog',
+    loadChildren: () =&gt;
+      loadRemoteModule('mfe-catalog', './routes')   // (remote, expose)
+        .then(m =&gt; m.CATALOG_ROUTES),
+  &#125;,
+  &#123;
+    path: 'checkout',
+    loadChildren: () =&gt;
+      loadRemoteModule('mfe-checkout', './routes')
+        .then(m =&gt; m.CHECKOUT_ROUTES),
+  &#125;,
+];</code></pre>
+
+    <div class="warn">
+      <strong>⚠️ Errores comunes</strong>
+      <ul>
+        <li>Bootstrapear Angular directamente en <code>main.ts</code>: el import map debe instalarse
+          antes de que se evalúe cualquier módulo de Angular.</li>
+        <li>Apuntar el manifest a <code>remoteEntry.js</code> (webpack) en vez de
+          <code>remoteEntry.json</code> (native federation): no son intercambiables.</li>
+        <li>Olvidar CORS en el CDN de los remotes: el shell los carga cross-origin.</li>
+        <li>Exponer decenas de componentes en vez de un único <code>./routes</code>: cada expose es
+          superficie de contrato que hay que mantener.</li>
+      </ul>
+    </div>
+    <div class="interview">
+      <strong>🎤 Preguntas de entrevista</strong>
+      <ul>
+        <li>¿Por qué Module Federation "clásico" no funciona con el builder esbuild de Angular 17+?</li>
+        <li>¿Qué papel juegan los import maps en Native Federation?</li>
+        <li>¿Cómo apuntarías el mismo build del shell a remotes distintos en dev/staging/prod?
+          (Manifest por entorno cargado en runtime.)</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- 5. single-spa -->
+  <div class="card" id="5-single-spa">
+    <h3>5 · single-spa</h3>
+    <p>
+      <strong>single-spa</strong> es un meta-framework que orquesta múltiples SPAs (Angular, React,
+      Vue…) en una misma página. Un <strong>root config</strong> registra cada aplicación con una
+      <strong>activity function</strong> que decide, según la URL, cuándo montarla o desmontarla.
+      Cada app implementa el ciclo de vida <code>bootstrap / mount / unmount</code>.
+    </p>
+
+    <h4>Root config</h4>
+<pre><code>// root-config.ts — el orquestador (no tiene UI propia)
+import &#123; registerApplication, start &#125; from 'single-spa';
+
+registerApplication(&#123;
+  name: '&#64;acme/catalog',
+  app: () =&gt; System.import('&#64;acme/catalog'),      // carga vía import map
+  activeWhen: ['/catalog'],                        // activity function (prefijo)
+&#125;);
+
+registerApplication(&#123;
+  name: '&#64;acme/checkout',
+  app: () =&gt; System.import('&#64;acme/checkout'),
+  // activity function explícita: control total sobre cuándo montar
+  activeWhen: (location) =&gt;
+    location.pathname.startsWith('/checkout') &amp;&amp;
+    !location.pathname.startsWith('/checkout/admin'),
+&#125;);
+
+start(&#123; urlRerouteOnly: true &#125;);</code></pre>
+
+    <h4>App Angular con single-spa-angular</h4>
+<pre><code>// main.single-spa.ts — expone los lifecycles en vez de bootstrapear
+import &#123; singleSpaAngular &#125; from 'single-spa-angular';
+
+const lifecycles = singleSpaAngular(&#123;
+  bootstrapFunction: (singleSpaProps) =&gt;
+    bootstrapApplication(App, appConfig),
+  template: '&lt;app-catalog-root /&gt;',
+&#125;);
+
+export const &#123; bootstrap, mount, unmount &#125; = lifecycles;</code></pre>
+
+    <h4>Parcels</h4>
+    <p>
+      Un <strong>parcel</strong> es un fragmento de UI montable manualmente (no ligado a rutas):
+      ideal para incrustar un widget de un framework dentro de otro, por ejemplo un mapa React
+      dentro de una página Angular.
+    </p>
+<pre><code>import &#123; mountRootParcel &#125; from 'single-spa';
+
+const parcel = mountRootParcel(
+  () =&gt; System.import('&#64;acme/react-map-widget'),
+  &#123; domElement: document.getElementById('map-slot')!, zoom: 12 &#125;
+);
+// después: parcel.unmount()</code></pre>
+
+    <h4>¿single-spa o Module Federation?</h4>
+    <table>
+      <thead><tr><th>Criterio</th><th>single-spa</th><th>Module/Native Federation</th></tr></thead>
+      <tbody>
+        <tr><td>Orquestación de ciclo de vida</td><td>✅ Núcleo del framework</td><td>❌ La haces tú (o el Router)</td></tr>
+        <tr><td>Multi-framework</td><td>✅ Pensado para ello</td><td>⚠️ Posible, pero incómodo</td></tr>
+        <tr><td>Compartir dependencias</td><td>⚠️ Manual (import maps)</td><td>✅ Negociación automática</td></tr>
+        <tr><td>Integración con Angular Router</td><td>⚠️ Requiere cuidado</td><td>✅ Rutas lazy naturales</td></tr>
+      </tbody>
+    </table>
+    <p>
+      Regla práctica: <strong>todo Angular ⇒ Native Federation</strong>;
+      <strong>mezcla real de frameworks o migración larga ⇒ single-spa</strong> (a menudo combinado
+      con federation para cargar los bundles).
+    </p>
+
+    <div class="warn">
+      <strong>⚠️ Errores comunes</strong>
+      <ul>
+        <li>Meter UI y lógica de negocio en el root config: debe ser mínimo y aburrido.</li>
+        <li>Activity functions solapadas que montan dos apps sobre el mismo nodo DOM.</li>
+        <li>No limpiar en <code>unmount</code> (listeners, intervals, estilos globales) ⇒ fugas al navegar.</li>
+        <li>Usar single-spa cuando todos los MFE son Angular: pagas la complejidad multi-framework gratis.</li>
+      </ul>
+    </div>
+    <div class="interview">
+      <strong>🎤 Preguntas de entrevista</strong>
+      <ul>
+        <li>¿Qué es una activity function y qué lifecycles debe exportar una app single-spa?</li>
+        <li>¿Qué diferencia hay entre una application y un parcel?</li>
+        <li>¿Cuándo elegirías single-spa sobre Module Federation y viceversa?</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- 6. Web Components y Angular Elements -->
+  <div class="card" id="6-web-components-angular-elements">
+    <h3>6 · Web Components y Angular Elements</h3>
+    <p>
+      Los <strong>custom elements</strong> son la frontera framework-agnóstica por excelencia: un
+      MFE se publica como <code>&lt;acme-catalog&gt;</code> y cualquier host (Angular, React, HTML
+      plano) lo consume como una etiqueta más. <strong>Angular Elements</strong>
+      (<code>&#64;angular/elements</code>) empaqueta un componente Angular como custom element con
+      <code>createCustomElement</code>.
+    </p>
+<pre><code>// main.ts del MFE publicado como Web Component
+import &#123; createApplication &#125; from '&#64;angular/platform-browser';
+import &#123; createCustomElement &#125; from '&#64;angular/elements';
+import &#123; CatalogWidgetComponent &#125; from './app/catalog-widget.component';
+
+(async () =&gt; &#123;
+  // App Angular "sin componente raíz": solo provee el injector
+  const app = await createApplication(&#123;
+    providers: [provideHttpClient()],
+  &#125;);
+
+  const CatalogElement = createCustomElement(CatalogWidgetComponent, &#123;
+    injector: app.injector,
+  &#125;);
+
+  // A partir de aquí el navegador gestiona el ciclo de vida
+  customElements.define('acme-catalog', CatalogElement);
+&#125;)();</code></pre>
+<pre><code>&lt;!-- Cualquier host lo consume sin saber que es Angular --&gt;
+&lt;acme-catalog category="books" limit="10"&gt;&lt;/acme-catalog&gt;
+
+&lt;script&gt;
+  const el = document.querySelector('acme-catalog');
+  // &#64;Input → atributo/propiedad · &#64;Output → CustomEvent
+  el.addEventListener('addToCart', (e) =&gt; &#123;
+    console.log('producto:', e.detail);
+  &#125;);
+&lt;/script&gt;</code></pre>
+
+    <h4>Shadow DOM y estilos</h4>
+    <ul>
+      <li><code>encapsulation: ViewEncapsulation.ShadowDom</code> — aislamiento real de CSS: ni tus
+        estilos salen ni los del host entran. Ideal para MFE embebidos en páginas ajenas.</li>
+      <li>Con Shadow DOM, los estilos globales del design system <strong>no penetran</strong>:
+        comparte tokens vía <strong>CSS custom properties</strong> (sí atraviesan la frontera).</li>
+      <li>La encapsulación <code>Emulated</code> (default) NO aísla de estilos globales agresivos
+        del host; solo evita colisiones de tus propios selectores.</li>
+      <li>Cuidado con overlays (dialogs, tooltips) que se montan en <code>body</code>: quedan fuera
+        del shadow root y pierden los estilos.</li>
+    </ul>
+
+    <div class="warn">
+      <strong>⚠️ Errores comunes</strong>
+      <ul>
+        <li>Definir dos veces el mismo tag ⇒ <code>NotSupportedError</code>: protege con
+          <code>if (!customElements.get('acme-catalog'))</code>.</li>
+        <li>Cargar Angular completo por cada custom element en la misma página en vez de compartir runtime.</li>
+        <li>Pasar objetos complejos como <strong>atributos</strong> HTML (solo strings): usa propiedades.</li>
+        <li>Asumir que Shadow DOM te da aislamiento de JavaScript: solo aísla DOM y CSS.</li>
+      </ul>
+    </div>
+    <div class="interview">
+      <strong>🎤 Preguntas de entrevista</strong>
+      <ul>
+        <li>¿Cómo se mapean <code>&#64;Input</code> y <code>&#64;Output</code> en un custom element
+          creado con Angular Elements?</li>
+        <li>Diferencias entre encapsulación Emulated y ShadowDom, y cómo compartir theming a través
+          de un shadow root.</li>
+        <li>¿Qué ventajas ofrece publicar un MFE como Web Component frente a exponer rutas federadas?</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- 7. Comunicación entre microfrontends -->
+  <div class="card" id="7-comunicacion-entre-microfrontends">
+    <h3>7 · Comunicación entre microfrontends</h3>
+    <p>
+      Regla de oro: <strong>cuanto menos, mejor</strong>. Si dos MFE necesitan hablar
+      constantemente, la frontera está mal trazada. Para lo inevitable (usuario autenticado, carrito,
+      tema), usa mecanismos de plataforma <strong>desacoplados y tipados por contrato</strong>, nunca
+      imports directos entre MFEs.
+    </p>
+
+    <h4>1. Custom events — pub/sub por el DOM</h4>
+<pre><code>// Contrato compartido (paquete npm ligero SOLO de tipos)
+export interface CartItemAddedV1 &#123;
+  version: 1;                       // versionado explícito del evento
+  productId: string;
+  qty: number;
+&#125;
+export const CART_ITEM_ADDED = 'acme:cart:item-added';
+
+// MFE Catálogo — publica
+window.dispatchEvent(new CustomEvent&lt;CartItemAddedV1&gt;(CART_ITEM_ADDED, &#123;
+  detail: &#123; version: 1, productId: 'p-42', qty: 1 &#125;,
+&#125;));
+
+// MFE Carrito — suscribe (y limpia al destruirse)
+const onAdd = (e: Event) =&gt; &#123;
+  const detail = (e as CustomEvent&lt;CartItemAddedV1&gt;).detail;
+  if (detail.version !== 1) return;   // tolerante a versiones futuras
+  this.cart.add(detail.productId, detail.qty);
+&#125;;
+window.addEventListener(CART_ITEM_ADDED, onAdd);
+// ngOnDestroy: window.removeEventListener(CART_ITEM_ADDED, onAdd);</code></pre>
+
+    <h4>2. BroadcastChannel — entre pestañas y contextos</h4>
+<pre><code>// Sincronizar logout entre pestañas y MFEs
+const channel = new BroadcastChannel('acme:auth');
+
+channel.postMessage(&#123; type: 'LOGOUT', at: Date.now() &#125;);
+
+channel.onmessage = (msg) =&gt; &#123;
+  if (msg.data.type === 'LOGOUT') this.router.navigate(['/login']);
+&#125;;
+// cerrar al destruir: channel.close();</code></pre>
+
+    <h4>3. Estado compartido mínimo en el shell</h4>
+<pre><code>// El shell expone una API pequeña y estable (no su Store interno)
+export interface PlatformContext &#123;
+  user$: Observable&lt;User | null&gt;;      // solo lectura
+  locale$: Observable&lt;string&gt;;
+  navigate(url: string): void;
+&#125;
+// Se entrega al MFE al montarlo (props / DI / window.__platform__)</code></pre>
+
+    <h4>Por qué NO compartir el Store</h4>
+    <ul>
+      <li>Compartir un Store NgRx entre MFEs acopla sus <strong>releases</strong>: cambiar el shape
+        del estado exige coordinar todos los equipos — justo lo que los MFE querían evitar.</li>
+      <li>Los eventos son contratos <strong>pequeños y versionables</strong>; un store es una
+        estructura interna gigante sin fronteras.</li>
+      <li>Contrato explícito: nombres con namespace (<code>acme:cart:*</code>), payload versionado
+        (<code>version: 1</code>), documentado y con tests de contrato.</li>
+      <li>Evolución: agrega campos de forma retrocompatible; para breaking changes, publica
+        <code>V2</code> y mantén V1 un tiempo (deprecación gradual).</li>
+    </ul>
+
+    <div class="warn">
+      <strong>⚠️ Errores comunes</strong>
+      <ul>
+        <li>Importar servicios de otro MFE "porque total, está federado": acoplamiento invisible en runtime.</li>
+        <li>Eventos sin namespace ni versión: colisiones y breaking changes silenciosos.</li>
+        <li>No desuscribirse de <code>window</code>/<code>BroadcastChannel</code> en
+          <code>ngOnDestroy</code> ⇒ fugas y handlers duplicados al remontar el MFE.</li>
+        <li>Usar localStorage como bus de eventos (solo dispara <code>storage</code> en OTRAS pestañas).</li>
+      </ul>
+    </div>
+    <div class="interview">
+      <strong>🎤 Preguntas de entrevista</strong>
+      <ul>
+        <li>¿Cómo comunicarías "item añadido al carrito" del MFE catálogo al MFE carrito sin acoplarlos?</li>
+        <li>¿Por qué es mala idea compartir un Store global entre microfrontends?</li>
+        <li>¿Cómo versionarías un evento cuyo payload necesita un breaking change?</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- 8. Routing en shell y remotes -->
+  <div class="card" id="8-routing-shell-remotes">
+    <h3>8 · Routing en shell y remotes</h3>
+    <p>
+      El patrón estándar: el <strong>shell posee el router</strong> y asigna un <strong>prefijo de
+      URL por MFE</strong> (<code>/catalog/**</code>, <code>/checkout/**</code>). Cada remote define
+      sus rutas <strong>relativas</strong> a ese prefijo, sin saber dónde será montado. Así el
+      <strong>deep linking</strong> (F5 en <code>/catalog/products/42</code>) funciona: el shell
+      resuelve el prefijo, carga el remote y este resuelve el resto.
+    </p>
+<pre><code>// shell/app.routes.ts — un prefijo por MFE
+export const routes: Routes = [
+  &#123;
+    path: 'catalog',
+    loadChildren: () =&gt;
+      loadRemoteModule('mfe-catalog', './routes').then(m =&gt; m.CATALOG_ROUTES),
+  &#123;,
+  &#123; path: '', pathMatch: 'full', redirectTo: 'catalog' &#125;,
+  &#123; path: '**', component: NotFoundComponent &#125;,   // 404 del shell, al final
+];
+
+// mfe-catalog/catalog.routes.ts — SIEMPRE rutas relativas
+export const CATALOG_ROUTES: Routes = [
+  &#123; path: '', component: ProductListComponent &#125;,
+  &#123; path: 'products/:id', component: ProductDetailComponent &#125;,
+  // NO usar rutas absolutas ni redirectTo: '/algo' aquí
+];</code></pre>
+
+    <h4>Sincronización cuando el remote tiene router propio</h4>
+    <p>
+      Con single-spa o Web Components, cada MFE puede llevar su propio router. Entonces hay que
+      sincronizar: los routers de los MFE escuchan <code>popstate</code>, y las navegaciones
+      programáticas deben notificar al resto (single-spa reenvía eventos de routing;
+      con Angular puedes emitir un <code>CustomEvent</code> de navegación que el shell traduce).
+      Con federation + un único Angular Router del shell, este problema desaparece — otra razón
+      para preferirlo en stacks 100 % Angular.
+    </p>
+    <ul>
+      <li>El remote en standalone (desarrollo aislado) monta sus mismas rutas bajo <code>''</code>
+        y así se prueba sin el shell.</li>
+      <li>Nunca hagas <code>router.navigate(['/checkout'])</code> desde un MFE hacia rutas de otro:
+        pide la navegación al shell (evento o <code>PlatformContext.navigate</code>).</li>
+      <li>Configura el servidor/CDN para servir <code>index.html</code> del shell en cualquier ruta
+        (fallback SPA), o el deep linking devolverá 404.</li>
+    </ul>
+
+    <div class="warn">
+      <strong>⚠️ Errores comunes</strong>
+      <ul>
+        <li>Rutas absolutas dentro del remote ⇒ funciona standalone, rompe montado bajo prefijo.</li>
+        <li>Wildcard <code>**</code> del shell declarado antes de los prefijos de MFE ⇒ se traga todo.</li>
+        <li>Dos routers (shell y remote) peleando por la misma URL sin un dueño claro.</li>
+        <li>Guards del shell que asumen conocimiento de rutas internas del remote.</li>
+      </ul>
+    </div>
+    <div class="interview">
+      <strong>🎤 Preguntas de entrevista</strong>
+      <ul>
+        <li>¿Cómo consigues que un deep link a una ruta interna de un remote funcione tras F5?</li>
+        <li>¿Quién debe poseer el router en una arquitectura shell + remotes Angular y por qué?</li>
+        <li>¿Cómo navega un MFE hacia una ruta que pertenece a otro MFE sin acoplarse?</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- 9. Dependencias compartidas y versionado -->
+  <div class="card" id="9-dependencias-compartidas-versionado">
+    <h3>9 · Dependencias compartidas y versionado</h3>
+    <p>
+      El punto más delicado de los MFE en runtime. <strong>Angular y RxJS deben ser
+      singleton</strong>: dos copias de <code>&#64;angular/core</code> significan dos sistemas de DI,
+      dos zonas de change detection y errores imposibles de depurar. Otras librerías (date-fns,
+      lodash) pueden duplicarse sin romper nada — solo pesan más.
+    </p>
+<pre><code>// Qué significa cada flag al negociar versiones en runtime
+shared: &#123;
+  '&#64;angular/core': &#123;
+    singleton: true,          // solo UNA instancia viva en la página
+    strictVersion: true,      // incompatibilidad ⇒ error inmediato y visible
+    requiredVersion: '^20.1.0'
+  &#125;
+&#125;
+
+// Escenario: shell trae &#64;angular/core 20.1.0 (singleton)
+//  · remote pide ^20.0.5  → OK, reutiliza 20.1.0 (rango compatible)
+//  · remote pide ^21.0.0  → strictVersion: ERROR al cargar ese remote
+//                           sin strictVersion: warning + usa 20.1.0 (💣 riesgo)</code></pre>
+
+    <h4>Estrategias frente a versiones incompatibles</h4>
+    <ul>
+      <li><strong>Contrato de plataforma</strong>: el shell publica qué versiones singleton ofrece
+        (Angular 20.x, RxJS 7.x); los MFE se comprometen a ese rango. Es la opción sana.</li>
+      <li><strong>Upgrade en tren (version train)</strong>: ventanas acordadas donde todos los MFE
+        suben la major de Angular; los singletons impiden mezclarlas indefinidamente.</li>
+      <li><strong>Aislamiento total</strong> para el MFE rezagado: empaquetarlo como Web Component /
+        iframe con SU propio Angular (paga bundle doble, gana independencia temporal).</li>
+      <li>Librerías no-singleton: deja que cada MFE traiga la suya y monitoriza el peso; a veces
+        duplicar 30 KB es más barato que coordinar equipos.</li>
+    </ul>
+    <ul>
+      <li>Alinea también los <strong>polyfills y zone.js</strong> (o zoneless en todos): cargarlos
+        dos veces produce bugs globales.</li>
+      <li>Automatiza la verificación: un job de CI que compara <code>requiredVersion</code> de todos
+        los MFE contra el shell antes de desplegar.</li>
+    </ul>
+
+    <div class="warn">
+      <strong>⚠️ Errores comunes</strong>
+      <ul>
+        <li>Desactivar <code>strictVersion</code> "para que arranque": conviertes un error visible en
+          corrupción silenciosa en producción.</li>
+        <li>Compartir librerías con estado de módulo (registries, plugin systems) sin singleton:
+          cada MFE ve un registry distinto.</li>
+        <li>Subir Angular major en un remote sin plan de tren: su deploy queda bloqueado meses.</li>
+        <li>Olvidar que los <strong>secondary entry points</strong> (<code>&#64;angular/common/http</code>)
+          también deben compartirse.</li>
+      </ul>
+    </div>
+    <div class="interview">
+      <strong>🎤 Preguntas de entrevista</strong>
+      <ul>
+        <li>¿Por qué <code>&#64;angular/core</code> debe ser singleton y qué síntomas produce duplicarlo?</li>
+        <li>El shell está en Angular 20 y un equipo necesita Angular 21 ya: ¿qué opciones tienes y
+          qué coste tiene cada una?</li>
+        <li>¿Qué hace exactamente <code>requiredVersion: 'auto'</code> en Native Federation?</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- 10. Deploy independiente y CI/CD -->
+  <div class="card" id="10-deploy-independiente-cicd">
+    <h3>10 · Deploy independiente y CI/CD</h3>
+    <p>
+      El deploy independiente es <strong>la razón de ser</strong> de los MFE: si para publicar el
+      catálogo hay que redeployar el shell, solo tienes un monolito distribuido. Cada MFE tiene su
+      pipeline (build → test → publish a CDN) y el shell descubre las versiones vía
+      <strong>manifest dinámico por entorno</strong>.
+    </p>
+<pre><code># .github/workflows/mfe-catalog.yml — pipeline SOLO de este MFE
+name: deploy-mfe-catalog
+on:
+  push:
+    branches: [main]
+    paths: ['apps/mfe-catalog/**']        # solo cambios de este MFE
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout&#64;v4
+      - run: npm ci
+      - run: npx nx build mfe-catalog     # o ng build
+      - run: npx nx test mfe-catalog
+      # Publica INMUTABLE por versión + actualiza alias del entorno
+      - run: |
+          aws s3 sync dist/mfe-catalog s3://cdn/catalog/$&#123;GITHUB_SHA&#125;/
+          aws s3 cp s3://cdn/catalog/$&#123;GITHUB_SHA&#125;/ s3://cdn/catalog/staging/ --recursive</code></pre>
+
+    <h4>Manifest dinámico: promoción y rollback sin rebuild</h4>
+<pre><code>// federation.manifest.json (staging)
+&#123;
+  "mfe-catalog":  "https://cdn.acme.com/catalog/staging/remoteEntry.json",
+  "mfe-checkout": "https://cdn.acme.com/checkout/staging/remoteEntry.json"
+&#125;
+
+// Producción: mismo build del shell, otro manifest.
+// ROLLBACK del catálogo = apuntar su entrada a la versión anterior:
+&#123;
+  "mfe-catalog": "https://cdn.acme.com/catalog/a1b2c3d/remoteEntry.json"
+&#125;
+// Sin tocar shell ni al resto de equipos. Segundos, no horas.</code></pre>
+
+    <h4>Prácticas clave</h4>
+    <ul>
+      <li><strong>Artefactos inmutables</strong> versionados por hash/semver; los "alias" de entorno
+        (staging, prod) son punteros — el rollback es mover un puntero.</li>
+      <li><code>remoteEntry.json</code>/manifest con <code>Cache-Control: no-cache</code> (o TTL muy
+        corto); los chunks con hash pueden cachearse para siempre.</li>
+      <li><strong>Smoke test post-deploy</strong>: el shell de staging carga el remote nuevo y corre
+        un E2E mínimo antes de promover a prod.</li>
+      <li>Canary por MFE: el manifest puede servir la v2 del catálogo solo al 5 % de usuarios.</li>
+      <li>Observabilidad por MFE: etiqueta errores (Sentry/OTel) con nombre y versión del remote
+        para saber a qué equipo despertar.</li>
+    </ul>
+
+    <div class="warn">
+      <strong>⚠️ Errores comunes</strong>
+      <ul>
+        <li>URLs de remotes compiladas dentro del bundle del shell ⇒ cada cambio de versión exige
+          redeploy del shell (adiós independencia).</li>
+        <li>Cachear el manifest o el remoteEntry agresivamente ⇒ usuarios atrapados en versiones viejas.</li>
+        <li>Sobrescribir artefactos (deploy mutable) ⇒ imposible hacer rollback fiable.</li>
+        <li>No probar la matriz de compatibilidad shell↔remote antes de promover: cada uno pasa
+          su CI en verde y la combinación explota en prod.</li>
+      </ul>
+    </div>
+    <div class="interview">
+      <strong>🎤 Preguntas de entrevista</strong>
+      <ul>
+        <li>Diseña el flujo de rollback de un solo MFE sin tocar a los demás equipos.</li>
+        <li>¿Qué políticas de caché aplicarías al manifest, al remoteEntry y a los chunks?</li>
+        <li>¿Cómo harías canary release de un microfrontend concreto?</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- 11. Monorepo vs polyrepo -->
+  <div class="card" id="11-monorepo-vs-polyrepo">
+    <h3>11 · Monorepo vs polyrepo</h3>
+    <p>
+      Los MFE son una decisión de <strong>deploy</strong>, no de repositorio: puedes tener MFE con
+      deploy independiente dentro de un <strong>monorepo</strong> (Nx) o repartidos en
+      <strong>polyrepo</strong>. El monorepo facilita compartir código, tooling y refactors
+      atómicos; el polyrepo maximiza la autonomía (y la fricción para compartir).
+    </p>
+    <table>
+      <thead><tr><th>Criterio</th><th>Monorepo (Nx)</th><th>Polyrepo</th></tr></thead>
+      <tbody>
+        <tr><td>Compartir design system</td><td>✅ Import directo, refactor atómico</td><td>⚠️ Publicar npm, versionar, esperar upgrades</td></tr>
+        <tr><td>Autonomía de equipo</td><td>⚠️ Reglas y CODEOWNERS necesarios</td><td>✅ Total (repo, tooling, permisos)</td></tr>
+        <tr><td>Coherencia de versiones</td><td>✅ Una sola versión de Angular</td><td>❌ Drift casi garantizado</td></tr>
+        <tr><td>CI</td><td>✅ <code>nx affected</code> construye solo lo tocado</td><td>⚠️ N pipelines aislados, integración tardía</td></tr>
+        <tr><td>Escala organizativa</td><td>Ideal hasta decenas de equipos con buena disciplina</td><td>Ideal con organizaciones muy distribuidas</td></tr>
+      </tbody>
+    </table>
+
+    <h4>Nx: module boundaries como ley</h4>
+<pre><code>// Cada proyecto se etiqueta por scope (dominio) y type (capa)
+// project.json → "tags": ["scope:catalog", "type:feature"]
+
+// eslint.config — &#64;nx/enforce-module-boundaries
+&#123;
+  "rules": &#123;
+    "&#64;nx/enforce-module-boundaries": ["error", &#123;
+      "depConstraints": [
+        // catálogo solo puede depender de sí mismo y de shared
+        &#123; "sourceTag": "scope:catalog",
+          "onlyDependOnLibsWithTags": ["scope:catalog", "scope:shared"] &#125;,
+        &#123; "sourceTag": "scope:checkout",
+          "onlyDependOnLibsWithTags": ["scope:checkout", "scope:shared"] &#125;,
+        // el shell puede orquestar a todos
+        &#123; "sourceTag": "scope:shell",
+          "onlyDependOnLibsWithTags": ["scope:*"] &#125;
+      ]
+    &#125;]
+  &#125;
+&#125;
+// Resultado: importar checkout desde catalog ⇒ error de lint en CI</code></pre>
+    <ul>
+      <li><strong>Ownership</strong>: CODEOWNERS por carpeta — cada equipo aprueba solo su dominio.</li>
+      <li><strong>Design system compartido</strong>: en monorepo es una lib <code>scope:shared</code>
+        estable; en polyrepo, un paquete npm con semver disciplinado y changelog.</li>
+      <li>Regla anti-acoplamiento: los MFE <strong>nunca se importan entre sí</strong>; solo pueden
+        depender de <code>shared</code> — federation es la única puerta en runtime.</li>
+    </ul>
+
+    <div class="warn">
+      <strong>⚠️ Errores comunes</strong>
+      <ul>
+        <li>Monorepo sin boundaries: en 6 meses todos importan de todos y los "MFE" son un monolito
+          con pasos extra.</li>
+        <li>Polyrepo con design system sin releases frecuentes: cada MFE congela una versión distinta
+          y la UX diverge.</li>
+        <li>Confundir monorepo con deploy conjunto: <code>nx affected</code> existe precisamente para
+          desplegar solo lo que cambió.</li>
+      </ul>
+    </div>
+    <div class="interview">
+      <strong>🎤 Preguntas de entrevista</strong>
+      <ul>
+        <li>¿Un monorepo contradice la filosofía de microfrontends? Justifica.</li>
+        <li>¿Cómo evita Nx el acoplamiento entre dominios? (tags + enforce-module-boundaries).</li>
+        <li>¿Cómo gestionarías el design system en polyrepo para no romper la consistencia UX?</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- 12. Testing de microfrontends -->
+  <div class="card" id="12-testing-de-microfrontends">
+    <h3>12 · Testing de microfrontends</h3>
+    <p>
+      La pirámide clásica sigue valiendo dentro de cada MFE (unit + component tests normales). Lo
+      nuevo son las <strong>fronteras</strong>: ¿el remote sigue exponiendo lo que el shell espera?
+      ¿los eventos mantienen su contrato? ¿la combinación desplegada funciona de extremo a extremo?
+    </p>
+
+    <h4>1. Contract testing — la frontera como contrato</h4>
+<pre><code>// contrato: el remote DEBE exponer './routes' con CATALOG_ROUTES
+// contract.spec.ts (corre en el CI del remote)
+import &#123; CATALOG_ROUTES &#125; from '../src/app/catalog/catalog.routes';
+
+describe('contrato federado de mfe-catalog', () =&gt; &#123;
+  it('expone rutas montables bajo un prefijo', () =&gt; &#123;
+    expect(Array.isArray(CATALOG_ROUTES)).toBe(true);
+    // ninguna ruta absoluta que rompa el montaje bajo /catalog
+    for (const r of CATALOG_ROUTES) &#123;
+      expect(r.path?.startsWith('/')).toBeFalsy();
+    &#125;
+  &#125;);
+
+  it('mantiene el contrato del evento cart:item-added v1', () =&gt; &#123;
+    const evt: CartItemAddedV1 = &#123; version: 1, productId: 'x', qty: 1 &#125;;
+    expect(evt.version).toBe(1);   // el tipo compartido compila = contrato vivo
+  &#125;);
+&#125;);</code></pre>
+
+    <h4>2. Shell con remotes mockeados</h4>
+<pre><code>// El shell se testea SIN depender de que los remotes estén desplegados
+// test-setup: manifest que apunta a un remote falso local
+&#123;
+  "mfe-catalog": "http://localhost:4299/fake-catalog/remoteEntry.json"
+&#125;
+
+// o stub de loadRemoteModule en tests unitarios del shell:
+const routes: Routes = [&#123;
+  path: 'catalog',
+  loadChildren: () =&gt; Promise.resolve(FAKE_CATALOG_ROUTES),  // stub
+&#125;];
+// Verifica: prefijos, guards, fallback 404, manejo de error de carga</code></pre>
+
+    <h4>3. E2E cross-MFE — pocos y críticos</h4>
+<pre><code>// e2e/checkout-journey.spec.ts (Playwright) — cruza 3 MFEs reales
+test('&#64;smoke compra end-to-end', async (&#123; page &#125;) =&gt; &#123;
+  await page.goto('/catalog');                       // MFE catálogo
+  await page.getByTestId('product-42').click();
+  await page.getByRole('button', &#123; name: 'Añadir' &#125;).click();
+
+  await page.goto('/cart');                          // MFE carrito
+  await expect(page.getByTestId('cart-count')).toHaveText('1');
+
+  await page.getByRole('link', &#123; name: 'Pagar' &#125;).click();  // MFE pagos
+  await expect(page).toHaveURL(/\/checkout/);
+&#125;);
+// Corre contra STAGING con las versiones reales candidatas a prod</code></pre>
+
+    <h4>Estrategia por capas</h4>
+    <table>
+      <thead><tr><th>Nivel</th><th>Qué valida</th><th>Dónde corre</th></tr></thead>
+      <tbody>
+        <tr><td>Unit / component</td><td>Lógica interna del MFE</td><td>CI del MFE (rápido, masivo)</td></tr>
+        <tr><td>Contract tests</td><td>Exposes, eventos, tipos compartidos</td><td>CI del MFE + CI del shell</td></tr>
+        <tr><td>Shell + remotes mock</td><td>Orquestación, routing, errores de carga</td><td>CI del shell</td></tr>
+        <tr><td>E2E cross-MFE</td><td>Flujos de negocio críticos integrados</td><td>Staging, pre-promoción (pocos)</td></tr>
+      </tbody>
+    </table>
+    <ul>
+      <li>Testea también el <strong>fallo</strong>: ¿qué muestra el shell si un remote devuelve 500
+        o tarda 10 s? (placeholder, retry, degradación elegante).</li>
+      <li>Los contract tests corren en <strong>ambos lados</strong>: el remote garantiza lo que
+        expone; el shell fija lo que consume (estilo consumer-driven).</li>
+    </ul>
+
+    <div class="warn">
+      <strong>⚠️ Errores comunes</strong>
+      <ul>
+        <li>Confiar solo en E2E completos: lentos, frágiles y llegan tarde — el contrato roto se
+          detecta antes con un contract test de segundos.</li>
+        <li>E2E del shell que dependen de remotes de OTROS equipos en dev: el pipeline de A se pone
+          rojo por un bug de B.</li>
+        <li>No testear el estado de error de carga de un remote (pantalla en blanco en prod).</li>
+        <li>Mockear tanto que nunca se prueba la combinación real: staging con versiones candidatas
+          es obligatorio antes de promover.</li>
+      </ul>
+    </div>
+    <div class="interview">
+      <strong>🎤 Preguntas de entrevista</strong>
+      <ul>
+        <li>¿Qué es contract testing aplicado a microfrontends y qué contratos cubrirías?</li>
+        <li>¿Cómo testeas el shell sin depender de que los remotes estén desplegados?</li>
+        <li>¿Dónde y cuándo correrías los E2E cross-MFE para no acoplar los pipelines de los equipos?</li>
+      </ul>
+    </div>
+  </div>
+
+</div>

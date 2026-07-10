@@ -2,20 +2,103 @@
       <div class="card" id="1-onpush-trackby">
         <h3>1. OnPush + trackBy</h3>
         <p>
-          La estrategia <strong>OnPush</strong> reduce drásticamente los ciclos de change detection:
-          Angular solo verifica el componente cuando cambian sus <code>@Input()</code> por referencia,
-          se dispara un evento del template, o se usa <code>markForCheck()</code> / un Observable con async pipe.
-          Combinado con <code>track</code> en <code>&#64;for</code>, Angular reutiliza nodos DOM existentes
-          en lugar de destruirlos y recrearlos al cambiar la lista.
+          La estrategia <strong>OnPush</strong> reduce drásticamente los ciclos de change detection.
+          Con la estrategia <strong>Default</strong>, cada evento (click, timer, HTTP response) hace que
+          Angular recorra <em>todo el árbol de componentes</em> comparando cada binding. Con OnPush,
+          Angular <strong>salta el componente completo</strong> (y su subárbol) a menos que ocurra
+          algo que lo marque como "dirty".
+        </p>
+
+        <h4>¿Qué dispara CD en un componente OnPush?</h4>
+        <ul>
+          <li><strong>Cambio de referencia en un <code>&#64;Input()</code>:</strong> Angular compara con
+            <code>===</code>. Mutar el objeto NO cuenta; asignar uno nuevo sí.</li>
+          <li><strong>Un evento del propio template:</strong> <code>(click)</code>, <code>(input)</code>, etc.
+            disparados dentro del componente o de sus hijos.</li>
+          <li><strong>Un signal leído en el template cambia:</strong> los signals marcan el componente
+            como dirty automáticamente — es la forma más ergonómica de trabajar con OnPush.</li>
+          <li><strong>El <code>async</code> pipe emite un valor nuevo</strong> (internamente llama a
+            <code>markForCheck()</code>).</li>
+          <li><strong>Llamada manual a <code>ChangeDetectorRef.markForCheck()</code>.</strong></li>
+        </ul>
+
+        <h4>Inmutabilidad: el requisito no negociable</h4>
+        <p>
+          OnPush compara <strong>referencias, no contenido</strong>. Si mutas
+          (<code>user.name = 'X'</code>, <code>array.push()</code>) la referencia no cambia y la vista
+          queda desactualizada silenciosamente. La regla: todo cambio de estado crea un objeto/array nuevo
+          (spread, <code>.map()</code>, <code>.filter()</code>). Con signals, <code>set()</code> y
+          <code>update()</code> te empujan naturalmente a este patrón.
         </p>
         <pre><code>&#64;Component(&#123;
+  selector: 'app-user-list',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: \`
-    &#64;for (item of items; track item.id) &#123;
-      &lt;app-item [data]="item" /&gt;
+    &#64;for (user of users(); track user.id) &#123;
+      &lt;app-user-card [user]="user" /&gt;
     &#125;
   \`
-&#125;)</code></pre>
+&#125;)
+export class UserListComponent &#123;
+  users = signal&lt;User[]&gt;([]);
+
+  rename(id: number, name: string) &#123;
+    // ✅ Inmutabilidad: nueva referencia de array Y de objeto
+    this.users.update(list =&gt;
+      list.map(u =&gt; u.id === id ? &#123; ...u, name &#125; : u)
+    );
+  &#125;
+&#125;</code></pre>
+
+        <h4>track en &#64;for: por qué es obligatorio</h4>
+        <p>
+          En Angular moderno <code>track</code> es <strong>obligatorio</strong> en <code>&#64;for</code>
+          (con <code>*ngFor</code> el <code>trackBy</code> era opcional y se olvidaba). Sin una key estable,
+          cuando la lista cambia Angular no sabe qué item es cuál: <strong>destruye y recrea todos los
+          nodos DOM</strong>, pierde estado local (focus, inputs, animaciones) y re-ejecuta lifecycle hooks
+          de cada componente hijo.
+        </p>
+        <p><strong>Cómo elegir una buena key:</strong></p>
+        <ul>
+          <li>✅ <strong>Un identificador único y estable del dato:</strong> <code>track item.id</code>,
+            <code>track user.uuid</code>. Sobrevive a reordenamientos, inserciones y borrados.</li>
+          <li>⚠️ <code>track $index</code> solo es aceptable en listas <strong>estáticas</strong>
+            (nunca se reordenan ni se insertan/borran items en medio). Si el orden cambia,
+            Angular "recicla" nodos con datos equivocados.</li>
+          <li>❌ <code>track item</code> (el objeto entero) falla si recreas los objetos
+            (p. ej. tras un fetch): cada referencia nueva = nodo DOM nuevo.</li>
+        </ul>
+
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li><strong>Mutar estado con OnPush:</strong> <code>this.items.push(x)</code> no actualiza la
+            vista. Usa <code>this.items = [...this.items, x]</code> o signals.</li>
+          <li><strong>Poner OnPush solo en el padre:</strong> el beneficio real llega cuando
+            <em>todo el árbol</em> es OnPush; un hijo Default dentro de un padre OnPush sí se revisa
+            cuando el padre se revisa.</li>
+          <li><strong>Confiar en <code>setTimeout</code>/librerías externas:</strong> si actualizan
+            propiedades planas (no signals) dentro de un componente OnPush, necesitas
+            <code>markForCheck()</code>.</li>
+          <li><strong>Usar <code>detectChanges()</code> en vez de <code>markForCheck()</code>:</strong>
+            <code>detectChanges()</code> ejecuta CD síncrono inmediato (caro y puede causar errores de
+            timing); <code>markForCheck()</code> solo marca el camino hasta la raíz para el próximo ciclo.</li>
+        </ul>
+
+        <h4>🎤 Preguntas de entrevista</h4>
+        <ul>
+          <li><strong>¿Qué dispara change detection en un componente OnPush?</strong>
+            Cambio de referencia en un &#64;Input, un evento del template, un signal leído en el template
+            que cambia, el async pipe al emitir, o markForCheck() manual.</li>
+          <li><strong>¿Por qué OnPush exige inmutabilidad?</strong> Porque compara inputs con
+            <code>===</code>: una mutación conserva la referencia y el cambio pasa inadvertido.</li>
+          <li><strong>¿Diferencia entre markForCheck() y detectChanges()?</strong>
+            markForCheck() marca el componente y sus ancestros como dirty para el próximo ciclo (barato);
+            detectChanges() ejecuta CD síncrono inmediato sobre ese subárbol (caro).</li>
+          <li><strong>¿Qué pasa en un &#64;for sin una key estable?</strong> Angular destruye y recrea
+            todos los nodos DOM en cada cambio de lista: se pierde estado local y se dispara layout/paint
+            innecesario.</li>
+        </ul>
+
         <div class="code-ref">
           📂 Implementación en el proyecto:
           <ul>
@@ -28,22 +111,86 @@
       <div class="card" id="2-64defer-blocks">
         <h3>2. &#64;defer Blocks</h3>
         <p>
-          Los bloques <code>&#64;defer</code> permiten lazy-loading declarativo a nivel de template.
-          Soportan múltiples triggers: <strong>on viewport</strong> (cuando entra al viewport),
-          <strong>on hover</strong> (al pasar el mouse), <strong>on timer(Xms)</strong> (tras un delay),
-          y <strong>when condition</strong> (cuando una expresión es true).
-          Incluyen estados <code>&#64;placeholder</code>, <code>&#64;loading</code> y <code>&#64;error</code>
-          para una UX completa durante la carga.
+          Los bloques <code>&#64;defer</code> (Angular 17+) permiten <strong>lazy-loading declarativo a
+          nivel de template</strong>: el compilador extrae las dependencias del bloque (componentes,
+          directivas, pipes standalone) a un <strong>chunk JavaScript separado</strong> que solo se
+          descarga cuando se activa el trigger. Es code splitting sin tocar el router — ideal para
+          contenido "below the fold", modales, gráficos y widgets pesados.
         </p>
-        <pre><code>&#64;defer (on viewport) &#123;
+
+        <h4>Triggers disponibles</h4>
+        <table>
+          <thead>
+            <tr><th>Trigger</th><th>Cuándo carga</th><th>Uso típico</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>on idle</code></td><td>Cuando el browser está ocioso (<code>requestIdleCallback</code>). Es el <strong>default</strong> si no especificas trigger.</td><td>Contenido secundario no urgente</td></tr>
+            <tr><td><code>on viewport</code></td><td>Cuando el placeholder entra al viewport (IntersectionObserver)</td><td>Secciones below the fold</td></tr>
+            <tr><td><code>on interaction</code></td><td>Click o keydown sobre el placeholder (o un elemento referenciado)</td><td>Tabs, acordeones, editores</td></tr>
+            <tr><td><code>on hover</code></td><td>Mouseover / focusin sobre el placeholder</td><td>Menús, tooltips ricos</td></tr>
+            <tr><td><code>on timer(3s)</code></td><td>Después de un delay fijo</td><td>Banners, contenido diferido temporal</td></tr>
+            <tr><td><code>when condición</code></td><td>Cuando la expresión pasa a <code>true</code> (una sola vez, no vuelve atrás)</td><td>Carga controlada por estado</td></tr>
+          </tbody>
+        </table>
+        <p>
+          Los triggers <code>on viewport / interaction / hover</code> pueden observar otro elemento
+          usando una template reference: <code>&#64;defer (on interaction(botonAbrir))</code>.
+        </p>
+
+        <h4>prefetch: descargar antes, renderizar después</h4>
+        <p>
+          <code>prefetch</code> separa <em>descargar el chunk</em> de <em>renderizarlo</em>. Ejemplo:
+          descargar el JS cuando el browser esté idle, pero instanciar el componente solo cuando el
+          usuario haga scroll hasta él. Así la carga es instantánea cuando llega el momento.
+        </p>
+        <pre><code>&#64;defer (on viewport; prefetch on idle) &#123;
   &lt;app-heavy-chart [data]="chartData" /&gt;
-&#125; &#64;placeholder &#123;
-  &lt;div class="placeholder"&gt;📊 Gráfico disponible&lt;/div&gt;
-&#125; &#64;loading (minimum 300ms) &#123;
+&#125; &#64;placeholder (minimum 500ms) &#123;
+  &lt;div class="skeleton"&gt;📊 Gráfico disponible al hacer scroll&lt;/div&gt;
+&#125; &#64;loading (after 100ms; minimum 300ms) &#123;
   &lt;div class="spinner"&gt;Cargando...&lt;/div&gt;
 &#125; &#64;error &#123;
-  &lt;div class="error"&gt;Error al cargar&lt;/div&gt;
+  &lt;div class="error"&gt;Error al cargar el gráfico&lt;/div&gt;
 &#125;</code></pre>
+
+        <h4>Los sub-bloques y sus parámetros</h4>
+        <ul>
+          <li><strong><code>&#64;placeholder (minimum 500ms)</code></strong> — contenido inicial antes de
+            cargar. <code>minimum</code> evita flicker: se muestra al menos ese tiempo.
+            Necesario para <code>on viewport / interaction / hover</code> (algo debe observarse).</li>
+          <li><strong><code>&#64;loading (after 100ms; minimum 300ms)</code></strong> — se muestra durante
+            la descarga. <code>after</code> evita mostrar spinner en cargas rápidas;
+            <code>minimum</code> evita el parpadeo spinner→contenido.</li>
+          <li><strong><code>&#64;error</code></strong> — si falla la carga del chunk (red caída, deploy
+            que invalidó hashes). Sin este bloque, el fallo es silencioso.</li>
+        </ul>
+
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li><strong>El componente no se separa en chunk:</strong> pasa si además lo referencias fuera
+            del <code>&#64;defer</code> (en el mismo template, con <code>&#64;ViewChild</code>, o si no es
+            standalone). Verifica en el build que aparece un lazy chunk nuevo.</li>
+          <li><strong>Deferir contenido above the fold:</strong> empeora LCP y provoca layout shift.
+            <code>&#64;defer</code> es para lo que NO se ve al cargar.</li>
+          <li><strong>Placeholder sin dimensiones:</strong> cuando el contenido real aparece, empuja el
+            layout (CLS). Dale al placeholder el mismo tamaño que el contenido final (skeleton).</li>
+          <li><strong>Abusar de <code>when</code> esperando que se "des-cargue":</strong> una vez
+            renderizado, el bloque no vuelve al placeholder aunque la condición sea false
+            (para eso usa <code>&#64;if</code>).</li>
+        </ul>
+
+        <h4>🎤 Preguntas de entrevista</h4>
+        <ul>
+          <li><strong>¿Qué diferencia hay entre &#64;defer y lazy loading de rutas?</strong>
+            El lazy loading de rutas divide el bundle por navegación; &#64;defer divide
+            <em>dentro de una misma página</em> a nivel de template, con triggers de UX.</li>
+          <li><strong>¿Para qué sirve prefetch?</strong> Descarga el chunk anticipadamente
+            (p. ej. en idle) sin renderizarlo; al activarse el trigger principal el render es inmediato.</li>
+          <li><strong>¿Qué condiciones debe cumplir un componente para ser deferrable?</strong>
+            Ser standalone y no estar referenciado fuera del bloque &#64;defer en ese archivo.</li>
+          <li><strong>¿Cuál es el trigger por defecto?</strong> <code>on idle</code>.</li>
+        </ul>
+
         <div class="code-ref">
           📂 <code>features/performance-lab/perf-demo.ts</code> — &#64;defer (on viewport) con &#64;placeholder y &#64;loading
         </div>
@@ -52,16 +199,77 @@
       <div class="card" id="3-virtual-scrolling">
         <h3>3. Virtual Scrolling</h3>
         <p>
-          El CDK <code>ScrollingModule</code> proporciona <code>cdk-virtual-scroll-viewport</code>
-          que solo renderiza los items visibles en el viewport. Con <code>itemSize</code> defines
-          la altura fija de cada item. Esto reduce miles de nodos DOM a solo ~20 visibles,
-          mejorando dramáticamente el rendimiento de listas grandes.
+          El CDK <code>ScrollingModule</code> proporciona <code>cdk-virtual-scroll-viewport</code>,
+          que solo renderiza los items visibles en el viewport (más un pequeño buffer). Una lista de
+          10,000 filas pasa de 10,000 nodos DOM a ~20: menos memoria, menos tiempo de paint y scroll
+          fluido. El viewport calcula la altura total "virtual" con <code>itemSize × total</code> y
+          va reciclando los nodos mientras el usuario hace scroll.
         </p>
-        <pre ngNonBindable><code>&lt;cdk-virtual-scroll-viewport itemSize="48" class="viewport"&gt;
-  &lt;div *cdkVirtualFor="let item of items" class="item"&gt;
+        <pre ngNonBindable><code ngNonBindable>&lt;cdk-virtual-scroll-viewport itemSize="48" class="viewport"&gt;
+  &lt;div *cdkVirtualFor="let item of items; trackBy: trackById" class="item"&gt;
     &#123;&#123; item.name &#125;&#125;
   &lt;/div&gt;
-&lt;/cdk-virtual-scroll-viewport&gt;</code></pre>
+&lt;/cdk-virtual-scroll-viewport&gt;
+
+// El viewport NECESITA altura fija en CSS:
+// .viewport &#123; height: 400px; &#125;</code></pre>
+
+        <h4>Piezas clave</h4>
+        <ul>
+          <li><strong><code>itemSize</code></strong> — altura fija (px) de cada fila con la estrategia
+            <code>FixedSizeVirtualScrollStrategy</code>. Si el valor no coincide con la altura real,
+            el scroll "salta" y el scrollbar miente.</li>
+          <li><strong><code>minBufferPx</code> / <code>maxBufferPx</code></strong> — cuánto contenido
+            extra renderizar fuera de pantalla para evitar huecos en scroll rápido.</li>
+          <li><strong><code>trackBy</code> en <code>*cdkVirtualFor</code></strong> — igual de importante
+            que en &#64;for: el viewport recicla templates y sin key estable re-renderiza de más.</li>
+          <li>Para alturas variables existe <code>autosize</code> (en
+            <code>&#64;angular/cdk-experimental</code>) o estrategias custom implementando
+            <code>VirtualScrollStrategy</code>.</li>
+        </ul>
+
+        <h4>¿Virtual scroll o paginación?</h4>
+        <table>
+          <thead>
+            <tr><th>Criterio</th><th>Virtual scroll</th><th>Paginación</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>UX</td><td>Exploración continua (feeds, logs, chats)</td><td>Navegación por bloques, resultados de búsqueda</td></tr>
+            <tr><td>Datos</td><td>Ya cargados en memoria (o infinite scroll + API)</td><td>Se piden por página al servidor</td></tr>
+            <tr><td>SEO / links</td><td>Malo: no hay URL por posición</td><td>Bueno: cada página es enlazable</td></tr>
+            <tr><td>Alturas</td><td>Idealmente fijas (itemSize)</td><td>Indiferente</td></tr>
+            <tr><td>Accesibilidad</td><td>Cuidado: el DOM no contiene toda la lista (Ctrl+F, lectores)</td><td>Más predecible</td></tr>
+          </tbody>
+        </table>
+        <p>
+          Regla práctica: <strong>&lt; 100 items</strong> → lista normal con <code>track</code>;
+          <strong>cientos/miles ya en memoria</strong> → virtual scroll;
+          <strong>miles en servidor</strong> → paginación (o virtual scroll + fetch incremental).
+        </p>
+
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li><strong>Viewport sin altura CSS:</strong> si el <code>cdk-virtual-scroll-viewport</code>
+            no tiene height, renderiza 0 items o crece infinito.</li>
+          <li><strong><code>itemSize</code> incorrecto:</strong> scrollbar impreciso y saltos al hacer
+            scroll. Mide la fila real (incluye borders/padding).</li>
+          <li><strong>Items con altura variable usando FixedSize:</strong> usa autosize o normaliza
+            las alturas.</li>
+          <li><strong>Usarlo para 30 items:</strong> agrega complejidad (posicionamiento absoluto,
+            eventos de scroll) sin beneficio medible.</li>
+        </ul>
+
+        <h4>🎤 Preguntas de entrevista</h4>
+        <ul>
+          <li><strong>¿Cómo funciona internamente el virtual scroll?</strong> Renderiza solo los items
+            del viewport + buffer, posiciona el contenido con transform y simula la altura total con un
+            spacer calculado a partir de itemSize.</li>
+          <li><strong>¿Cuándo elegirías paginación en lugar de virtual scroll?</strong> Cuando los datos
+            viven en el servidor, se necesita URL por página/SEO, o la UX es de "resultados" y no de feed.</li>
+          <li><strong>¿Qué pasa si los items tienen alturas distintas?</strong> FixedSize falla; se usa
+            la estrategia autosize experimental o una VirtualScrollStrategy propia.</li>
+        </ul>
+
         <div class="code-ref">
           📂 <code>features/performance-lab/perf-demo.ts</code> — cdk-virtual-scroll-viewport con 10,000 items
         </div>
@@ -70,14 +278,93 @@
       <div class="card" id="4-bundle-analysis">
         <h3>4. Bundle Analysis</h3>
         <p>
-          Usa <code>source-map-explorer</code> para visualizar qué ocupa espacio en tu bundle.
-          Activa source maps en <code>angular.json</code>, haz un build de producción y analiza
-          el treemap resultante. Identifica dependencias grandes, código duplicado y módulos
-          que podrían lazy-loadearse.
+          El JavaScript inicial es el mayor enemigo del startup: se descarga, parsea y ejecuta antes de
+          que la app sea interactiva. La estrategia tiene dos partes: <strong>dividir</strong> el código
+          (lazy loading / code splitting) y <strong>medir</strong> qué ocupa espacio (analizadores de
+          bundle + budgets que fallan el build si te pasas).
         </p>
-        <pre><code>// angular.json → "sourceMap": true
-// Terminal:
-// npx source-map-explorer dist/app/browser/*.js</code></pre>
+
+        <h4>Lazy loading y code splitting</h4>
+        <p>
+          Cada <code>loadComponent()</code> / <code>loadChildren()</code> con <code>import()</code>
+          dinámico genera un chunk separado que solo se descarga al navegar. Los bloques
+          <code>&#64;defer</code> hacen lo mismo dentro de una página.
+        </p>
+        <pre><code>// app.routes.ts — cada feature es un chunk independiente
+export const routes: Routes = [
+  &#123;
+    path: 'reports',
+    loadComponent: () =&gt;
+      import('./features/reports/reports.component')
+        .then(m =&gt; m.ReportsComponent)
+  &#125;,
+  &#123;
+    path: 'admin',
+    loadChildren: () =&gt; import('./features/admin/admin.routes')
+  &#125;
+];</code></pre>
+
+        <h4>Analizar el bundle</h4>
+        <pre><code>// Opción A — source-map-explorer (treemap desde source maps)
+// ng build --source-map
+// npx source-map-explorer dist/app/browser/*.js
+
+// Opción B — esbuild (builder "application", Angular 17+)
+// ng build --stats-json
+// npx esbuild-visualizer --metadata dist/app/stats.json --open</code></pre>
+        <p>
+          Qué buscar en el treemap: dependencias enormes (moment.js → date-fns, lodash completo →
+          lodash-es con imports puntuales), código duplicado entre chunks, features que deberían ser
+          lazy pero están en el bundle inicial (un import estático "accidental" desde un archivo eager
+          arrastra todo el módulo al main).
+        </p>
+
+        <h4>Budgets en angular.json: presupuesto que rompe el build</h4>
+        <pre><code>// angular.json → projects.app.architect.build.configurations.production
+"budgets": [
+  &#123;
+    "type": "initial",
+    "maximumWarning": "500kB",
+    "maximumError": "1MB"
+  &#125;,
+  &#123;
+    "type": "anyComponentStyle",
+    "maximumWarning": "4kB",
+    "maximumError": "8kB"
+  &#125;
+]</code></pre>
+        <p>
+          Los budgets convierten el tamaño del bundle en una <strong>regresión detectable en CI</strong>:
+          si un PR agrega una dependencia pesada, el build avisa (warning) o falla (error) antes de
+          llegar a producción.
+        </p>
+
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li><strong>Import estático que rompe el split:</strong> importar un símbolo de una feature
+            lazy desde código eager (p. ej. un modelo o constante) mete todo el chunk en el main.
+            Extrae lo compartido a <code>shared/</code>.</li>
+          <li><strong>Analizar el build de desarrollo:</strong> sin tree shaking ni minificación los
+            números no significan nada. Siempre analiza el build de producción.</li>
+          <li><strong>Barrel files (<code>index.ts</code>) gigantes:</strong> re-exportar todo desde un
+            barrel puede impedir el tree shaking efectivo y crear dependencias circulares.</li>
+          <li><strong>Budgets tan holgados que nunca fallan:</strong> ajústalos al tamaño real actual
+            + margen pequeño, y bájalos cuando optimices.</li>
+        </ul>
+
+        <h4>🎤 Preguntas de entrevista</h4>
+        <ul>
+          <li><strong>¿Cómo reduces el bundle inicial de una app Angular?</strong> Lazy loading de rutas,
+            &#64;defer, tree shaking con imports puntuales, revisar dependencias pesadas con un analizador
+            y aplicar budgets para evitar regresiones.</li>
+          <li><strong>¿Qué diferencia hay entre lazy loading y tree shaking?</strong> Tree shaking elimina
+            código muerto en build time; lazy loading difiere la descarga de código vivo hasta que se
+            necesita.</li>
+          <li><strong>¿Cómo detectas qué dependencia infló el bundle?</strong> Build de producción con
+            source maps o stats.json + source-map-explorer / esbuild-visualizer: el treemap muestra el
+            peso por módulo.</li>
+        </ul>
+
         <div class="code-ref">
           📂 <code>app.routes.ts</code> — Lazy loading de todas las features reduce el bundle inicial
         </div>
@@ -92,6 +379,25 @@
           con <code>data: &#123; preload: true &#125;</code>.
         </p>
         <pre><code>provideRouter(routes, withPreloading(PreloadAllModules))</code></pre>
+
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li><strong><code>PreloadAllModules</code> en apps grandes:</strong> precargar 40 features
+            compite por ancho de banda con imágenes y datos del initial load. Usa una estrategia
+            selectiva o basada en <code>navigator.connection</code> (no precargar en redes lentas).</li>
+          <li><strong>Confundir preloading con eager loading:</strong> el preloading ocurre
+            <em>después</em> del initial load, en background; no afecta el bundle inicial.</li>
+        </ul>
+
+        <h4>🎤 Preguntas de entrevista</h4>
+        <ul>
+          <li><strong>¿Preloading empeora el tiempo de carga inicial?</strong> No: se ejecuta después de
+            que la app es estable; solo consume red en background.</li>
+          <li><strong>¿Cómo precargarías solo algunas rutas?</strong> Con una PreloadingStrategy custom
+            que lea <code>route.data['preload']</code> y decida llamar a <code>load()</code> o devolver
+            <code>of(null)</code>.</li>
+        </ul>
+
         <div class="code-ref">
           📂 <code>app.routes.ts</code> — Rutas lazy-loaded listas para preloading strategies
         </div>
@@ -121,6 +427,26 @@ addEventListener('message', (&#123; data &#125;) =&gt; &#123;
   const result = heavyComputation(data.items);
   postMessage(result);
 &#125;);</code></pre>
+
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li><strong>Usar workers para tareas triviales:</strong> serializar los datos
+            (structured clone) tiene costo; para cálculos de &lt; 10-20 ms no compensa.</li>
+          <li><strong>Intentar tocar el DOM o inyectar servicios Angular dentro del worker:</strong>
+            el worker corre en otro contexto, sin DOM ni DI.</li>
+          <li><strong>Enviar objetos gigantes por copia:</strong> para buffers grandes usa
+            <code>Transferable</code> (<code>ArrayBuffer</code>) y evita la copia.</li>
+        </ul>
+
+        <h4>🎤 Preguntas de entrevista</h4>
+        <ul>
+          <li><strong>¿Cuándo mueves trabajo a un Web Worker?</strong> Cuando un cálculo síncrono
+            bloquea el main thread &gt; 50 ms (parsing masivo, orden/filtrado de datasets grandes,
+            compresión) y degradaría INP.</li>
+          <li><strong>¿Cómo se comunican worker y componente?</strong> Solo por mensajes
+            (<code>postMessage</code> / <code>onmessage</code>) con structured clone o Transferables;
+            no comparten memoria (salvo SharedArrayBuffer).</li>
+        </ul>
       </div>
 
       <!-- 7. Estrategia completa de optimización -->
@@ -339,7 +665,7 @@ export class ChartComponent &#123;
         </p>
 
         <h4>1. Funciones en template — se ejecutan en cada CD cycle</h4>
-        <pre ngNonBindable><code>// ❌ MAL — getTotal() se llama en CADA ciclo de change detection
+        <pre ngNonBindable><code ngNonBindable>// ❌ MAL — getTotal() se llama en CADA ciclo de change detection
 &#64;Component(&#123;
   template: \`&lt;span&gt;Total: &#123;&#123; getTotal() &#125;&#125;&lt;/span&gt;\`
 &#125;)
@@ -534,5 +860,570 @@ export class UserService &#123;
           crea una nueva petición. <code>shareReplay</code> con <code>refCount: true</code>
           comparte la respuesta y libera el caché cuando no hay suscriptores.
         </p>
+      </div>
+
+      <!-- 9. Memoización -->
+      <div class="card" id="9-memoizacion-computed-signals-y-pure-pipes">
+        <h3>9. Memoización — computed signals y pure pipes</h3>
+        <p>
+          Memoizar = <strong>cachear el resultado de un cálculo</strong> y recalcular solo cuando cambian
+          sus entradas. En Angular hay dos herramientas nativas: <code>computed()</code> (signals) y los
+          <strong>pure pipes</strong>. El anti-patrón que ambas resuelven es el mismo:
+          <strong>llamar métodos en el template</strong>.
+        </p>
+
+        <h4>¿Por qué los métodos en template son costosos?</h4>
+        <p>
+          Angular no puede saber si <code>getTotal()</code> es pura o depende de algo externo, así que la
+          <strong>re-ejecuta en cada ciclo de change detection</strong> — que en apps con estrategia
+          Default puede correr decenas de veces por segundo (cada click, keypress, respuesta HTTP...).
+          Un <code>filter().map().reduce()</code> "inocente" dentro de un <code>&#64;for</code> de 50 items
+          se convierte en miles de ejecuciones por segundo.
+        </p>
+        <pre ngNonBindable><code ngNonBindable>// ❌ Se ejecuta en CADA ciclo de CD
+template: \`&lt;p&gt;Total: &#123;&#123; getTotal() &#125;&#125;&lt;/p&gt;\`
+
+// ✅ computed: memoizado, recalcula SOLO si cambian sus dependencias
+items = signal&lt;Item[]&gt;([]);
+total = computed(() =&gt;
+  this.items().reduce((sum, i) =&gt; sum + i.price, 0)
+);
+template: \`&lt;p&gt;Total: &#123;&#123; total() &#125;&#125;&lt;/p&gt;\`</code></pre>
+
+        <h4>Pure pipes: memoización por argumentos</h4>
+        <p>
+          Un pipe con <code>pure: true</code> (el default) solo se re-ejecuta cuando <strong>cambia la
+          referencia de sus argumentos</strong>. Es la opción idónea para transformar datos que llegan
+          por <code>&#64;Input()</code> o cuando la misma transformación se usa en muchos templates.
+        </p>
+        <pre ngNonBindable><code ngNonBindable>&#64;Pipe(&#123; name: 'fileSize' &#125;)  // pure por defecto
+export class FileSizePipe implements PipeTransform &#123;
+  transform(bytes: number): string &#123;
+    if (bytes &lt; 1024) return \`$&#123;bytes&#125; B\`;
+    if (bytes &lt; 1_048_576) return \`$&#123;(bytes / 1024).toFixed(1)&#125; KB\`;
+    return \`$&#123;(bytes / 1_048_576).toFixed(1)&#125; MB\`;
+  &#125;
+&#125;
+
+// template — solo se recalcula si doc.size cambia de valor
+// &#123;&#123; doc.size | fileSize &#125;&#125;</code></pre>
+
+        <h4>¿computed o pipe?</h4>
+        <ul>
+          <li><strong><code>computed()</code></strong> — lógica derivada del estado del componente
+            (signals). Encadenable, testeable, granular con OnPush/zoneless.</li>
+          <li><strong>Pure pipe</strong> — transformación reutilizable y sin estado
+            (formatos, unidades, filtros). Se comparte entre toda la app.</li>
+          <li><strong>Impure pipe</strong> (<code>pure: false</code>) — casi nunca: se ejecuta en cada
+            CD, igual de caro que un método en template.</li>
+        </ul>
+
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li><strong>computed con side effects:</strong> <code>computed()</code> debe ser puro;
+            para efectos usa <code>effect()</code>.</li>
+          <li><strong>Pure pipe con arrays mutados:</strong> si mutas el array la referencia no cambia
+            y el pipe no se re-ejecuta — el gemelo del problema de OnPush.</li>
+          <li><strong>Getters en template creyendo que se cachean:</strong> <code>get total()</code>
+            se ejecuta en cada CD igual que un método.</li>
+          <li><strong>Crear objetos/arrays inline en el template</strong>
+            (<code>[options]="&#123; compact: true &#125;"</code>): nueva referencia en cada CD →
+            el hijo OnPush se re-renderiza siempre.</li>
+        </ul>
+
+        <h4>🎤 Preguntas de entrevista</h4>
+        <ul>
+          <li><strong>¿Por qué no llamar métodos en el template?</strong> Angular los re-ejecuta en cada
+            ciclo de CD porque no puede asumir que son puros; con listas y CD frecuente el costo escala
+            multiplicativamente.</li>
+          <li><strong>¿Cuándo se re-ejecuta un pure pipe?</strong> Solo cuando cambia la referencia
+            (o valor primitivo) de sus argumentos.</li>
+          <li><strong>¿Qué ventaja tiene computed() sobre un método?</strong> Memoiza el resultado y
+            rastrea sus dependencias: recalcula únicamente cuando alguno de los signals leídos cambia.</li>
+        </ul>
+
+        <div class="code-ref">
+          📂 <code>features/performance-lab/perf-demo.ts</code> — signals + contadores de render que evidencian re-ejecuciones
+        </div>
+      </div>
+
+      <!-- 10. NgOptimizedImage -->
+      <div class="card" id="10-ngoptimizedimage-imagenes-optimizadas">
+        <h3>10. NgOptimizedImage — imágenes optimizadas</h3>
+        <p>
+          Las imágenes suelen ser el elemento LCP y la primera causa de CLS. La directiva
+          <code>NgOptimizedImage</code> (<code>&#64;angular/common</code>) aplica las best practices
+          automáticamente: <strong>lazy loading por defecto</strong>, exige <code>width</code>/<code>height</code>
+          para reservar espacio (evita layout shift), genera <code>srcset</code> responsive y con
+          <code>priority</code> emite <code>fetchpriority="high"</code> + <code>&lt;link rel="preload"&gt;</code>
+          para la imagen crítica.
+        </p>
+        <pre><code>import &#123; NgOptimizedImage &#125; from '&#64;angular/common';
+
+&#64;Component(&#123;
+  imports: [NgOptimizedImage],
+  template: \`
+    &lt;!-- Imagen LCP (hero): priority = eager + preload + fetchpriority --&gt;
+    &lt;img ngSrc="/assets/hero.webp" width="1200" height="600"
+         priority alt="Dashboard" /&gt;
+
+    &lt;!-- Grid responsive: sizes genera el srcset adecuado --&gt;
+    &lt;img ngSrc="/assets/products/p-101.webp" width="400" height="300"
+         sizes="(max-width: 768px) 100vw, 33vw" alt="Producto" /&gt;
+
+    &lt;!-- Contenedor fluido: fill en lugar de width/height --&gt;
+    &lt;div class="banner"&gt;  &lt;!-- position: relative --&gt;
+      &lt;img ngSrc="/assets/banner.webp" fill alt="" /&gt;
+    &lt;/div&gt;
+  \`
+&#125;)</code></pre>
+
+        <h4>Image loaders para CDNs</h4>
+        <p>
+          Con un loader, <code>ngSrc</code> se transforma en URLs del CDN con resize/format automático
+          (Cloudinary, Imgix, ImageKit, Netlify o uno custom):
+        </p>
+        <pre><code>// app.config.ts
+providers: [
+  provideImgixLoader('https://mi-cuenta.imgix.net'),
+  // o custom:
+  &#123;
+    provide: IMAGE_LOADER,
+    useValue: (config: ImageLoaderConfig) =&gt;
+      \`https://cdn.midominio.com/$&#123;config.src&#125;?w=$&#123;config.width&#125;&amp;fmt=webp\`
+  &#125;
+]</code></pre>
+
+        <h4>Best practices</h4>
+        <ul>
+          <li><code>priority</code> <strong>solo</strong> en la imagen LCP (1 por página, above the fold).</li>
+          <li>Formatos modernos: WebP/AVIF reducen 30-60 % vs JPEG.</li>
+          <li><code>width</code>/<code>height</code> con el <strong>aspect ratio real</strong> del archivo
+            — la directiva avisa si lo distorsionas.</li>
+          <li>Todo lo below the fold se queda con el lazy loading por defecto.</li>
+        </ul>
+
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li><strong>Olvidar <code>priority</code> en el hero:</strong> la imagen LCP se carga lazy y
+            el LCP se dispara. NgOptimizedImage lo detecta y lanza warning en dev.</li>
+          <li><strong>Poner <code>priority</code> en muchas imágenes:</strong> todas compiten por la red
+            y ninguna llega antes.</li>
+          <li><strong><code>fill</code> sin <code>position: relative</code></strong> en el contenedor:
+            la imagen se posiciona respecto a otro ancestro.</li>
+          <li><strong>Servir una imagen de 2000px en un slot de 300px:</strong> usa un loader/CDN que
+            redimensione según el <code>srcset</code>.</li>
+        </ul>
+
+        <h4>🎤 Preguntas de entrevista</h4>
+        <ul>
+          <li><strong>¿Qué hace exactamente <code>priority</code>?</strong> Desactiva el lazy loading,
+            marca <code>fetchpriority="high"</code> y genera un preload hint: la imagen crítica empieza
+            a descargarse lo antes posible.</li>
+          <li><strong>¿Cómo evita CLS NgOptimizedImage?</strong> Obliga a declarar width/height (o fill)
+            para que el browser reserve el espacio antes de descargar la imagen.</li>
+          <li><strong>¿Para qué sirve <code>sizes</code>?</strong> Le dice al browser qué ancho ocupará
+            la imagen en cada breakpoint para que elija la variante correcta del srcset.</li>
+        </ul>
+      </div>
+
+      <!-- 11. runOutsideAngular y Zoneless -->
+      <div class="card" id="11-runoutsideangular-y-zoneless">
+        <h3>11. runOutsideAngular y Zoneless</h3>
+        <p>
+          <strong>Zone.js</strong> parchea las APIs asíncronas del browser (eventos, timers, promises,
+          XHR) para saber "algo pasó → ejecuta change detection". El problema: eventos de alta frecuencia
+          (<code>scroll</code>, <code>mousemove</code>, <code>requestAnimationFrame</code>, websockets con
+          ticks) disparan CD <strong>decenas de veces por segundo</strong> aunque la UI no necesite
+          actualizarse.
+        </p>
+
+        <h4>runOutsideAngular: escapar de la zona</h4>
+        <pre><code>&#64;Component(&#123; /* ... */ &#125;)
+export class CanvasChartComponent &#123;
+  private ngZone = inject(NgZone);
+  private fps = signal(0);
+
+  constructor() &#123;
+    this.ngZone.runOutsideAngular(() =&gt; &#123;
+      // ✅ el loop de animación NO dispara CD en cada frame
+      const loop = () =&gt; &#123;
+        this.drawFrame();
+        requestAnimationFrame(loop);
+      &#125;;
+      requestAnimationFrame(loop);
+    &#125;);
+  &#125;
+
+  private onStatsReady(fps: number) &#123;
+    // Volver a la zona SOLO cuando la UI debe actualizarse
+    this.ngZone.run(() =&gt; this.fps.set(fps));
+  &#125;
+&#125;</code></pre>
+        <p>
+          Casos de uso: listeners de scroll/resize/mousemove, animaciones canvas/WebGL, integración con
+          librerías third-party (charts, mapas), polling. Regla: corre fuera lo frecuente, y re-entra con
+          <code>ngZone.run()</code> (o actualiza un signal) solo cuando haya algo que pintar.
+        </p>
+
+        <h4>Zoneless: Angular sin Zone.js</h4>
+        <p>
+          El modo <strong>zoneless</strong> elimina Zone.js: la CD ya no se dispara "por si acaso", sino
+          por <strong>notificaciones explícitas</strong> — signals leídos en templates, eventos de
+          template, <code>async</code> pipe y <code>markForCheck()</code>. Beneficios: menos JS inicial
+          (~13 KB de zone.js), sin parcheo global, stack traces limpios y CD proporcional a lo que
+          realmente cambió.
+        </p>
+        <pre><code>// app.config.ts
+export const appConfig: ApplicationConfig = &#123;
+  providers: [
+    provideZonelessChangeDetection(),
+    // y elimina 'zone.js' de "polyfills" en angular.json
+  ]
+&#125;;
+
+// En zoneless, esto NO actualiza la UI:
+setTimeout(() =&gt; &#123; this.title = 'nuevo'; &#125;, 1000);       // ❌
+
+// Esto sí:
+setTimeout(() =&gt; this.title.set('nuevo'), 1000);          // ✅ signal</code></pre>
+
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li><strong>Olvidar re-entrar a la zona:</strong> actualizas una propiedad plana desde un
+            callback fuera de la zona y la vista no cambia. Usa <code>ngZone.run()</code> o signals
+            (funcionan en ambos mundos).</li>
+          <li><strong>Migrar a zoneless con estado en propiedades mutables:</strong> todo lo que la vista
+            muestre debe fluir por signals / async pipe / eventos; lo demás queda congelado.</li>
+          <li><strong>Registrar listeners fuera de la zona y no removerlos:</strong> sigue siendo un
+            memory leak; guarda la referencia y limpia en <code>DestroyRef.onDestroy()</code>.</li>
+        </ul>
+
+        <h4>🎤 Preguntas de entrevista</h4>
+        <ul>
+          <li><strong>¿Qué hace Zone.js y qué costo tiene?</strong> Parchea las APIs async para disparar
+            CD tras cada tarea; el costo es CD excesiva con eventos de alta frecuencia y overhead global.</li>
+          <li><strong>¿Cuándo usarías runOutsideAngular?</strong> Para trabajo frecuente que no cambia la
+            UI en cada tick: animaciones, scroll/mousemove, polling, librerías de terceros.</li>
+          <li><strong>¿Qué requisitos tiene una app zoneless?</strong> Que toda actualización de la vista
+            pase por signals, async pipe, eventos de template o markForCheck() — nada de confiar en que
+            "el setTimeout refresca solo".</li>
+        </ul>
+      </div>
+
+      <!-- 12. Web Vitals -->
+      <div class="card" id="12-web-vitals-lcp-cls-e-inp">
+        <h3>12. Web Vitals: LCP, CLS e INP</h3>
+        <p>
+          Los <strong>Core Web Vitals</strong> son las métricas de experiencia de usuario que Google usa
+          para medir (y rankear) páginas. Se miden sobre usuarios reales (field data / CrUX), no solo en
+          Lighthouse.
+        </p>
+        <table>
+          <thead>
+            <tr><th>Métrica</th><th>Qué mide</th><th>Bueno</th><th>Pobre</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>LCP</strong> (Largest Contentful Paint)</td><td>Cuándo se pinta el elemento más grande visible (hero, título)</td><td>&le; 2.5 s</td><td>&gt; 4 s</td></tr>
+            <tr><td><strong>CLS</strong> (Cumulative Layout Shift)</td><td>Cuánto "salta" el layout durante la vida de la página</td><td>&le; 0.1</td><td>&gt; 0.25</td></tr>
+            <tr><td><strong>INP</strong> (Interaction to Next Paint)</td><td>Latencia de la peor interacción (click/tecla → siguiente frame). Reemplazó a FID en 2024</td><td>&le; 200 ms</td><td>&gt; 500 ms</td></tr>
+          </tbody>
+        </table>
+
+        <h4>Cómo mejorarlas en Angular</h4>
+        <ul>
+          <li><strong>LCP:</strong> SSR (el HTML llega renderizado), <code>NgOptimizedImage</code> con
+            <code>priority</code> en la imagen hero, bundle inicial pequeño (lazy loading + &#64;defer),
+            preconnect a CDNs y fuentes con <code>font-display: swap</code>.</li>
+          <li><strong>CLS:</strong> dimensiones explícitas en imágenes/iframes/ads, skeletons con el
+            tamaño real en <code>&#64;placeholder</code> y estados de loading, no insertar banners encima
+            del contenido ya pintado.</li>
+          <li><strong>INP:</strong> handlers cortos (&lt; 50 ms), OnPush/zoneless para que un click no
+            revise toda la app, cálculos pesados a Web Workers o troceados
+            (<code>scheduler.yield</code>/<code>setTimeout</code>), evitar métodos costosos en template.</li>
+        </ul>
+
+        <h4>Medir en usuarios reales (RUM)</h4>
+        <pre><code>// npm i web-vitals
+import &#123; onLCP, onCLS, onINP &#125; from 'web-vitals';
+
+export function initWebVitals() &#123;
+  const report = (metric: &#123; name: string; value: number &#125;) =&gt;
+    navigator.sendBeacon('/analytics', JSON.stringify(metric));
+
+  onLCP(report);
+  onCLS(report);
+  onINP(report);
+&#125;
+
+// main.ts
+bootstrapApplication(AppComponent, appConfig)
+  .then(() =&gt; initWebVitals());</code></pre>
+
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li><strong>Optimizar solo para Lighthouse local:</strong> tu máquina con caché caliente no es
+            un móvil de gama media con 4G. Usa field data (CrUX, RUM).</li>
+          <li><strong>Confundir FID con INP:</strong> FID medía solo el delay de la primera interacción;
+            INP mide todas las interacciones e incluye el procesamiento del handler y el render.</li>
+          <li><strong>Spinner que causa CLS:</strong> un loading pequeño que se reemplaza por contenido
+            grande desplaza todo lo de abajo.</li>
+        </ul>
+
+        <h4>🎤 Preguntas de entrevista</h4>
+        <ul>
+          <li><strong>¿Qué mide INP y cómo lo mejorarías en Angular?</strong> La latencia de interacción
+            hasta el siguiente paint; se mejora acortando handlers, con OnPush/zoneless, workers y
+            evitando trabajo pesado en template.</li>
+          <li><strong>¿Cómo ayuda SSR al LCP?</strong> El HTML ya llega renderizado desde el servidor: el
+            contenido principal se pinta sin esperar a descargar y ejecutar el JS.</li>
+          <li><strong>¿Qué provoca CLS en una SPA y cómo lo previenes?</strong> Contenido async sin
+            espacio reservado; se previene con dimensiones explícitas y skeletons del tamaño final.</li>
+        </ul>
+      </div>
+
+      <!-- 13. SSR e Hydration -->
+      <div class="card" id="13-ssr-hydration-e-incremental-hydration">
+        <h3>13. SSR, Hydration e Incremental Hydration</h3>
+        <p>
+          Con <strong>SSR</strong> (<code>&#64;angular/ssr</code>) el servidor renderiza la ruta y envía
+          HTML completo: el usuario ve contenido de inmediato (mejor LCP y SEO) mientras el JS se
+          descarga en paralelo. <strong>Hydration</strong> es el paso siguiente: en lugar de destruir ese
+          DOM y re-renderizar desde cero (comportamiento antiguo, causaba flicker), Angular
+          <strong>reutiliza el DOM existente</strong>, adjunta listeners y restaura estado.
+        </p>
+        <pre><code>// app.config.ts
+export const appConfig: ApplicationConfig = &#123;
+  providers: [
+    provideRouter(routes),
+    provideClientHydration(
+      withEventReplay(),           // captura clicks pre-hydration y los re-emite
+      withIncrementalHydration()   // habilita hydrate triggers en &#64;defer
+    )
+  ]
+&#125;;</code></pre>
+
+        <h4>Reglas para que la hydration funcione</h4>
+        <ul>
+          <li>El HTML del servidor y el del cliente deben <strong>coincidir</strong>: nada de manipular
+            DOM directo (<code>innerHTML</code>, jQuery) ni HTML inválido
+            (<code>&lt;div&gt;</code> dentro de <code>&lt;p&gt;</code>, <code>&lt;tr&gt;</code> fuera de
+            <code>&lt;table&gt;</code>).</li>
+          <li>Código browser-only (acceso a <code>window</code>, <code>document</code>, canvas) va en
+            <code>afterNextRender()</code>.</li>
+          <li>Componentes problemáticos pueden excluirse con <code>ngSkipHydration</code>
+            (último recurso).</li>
+          <li><code>HttpClient</code> con SSR cachea las respuestas del servidor y las
+            <strong>transfiere al cliente</strong> (TransferState) para no repetir los requests.</li>
+        </ul>
+
+        <h4>Incremental hydration: hidratar solo lo que se usa</h4>
+        <p>
+          Con hydration completa, toda la página se hidrata al cargar el JS. La
+          <strong>incremental hydration</strong> (Angular 19+) combina SSR con <code>&#64;defer</code>:
+          el HTML del bloque llega renderizado del servidor y <strong>se muestra desde el primer
+          momento</strong>, pero su JavaScript no se descarga ni ejecuta hasta el trigger
+          <code>hydrate</code>. Es "islands architecture" en Angular.
+        </p>
+        <pre><code>&#64;defer (hydrate on viewport) &#123;
+  &lt;app-comments /&gt;   &lt;!-- HTML visible desde el server-render;
+                          JS solo cuando entra al viewport --&gt;
+&#125;
+
+&#64;defer (hydrate on interaction) &#123;
+  &lt;app-video-player /&gt;
+&#125;
+
+&#64;defer (hydrate never) &#123;
+  &lt;app-static-footer /&gt;   &lt;!-- nunca se hidrata: HTML puro --&gt;
+&#125;</code></pre>
+
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li><strong>Acceder a <code>window</code> en el constructor/ngOnInit:</strong> revienta en el
+            servidor (Node no tiene DOM). Usa <code>afterNextRender()</code>.</li>
+          <li><strong>HTML mal anidado:</strong> el browser lo "corrige" al parsear y ya no coincide con
+            lo que Angular espera → hydration mismatch.</li>
+          <li><strong>Renderizar contenido dependiente de datos no deterministas</strong>
+            (fecha/aleatorio distinto en server y client) → mismatch visual.</li>
+          <li><strong>Asumir que hydration = interactividad inmediata:</strong> hasta que el JS carga,
+            los clicks se pierden — por eso existe <code>withEventReplay()</code>.</li>
+        </ul>
+
+        <h4>🎤 Preguntas de entrevista</h4>
+        <ul>
+          <li><strong>¿Qué es hydration y qué problema resuelve?</strong> Reutilizar el DOM renderizado
+            en el servidor en lugar de destruirlo y re-crearlo: elimina el flicker y mejora LCP/CLS.</li>
+          <li><strong>¿Qué aporta la incremental hydration?</strong> El HTML server-rendered se muestra
+            ya, pero el JS de cada isla se difiere hasta su trigger — se hidrata solo lo que el usuario
+            usa.</li>
+          <li><strong>¿Cómo evitas repetir requests HTTP tras SSR?</strong> Con el caching/TransferState
+            de provideClientHydration: las respuestas del servidor viajan embebidas y el cliente las
+            reutiliza.</li>
+        </ul>
+      </div>
+
+      <!-- 14. Profiling -->
+      <div class="card" id="14-profiling-angular-devtools-y-chrome-performance">
+        <h3>14. Profiling con Angular DevTools y Chrome Performance</h3>
+        <p>
+          Regla de oro: <strong>medir antes de optimizar</strong>. Sin un profile, "optimizas" por
+          intuición y sueles atacar el problema equivocado. Dos herramientas complementarias:
+          <strong>Angular DevTools</strong> (qué hace Angular) y el <strong>panel Performance de
+          Chrome</strong> (qué hace el browser).
+        </p>
+
+        <h4>Angular DevTools (extensión de Chrome/Firefox)</h4>
+        <ul>
+          <li><strong>Components tab:</strong> inspecciona el árbol, inputs/outputs, signals y la
+            estrategia de CD de cada componente.</li>
+          <li><strong>Profiler tab:</strong> graba interacciones y muestra <em>cada ciclo de change
+            detection</em>: qué lo disparó, qué componentes se revisaron y cuánto tardó cada uno
+            (flame graph / bar chart).</li>
+          <li>Qué buscar: componentes que se re-revisan en <em>cada</em> ciclo sin cambiar (candidatos a
+            OnPush), ciclos de CD demasiado frecuentes (eventos de alta frecuencia dentro de la zona) y
+            componentes individuales lentos (lógica cara en getters/métodos de template).</li>
+        </ul>
+
+        <h4>Chrome Performance panel</h4>
+        <ul>
+          <li>Graba con <strong>CPU throttling 4x-6x</strong> para simular hardware real.</li>
+          <li><strong>Long tasks</strong> (bloques rojos &gt; 50 ms) bloquean el main thread y degradan
+            INP: expande el flame chart para ver qué función los causa.</li>
+          <li>Distingue las fases: <em>Scripting</em> (JS/CD), <em>Rendering</em> (style/layout) y
+            <em>Painting</em>. Muchos recálculos de layout intercalados con JS = <strong>layout
+            thrashing</strong> (leer <code>offsetHeight</code> y escribir estilos en un loop).</li>
+          <li>La pestaña <strong>Lighthouse</strong> automatiza un diagnóstico inicial; el panel
+            Performance explica el porqué.</li>
+        </ul>
+        <pre><code>// Marcar código propio para verlo en el timeline
+performance.mark('filter-start');
+const result = this.applyFilters(rows);
+performance.mark('filter-end');
+performance.measure('filter', 'filter-start', 'filter-end');
+// → aparece en Performance panel → "Timings"</code></pre>
+
+        <h4>Workflow sugerido</h4>
+        <ol>
+          <li>Reproduce la lentitud con una interacción concreta.</li>
+          <li>Angular DevTools Profiler: ¿la CD corre demasiado o hay un componente lento?</li>
+          <li>Chrome Performance: ¿el tiempo se va en scripting, layout o paint?</li>
+          <li>Aplica el fix (OnPush, computed, defer, worker...) y <strong>vuelve a medir</strong>.</li>
+        </ol>
+
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li><strong>Perfilar en modo dev:</strong> los checks extra de desarrollo distorsionan; para
+            números reales usa un build de producción (los profiles dev sirven para comparar
+            relativo).</li>
+          <li><strong>Perfilar sin throttling</strong> en una workstation potente: los usuarios no tienen
+            tu máquina.</li>
+          <li><strong>Optimizar sin baseline:</strong> guarda el profile "antes" para demostrar la
+            mejora.</li>
+        </ul>
+
+        <h4>🎤 Preguntas de entrevista</h4>
+        <ul>
+          <li><strong>¿Cómo detectas qué componente ralentiza la app?</strong> Con el Profiler de Angular
+            DevTools: grabar la interacción y ordenar los componentes por tiempo de CD por ciclo.</li>
+          <li><strong>¿Qué es una long task y por qué importa?</strong> Trabajo &gt; 50 ms en el main
+            thread; durante ese tiempo el browser no responde a input → INP alto.</li>
+          <li><strong>¿Qué es layout thrashing?</strong> Alternar lecturas (offsetWidth) y escrituras de
+            estilos forzando recálculos de layout síncronos repetidos; se arregla agrupando lecturas y
+            escrituras.</li>
+        </ul>
+      </div>
+
+      <!-- 15. Memory Leaks -->
+      <div class="card" id="15-memory-leaks-deteccion-y-prevencion">
+        <h3>15. Memory Leaks — detección y prevención</h3>
+        <p>
+          Un memory leak en una SPA es memoria que <strong>debería liberarse al destruir un componente
+          pero sigue referenciada</strong>. Como la app vive horas sin recargar, los leaks se acumulan:
+          la app se vuelve lenta, el GC trabaja cada vez más y al final la pestaña crashea.
+        </p>
+
+        <h4>Las 5 fuentes clásicas en Angular</h4>
+        <ul>
+          <li><strong>Suscripciones RxJS sin cleanup</strong> a streams que no completan
+            (<code>Subject</code> de un servicio, <code>interval</code>, router events, store).
+            El closure retiene el componente entero.</li>
+          <li><strong>Event listeners globales:</strong> <code>window.addEventListener('resize', ...)</code>
+            sin el <code>removeEventListener</code> correspondiente.</li>
+          <li><strong><code>setInterval</code> / <code>requestAnimationFrame</code></strong> sin
+            <code>clearInterval</code> / <code>cancelAnimationFrame</code>.</li>
+          <li><strong>Librerías third-party sin <code>destroy()</code>:</strong> charts, mapas y editores
+            que registran sus propios listeners.</li>
+          <li><strong>Referencias en servicios root:</strong> guardar componentes/elementos DOM en un
+            singleton (caches, registries) los mantiene vivos para siempre.</li>
+        </ul>
+        <pre><code>&#64;Component(&#123; /* ... */ &#125;)
+export class DashboardComponent &#123;
+  private destroyRef = inject(DestroyRef);
+
+  constructor() &#123;
+    // ✅ RxJS: se cancela al destruir el componente
+    interval(5000)
+      .pipe(takeUntilDestroyed())
+      .subscribe(() =&gt; this.refresh());
+
+    // ✅ Listener global con cleanup registrado
+    const onResize = () =&gt; this.relayout();
+    window.addEventListener('resize', onResize);
+    this.destroyRef.onDestroy(() =&gt;
+      window.removeEventListener('resize', onResize)
+    );
+
+    // ✅ Librería externa con destroy()
+    afterNextRender(() =&gt; &#123;
+      const chart = new Chart(this.canvas(), &#123; /* ... */ &#125;);
+      this.destroyRef.onDestroy(() =&gt; chart.destroy());
+    &#125;);
+  &#125;
+&#125;</code></pre>
+
+        <h4>Detectar leaks con Chrome DevTools</h4>
+        <ol>
+          <li><strong>Sospecha:</strong> en Performance, graba con "Memory" activado: si el heap sube en
+            escalera y el GC nunca lo baja al nivel inicial, hay leak.</li>
+          <li><strong>Técnica de los 3 snapshots</strong> (Memory → Heap snapshot):
+            snapshot → navega para montar/desmontar el componente sospechoso varias veces → fuerza GC
+            (icono 🗑) → snapshot. Compara: si instancias del componente siguen creciendo, hay leak.</li>
+          <li><strong>Buscar la causa:</strong> filtra por el nombre de la clase del componente y revisa
+            <em>Retainers</em>: la cadena de referencias muestra quién lo mantiene vivo
+            (un Subscriber, un listener, un array en un servicio...).</li>
+          <li><strong>Detached elements:</strong> nodos DOM fuera del documento pero retenidos por JS —
+            en el snapshot se llaman "Detached &lt;div&gt;".</li>
+        </ol>
+
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li><strong>"HttpClient no necesita unsubscribe, entonces nada lo necesita":</strong> los
+            observables HTTP completan solos, pero Subjects, intervals, router events y stores NO.</li>
+          <li><strong><code>takeUntilDestroyed()</code> fuera del injection context</strong> sin pasar
+            <code>DestroyRef</code>: lanza error. En ngOnInit u otros métodos:
+            <code>takeUntilDestroyed(this.destroyRef)</code>.</li>
+          <li><strong>Remover el listener con otra referencia de función:</strong>
+            <code>removeEventListener('resize', () =&gt; ...)</code> no remueve nada; guarda la misma
+            referencia.</li>
+          <li><strong>Comparar snapshots sin forzar GC:</strong> memoria pendiente de recolección parece
+            leak sin serlo.</li>
+        </ul>
+
+        <h4>🎤 Preguntas de entrevista</h4>
+        <ul>
+          <li><strong>¿Cómo confirmas un memory leak en una SPA?</strong> Heap snapshots repetidos tras
+            montar/desmontar el componente con GC forzado: si las instancias crecen monotónicamente, hay
+            leak; los Retainers muestran la causa.</li>
+          <li><strong>¿Qué observables requieren cleanup?</strong> Los que no completan: Subjects de
+            servicios, interval/timer, fromEvent, router events, stores. HTTP completa solo.</li>
+          <li><strong>¿Qué mecanismos modernos de cleanup ofrece Angular?</strong>
+            <code>takeUntilDestroyed()</code>, <code>DestroyRef.onDestroy()</code>, el async pipe y los
+            effects (se limpian con su contexto).</li>
+        </ul>
+
+        <div class="code-ref">
+          📂 <code>features/performance-lab/perf-learn.html</code> — ver también la card 8 (anti-patterns), punto 2: suscripciones sin cleanup
+        </div>
       </div>
     </div>

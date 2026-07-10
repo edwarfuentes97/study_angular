@@ -81,6 +81,51 @@ export class UnlessDirective &#123;
 &#125;
 
 // Uso: &lt;div *appUnless="isLoading"&gt;Contenido&lt;/div&gt;</code></pre>
+
+    <h4>Directive Composition API — hostDirectives (Angular 15+)</h4>
+    <p>Permite <strong>componer</strong> directivas dentro de un componente u otra directiva sin usarlas en el template. El host adopta su comportamiento — reutilización sin herencia de clases.</p>
+    <pre ngNonBindable><code class="language-typescript">&#64;Directive(&#123; selector: '[appTooltip]' &#125;)
+export class TooltipDirective &#123;
+  &#64;Input() appTooltip = '';
+  // lógica de tooltip...
+&#125;
+
+&#64;Component(&#123;
+  selector: 'app-icon-button',
+  hostDirectives: [
+    TooltipDirective, // se aplica al host automáticamente
+    &#123;
+      directive: HighlightDirective,
+      inputs: ['appHighlight: color'],  // exponer input con alias
+      outputs: ['toggled'],             // exponer output
+    &#125;,
+  ],
+  template: '&lt;ng-content /&gt;'
+&#125;)
+export class IconButtonComponent &#123;
+  // El host puede inyectar la instancia de la directiva compuesta
+  private tooltip = inject(TooltipDirective);
+&#125;
+
+// Uso: &lt;app-icon-button color="cyan" appTooltip="Guardar" /&gt;
+// Sin hostDirectives habría que repetir las directivas en cada template</code></pre>
+
+    <h4>⚠️ Errores comunes</h4>
+    <ul>
+      <li>Manipular el DOM con <code>nativeElement.style</code> directamente — preferir <code>Renderer2</code> o <code>&#64;HostBinding</code> (SSR-safe y más testeable).</li>
+      <li>Aplicar <strong>dos directivas estructurales</strong> al mismo elemento (<code>*ngIf</code> + <code>*ngFor</code>) — no compila; envolver una en <code>&lt;ng-container&gt;</code>.</li>
+      <li>Olvidar los corchetes en el selector: <code>selector: 'appHighlight'</code> crea una directiva de <em>elemento</em>, no de atributo. Debe ser <code>'[appHighlight]'</code>.</li>
+      <li>En <code>hostDirectives</code>, los inputs/outputs de la directiva compuesta NO se exponen por defecto — hay que listarlos explícitamente.</li>
+      <li>Añadir listeners con <code>addEventListener</code> sin removerlos en <code>ngOnDestroy</code> — <code>&#64;HostListener</code> se limpia solo.</li>
+    </ul>
+
+    <h4>🎤 Preguntas de entrevista</h4>
+    <ul>
+      <li><strong>¿Qué hace el asterisco en <code>*ngIf</code>?</strong> — Es azúcar sintáctico: Angular envuelve el elemento en un <code>&lt;ng-template&gt;</code> y la directiva usa <code>ViewContainerRef</code> para crear/destruir la vista.</li>
+      <li><strong>¿Diferencia entre directiva estructural y de atributo?</strong> — La estructural añade/quita elementos del DOM (inyecta <code>TemplateRef</code> + <code>ViewContainerRef</code>); la de atributo modifica un elemento existente (inyecta <code>ElementRef</code>).</li>
+      <li><strong>¿Para qué sirve <code>hostDirectives</code>?</strong> — Composición de comportamiento (tooltips, a11y, CDK) sin herencia de clases ni repetir directivas en cada template.</li>
+      <li><strong>¿Un componente es una directiva?</strong> — Sí: <code>&#64;Component</code> extiende <code>&#64;Directive</code> añadiendo un template. Por eso un elemento solo puede tener UN componente pero varias directivas.</li>
+    </ul>
   </div>
 
   <!-- ═══════════════════════════════════════════════ -->
@@ -146,6 +191,38 @@ export class SortByPipe implements PipeTransform &#123;
         <tr><td>Uso ideal</td><td>Transformaciones simples</td><td>Arrays mutados, filtros dinámicos</td></tr>
       </tbody>
     </table>
+
+    <h4>Async Pipe — cómo funciona por dentro</h4>
+    <p>Es un pipe <strong>impure</strong>: se suscribe al Observable/Promise, guarda la última emisión y llama a <code>ChangeDetectorRef.markForCheck()</code> en cada valor. Al destruirse el componente se <strong>desuscribe automáticamente</strong> — cero memory leaks.</p>
+    <pre ngNonBindable><code class="language-typescript">// ⚠️ Cada | async crea una suscripción INDEPENDIENTE:
+&lt;p&gt;&#123;&#123; (user$ | async)?.name &#125;&#125;&lt;/p&gt;
+&lt;p&gt;&#123;&#123; (user$ | async)?.email &#125;&#125;&lt;/p&gt;   // ¡2 requests HTTP!
+
+// ✅ Suscribirse una sola vez con "as"
+&#64;if (user$ | async; as user) &#123;
+  &lt;p&gt;&#123;&#123; user.name &#125;&#125;&lt;/p&gt;
+  &lt;p&gt;&#123;&#123; user.email &#125;&#125;&lt;/p&gt;
+&#125;
+
+// ✅ O compartir la fuente:
+user$ = this.http.get&lt;User&gt;('/api/me').pipe(shareReplay(1));</code></pre>
+
+    <h4>⚠️ Errores comunes</h4>
+    <ul>
+      <li>Llamar <strong>métodos en el template</strong> (<code ngNonBindable>&#123;&#123; format(value) &#125;&#125;</code>) — se re-ejecutan en CADA ciclo de CD. Un pure pipe (o un <code>computed()</code>) memoiza el resultado.</li>
+      <li>Hacer un pipe <code>pure: false</code> "para que funcione" con arrays mutados — el fix correcto suele ser inmutabilidad (<code>[...arr, item]</code>).</li>
+      <li>Varios <code>| async</code> sobre el mismo Observable frío → múltiples suscripciones y requests duplicadas.</li>
+      <li><code>DatePipe</code> usa la timezone del navegador por defecto — cuidado con fechas UTC del backend (se puede pasar timezone como argumento).</li>
+      <li>Olvidar añadir el pipe a <code>imports</code> del componente standalone — error de compilación NG8004 (pipe no encontrado).</li>
+    </ul>
+
+    <h4>🎤 Preguntas de entrevista</h4>
+    <ul>
+      <li><strong>¿Por qué el async pipe es impure?</strong> — Debe re-evaluarse en cada CD porque el Observable puede emitir en cualquier momento; su estado interno cambia sin que cambie la referencia del input.</li>
+      <li><strong>¿Pipe puro vs método en el template?</strong> — El método se ejecuta en cada ciclo de CD; el pipe puro solo cuando cambia la referencia del argumento (memoización gratis).</li>
+      <li><strong>¿Cómo pasas varios argumentos a un pipe?</strong> — <code ngNonBindable>&#123;&#123; value | myPipe:arg1:arg2 &#125;&#125;</code>; llegan como parámetros adicionales de <code>transform()</code>.</li>
+      <li><strong>¿Qué devuelve <code>async</code> antes de la primera emisión?</strong> — <code>null</code>; por eso se combina con <code>&#64;if ... as</code> o con <code>startWith</code> para un valor inicial.</li>
+    </ul>
   </div>
 
   <!-- ═══════════════════════════════════════════════ -->
@@ -241,6 +318,25 @@ export class AnimComponent &#123;
     &#125;);
   &#125;
 &#125;</code></pre>
+
+    <h4>⚠️ Errores comunes</h4>
+    <ul>
+      <li>Acceder a <code>&#64;ViewChild</code> en <code>ngOnInit</code> — aún es <code>undefined</code>; está disponible en <code>ngAfterViewInit</code> (o usar <code>viewChild()</code> signal query).</li>
+      <li>Mutar estado que afecta al template dentro de <code>ngAfterViewInit</code> — provoca <strong>NG0100: ExpressionChangedAfterItHasBeenCheckedError</strong> en dev mode. Solución: mover la lógica, usar signals, o diferir con <code>afterNextRender</code>.</li>
+      <li>Lógica pesada en <code>ngDoCheck</code> / <code>ngAfterViewChecked</code> — se ejecutan en CADA ciclo de CD y degradan el rendimiento.</li>
+      <li><code>ngOnChanges</code> NO se dispara al <strong>mutar</strong> un objeto/array de un <code>&#64;Input</code> (misma referencia) — pasar siempre nuevas referencias.</li>
+      <li>Olvidar desuscribirse — preferir <code>takeUntilDestroyed()</code>, <code>| async</code> o <code>toSignal()</code> antes que unsubscribe manual.</li>
+      <li>Tocar <code>window</code>/<code>document</code> en <code>ngOnInit</code> con SSR — usar <code>afterNextRender()</code>, que solo corre en el browser.</li>
+    </ul>
+
+    <h4>🎤 Preguntas de entrevista</h4>
+    <ul>
+      <li><strong>¿Por qué no leer <code>&#64;Input</code> en el constructor?</strong> — Angular asigna los inputs DESPUÉS de instanciar la clase; el primer punto seguro es <code>ngOnChanges</code>/<code>ngOnInit</code>.</li>
+      <li><strong>¿Diferencia entre <code>ngAfterContentInit</code> y <code>ngAfterViewInit</code>?</strong> — Content = HTML proyectado con <code>ng-content</code> (se inicializa antes); View = template propio del componente y sus hijos.</li>
+      <li><strong>¿Qué es NG0100 y cómo se arregla?</strong> — Un valor cambió después de que Angular lo verificara en el mismo ciclo de CD. Se arregla moviendo la mutación (ngOnInit, afterNextRender) o haciendo el flujo unidireccional con signals.</li>
+      <li><strong>¿<code>afterNextRender</code> vs <code>ngAfterViewInit</code>?</strong> — <code>afterNextRender</code> solo corre en el browser (SSR-safe) y tras el render REAL del DOM; ideal para medir layout o inicializar librerías de terceros (charts, maps).</li>
+      <li><strong>¿Se ejecuta <code>ngOnChanges</code> si el componente no tiene inputs?</strong> — No; en ese caso el primer hook tras el constructor es <code>ngOnInit</code>.</li>
+    </ul>
   </div>
 
   <!-- ═══════════════════════════════════════════════ -->
@@ -332,6 +428,37 @@ export class ListComponent &#123;
   &#125;
   &lt;ng-content /&gt;
 &lt;/div&gt;</code></pre>
+
+    <h4>ngProjectAs — Forzar el slot de proyección</h4>
+    <p>Cuando el nodo raíz no cumple el selector del slot (ej: un <code>ng-container</code>), <code>ngProjectAs</code> indica en qué slot proyectarlo:</p>
+    <pre ngNonBindable><code class="language-typescript">&lt;app-panel&gt;
+  &lt;!-- ng-container no matchea ".panel-header", pero ngProjectAs lo fuerza --&gt;
+  &lt;ng-container ngProjectAs=".panel-header"&gt;
+    &#64;if (showTitle) &#123;
+      &lt;h2&gt;Título condicional&lt;/h2&gt;
+    &#125;
+  &lt;/ng-container&gt;
+&lt;/app-panel&gt;
+
+// Fallback content (Angular 18+): default si NO se proyecta nada
+&lt;ng-content select="[header]"&gt;
+  &lt;h2&gt;Título por defecto&lt;/h2&gt;
+&lt;/ng-content&gt;</code></pre>
+
+    <h4>⚠️ Errores comunes</h4>
+    <ul>
+      <li>El contenido proyectado <strong>pertenece al padre</strong>: sus bindings, pipes y ciclo de vida se evalúan en el contexto del padre, no del hijo que lo proyecta.</li>
+      <li>Poner <code>ng-content</code> dentro de <code>&#64;if</code> NO destruye/re-crea el contenido: el contenido se instancia UNA sola vez; ocultar el slot solo lo desconecta visualmente.</li>
+      <li>Repetir <code>&lt;ng-content /&gt;</code> para duplicar contenido no funciona — solo se proyecta en el primer slot. Para repetir: recibir un <code>TemplateRef</code> y usar <code>ngTemplateOutlet</code>.</li>
+      <li><code>select</code> solo evalúa el <strong>nodo raíz</strong> del contenido proyectado, no sus descendientes — por eso existe <code>ngProjectAs</code>.</li>
+    </ul>
+
+    <h4>🎤 Preguntas de entrevista</h4>
+    <ul>
+      <li><strong>¿ng-content vs ng-template?</strong> — <code>ng-content</code> proyecta HTML del padre tal cual (se instancia siempre, una vez); <code>ng-template</code> define una vista NO renderizada que se instancia bajo demanda (lazy, repetible, con contexto propio).</li>
+      <li><strong>¿Cómo accedes al contenido proyectado desde el hijo?</strong> — <code>&#64;ContentChild</code>/<code>&#64;ContentChildren</code> (o <code>contentChild()</code> signal), disponibles a partir de <code>ngAfterContentInit</code>.</li>
+      <li><strong>¿Cómo harías un componente tabla con filas personalizables?</strong> — El consumidor pasa un <code>&lt;ng-template&gt;</code>; el componente lo captura con <code>&#64;ContentChild(TemplateRef)</code> y lo renderiza por fila con <code>ngTemplateOutlet</code> + contexto (<code>$implicit</code>).</li>
+    </ul>
   </div>
 
   <!-- ═══════════════════════════════════════════════ -->
@@ -399,6 +526,42 @@ export class StyledComponent &#123;&#125;
 
 // Alternativa: usar ViewEncapsulation.None en el hijo
 // o CSS custom properties (variables) que sí atraviesan Shadow DOM</code></pre>
+
+    <h4>:host y :host-context</h4>
+    <pre ngNonBindable><code class="language-css">/* :host — estiliza el ELEMENTO HOST del componente (la etiqueta &lt;app-card&gt;) */
+:host &#123;
+  display: block;        /* los custom elements son inline por defecto */
+  border: 1px solid gray;
+&#125;
+
+/* :host(selector) — solo cuando el host cumple la condición */
+:host(.selected) &#123; border-color: cyan; &#125;
+:host([disabled]) &#123; opacity: 0.5; &#125;
+
+/* :host-context(selector) — según un ANCESTRO (theming) */
+:host-context(.dark-theme) &#123;
+  background: #1e1e1e;
+  color: white;
+&#125;
+
+/* Theming recomendado: CSS custom properties atraviesan cualquier encapsulación */
+:host &#123; color: var(--card-text, #333); &#125;</code></pre>
+
+    <h4>⚠️ Errores comunes</h4>
+    <ul>
+      <li>Usar <code>::ng-deep</code> SIN <code>:host</code> delante — el estilo compilado se vuelve <strong>global</strong> y afecta a toda la app.</li>
+      <li>Con <code>ViewEncapsulation.None</code>, los estilos se inyectan globales y <strong>persisten</strong> aunque el componente ya no esté en pantalla — colisiones difíciles de depurar.</li>
+      <li>Los estilos Emulated NO aplican a HTML insertado con <code>[innerHTML]</code> — ese markup no recibe los atributos <code>_ngcontent</code>.</li>
+      <li>Olvidar que el host es <code>display: inline</code> por defecto — el clásico "mi componente no toma width/height" se arregla con <code>:host &#123; display: block &#125;</code>.</li>
+    </ul>
+
+    <h4>🎤 Preguntas de entrevista</h4>
+    <ul>
+      <li><strong>¿Cómo emula Angular el Shadow DOM?</strong> — Añade atributos únicos (<code>_nghost-xxx</code>, <code>_ngcontent-xxx</code>) a los elementos y reescribe los selectores CSS para incluirlos.</li>
+      <li><strong>¿Cómo estilizar un componente de librería sin ::ng-deep?</strong> — CSS custom properties, inputs de clase/estilo, la API de theming de la librería, o estilos globales bien acotados en <code>styles.css</code>.</li>
+      <li><strong>¿Cuándo usar ShadowDom real?</strong> — Al exportar Web Components (Angular Elements) que deben aislarse en páginas de terceros. Ojo: los estilos globales de la app NO entran al shadow root.</li>
+      <li><strong>¿Para qué sirve <code>:host-context</code>?</strong> — Aplicar estilos condicionados por una clase de un ancestro fuera del componente (ej: <code>.dark-theme</code> en <code>&lt;body&gt;</code>) sin romper la encapsulación.</li>
+    </ul>
   </div>
 
   <!-- ═══════════════════════════════════════════════ -->
@@ -683,6 +846,24 @@ export class UserFormComponent &#123;
   // Cada instancia de UserFormComponent tiene su propio FormStateService
 &#125;</code></pre>
 
+    <h4>⚠️ Errores comunes</h4>
+    <ul>
+      <li>Llamar <code>inject()</code> fuera de un <strong>contexto de inyección</strong> (dentro de un callback o método) — error <strong>NG0203</strong>. Solo vale en constructor, inicializadores de campo, factories y funciones provide*. Para diferirlo: <code>runInInjectionContext(injector, () =&gt; ...)</code>.</li>
+      <li>Dependencia circular entre servicios (A inyecta B y B inyecta A) — error <strong>NG0200</strong>. Rediseñar (extraer un tercer servicio) o, como último recurso, <code>forwardRef</code>.</li>
+      <li>Olvidar <code>multi: true</code> al añadir a un token multi-provider — <strong>sobrescribes</strong> todos los providers anteriores en vez de añadir uno más.</li>
+      <li>Registrar en <code>providers</code> de <code>&#64;Component</code> un servicio que esperabas singleton — cada instancia del componente crea una nueva instancia del servicio.</li>
+      <li>Servicios con estado en providers de módulos/rutas lazy — instancias duplicadas silenciosas (ver sección del singleton en lazy modules).</li>
+    </ul>
+
+    <h4>🎤 Preguntas de entrevista</h4>
+    <ul>
+      <li><strong>¿Cómo resuelve Angular una dependencia?</strong> — Sube por el árbol: ElementInjector del componente → padres → EnvironmentInjector (root) → NullInjector (error NG0201 si no la encuentra).</li>
+      <li><strong>¿Qué pasa si padre e hijo proveen el mismo token?</strong> — Cada uno recibe la instancia más cercana en el árbol: el hijo la suya, el padre la suya (shadowing jerárquico).</li>
+      <li><strong>¿Cuándo es obligatorio <code>inject()</code> en vez del constructor?</strong> — En funciones sin clase: functional guards, resolvers, interceptors y factory functions.</li>
+      <li><strong>¿Por qué <code>InjectionToken</code> y no un string como token?</strong> — Los strings pueden colisionar y no tienen tipo; el token es único por referencia y está tipado genéricamente.</li>
+      <li><strong>¿Qué significa que un provider sea tree-shakeable?</strong> — Con <code>providedIn</code>, el servicio se registra desde sí mismo (no desde un módulo), así el bundler lo elimina del bundle si nadie lo inyecta.</li>
+    </ul>
+
     <div class="code-ref">
       📂 Implementación en el proyecto:
       <ul>
@@ -960,6 +1141,34 @@ export class MyComponent &#123;
     this.items().forEach(i =&gt; i.highlight());
   &#125;
 &#125;</code></pre>
+
+    <h4>Opciones: static y read</h4>
+    <pre ngNonBindable><code class="language-typescript">// &#123; static: true &#125; — disponible YA en ngOnInit,
+// PERO solo si el elemento NO está dentro de &#64;if/&#64;for/ng-template
+&#64;ViewChild('title', &#123; static: true &#125;) titleRef!: ElementRef;
+ngOnInit() &#123; this.titleRef.nativeElement.focus(); &#125; // ✅
+
+// &#123; read: ... &#125; — QUÉ extraer del elemento consultado
+&#64;ViewChild('host', &#123; read: ViewContainerRef &#125;) vcRef!: ViewContainerRef;
+&#64;ViewChild(MyComponent, &#123; read: ElementRef &#125;) el!: ElementRef;
+// Sin read, Angular devuelve la instancia del componente si lo es,
+// o ElementRef si es un elemento plano</code></pre>
+
+    <h4>⚠️ Errores comunes</h4>
+    <ul>
+      <li>Leer <code>&#64;ViewChild</code> en <code>ngOnInit</code> sin <code>static: true</code> — es <code>undefined</code> hasta <code>ngAfterViewInit</code>.</li>
+      <li>Consultar un elemento dentro de <code>&#64;if</code> — la query clásica no lo encuentra hasta que se renderiza. Solución: un setter en el <code>&#64;ViewChild</code>, o <code>viewChild()</code> signal + <code>effect()</code>.</li>
+      <li>Manipular <code>nativeElement</code> para todo — para escribir en el DOM preferir bindings del template o <code>Renderer2</code> (SSR y seguridad).</li>
+      <li>Usar <code>&#64;ViewChild</code> para contenido proyectado — eso es <code>&#64;ContentChild</code> (vive en el content, no en la view).</li>
+      <li>Suscribirse a <code>QueryList.changes</code> sin desuscribirse — memory leak clásico.</li>
+    </ul>
+
+    <h4>🎤 Preguntas de entrevista</h4>
+    <ul>
+      <li><strong>¿ViewChild vs ContentChild?</strong> — ViewChild consulta el template PROPIO del componente; ContentChild consulta lo proyectado por el padre vía <code>ng-content</code>. Disponibles en AfterViewInit y AfterContentInit respectivamente.</li>
+      <li><strong>¿Ventajas de <code>viewChild()</code> signal query?</strong> — Es reactiva (usable en <code>computed</code>/<code>effect</code>), elimina los problemas de timing de los hooks, y <code>viewChild.required()</code> falla explícitamente si no existe.</li>
+      <li><strong>¿Dónde es visible una template reference variable?</strong> — En todo el template, salvo que se declare dentro de un <code>ng-template</code> o bloque estructural: ahí queda acotada a esa vista.</li>
+    </ul>
   </div>
 
   <!-- ═══════════════════════════════════════════════ -->
@@ -1040,6 +1249,32 @@ export class ProductService &#123;
   .set('Content-Type', 'application/json');
 
 this.http.get&lt;Data&gt;('/api/data', &#123; headers &#125;);</code></pre>
+
+    <h4>observe y responseType — Más allá del body</h4>
+    <p>Por defecto HttpClient entrega solo el <strong>body</strong> parseado como JSON. Con <code>observe</code> y <code>responseType</code> controlas qué recibes:</p>
+    <pre ngNonBindable><code class="language-typescript">// observe: 'response' — HttpResponse completo (status, headers, body)
+this.http.get&lt;User[]&gt;('/api/users', &#123; observe: 'response' &#125;)
+  .subscribe(res =&gt; &#123;
+    console.log(res.status);                        // 200
+    console.log(res.headers.get('X-Total-Count'));  // paginación
+    this.users = res.body ?? [];
+  &#125;);
+
+// observe: 'events' + reportProgress — progress bar de upload/download
+this.http.post('/api/upload', formData, &#123;
+  observe: 'events',
+  reportProgress: true
+&#125;).subscribe(event =&gt; &#123;
+  if (event.type === HttpEventType.UploadProgress) &#123;
+    this.progress = Math.round(100 * event.loaded / (event.total ?? 1));
+  &#125; else if (event.type === HttpEventType.Response) &#123;
+    console.log('Upload completo:', event.body);
+  &#125;
+&#125;);
+
+// responseType — cuando la respuesta NO es JSON
+this.http.get('/api/report.pdf', &#123; responseType: 'blob' &#125;);  // archivos
+this.http.get('/legal/terms', &#123; responseType: 'text' &#125;);    // texto plano</code></pre>
 
     <h4>Manejo de errores</h4>
     <p>Los errores HTTP llegan como <code>HttpErrorResponse</code>. Se manejan con <code>catchError</code> de RxJS:</p>
@@ -1218,6 +1453,23 @@ describe('ProductService', () =&gt; &#123;
       </tr>
     </table>
 
+    <h4>⚠️ Errores comunes</h4>
+    <ul>
+      <li>Olvidar <code>.subscribe()</code> — los Observables de HttpClient son fríos: <strong>sin suscripción no hay request</strong>.</li>
+      <li>Suscripciones anidadas (subscribe dentro de subscribe) — usar <code>switchMap</code> para requests dependientes o <code>forkJoin</code> para paralelas.</li>
+      <li><code>HttpParams</code> y <code>HttpHeaders</code> son <strong>inmutables</strong>: <code>params.set(...)</code> devuelve una NUEVA instancia; hay que encadenar o reasignar.</li>
+      <li>No tipar las respuestas (<code>get&lt;Product[]&gt;</code>) — se pierde el chequeo de tipos. Ojo: el genérico es solo compile-time; no valida nada en runtime.</li>
+      <li>Poner <code>retry()</code> en mutaciones (POST) — puedes duplicar operaciones; reintentar solo GETs idempotentes.</li>
+    </ul>
+
+    <h4>🎤 Preguntas de entrevista</h4>
+    <ul>
+      <li><strong>¿Por qué Observables y no Promises?</strong> — Cancelables (unsubscribe aborta la request), componibles con operadores (retry, switchMap), lazy, y se integran con async pipe y NgRx.</li>
+      <li><strong>¿Cómo cancelas una request en curso?</strong> — Desuscribiéndote: manualmente, con <code>switchMap</code> (cancela la anterior al llegar una nueva), o con <code>takeUntilDestroyed()</code>.</li>
+      <li><strong>¿En qué orden corren los interceptors?</strong> — En el orden de registro para la request y en orden INVERSO para la response (pipeline tipo cebolla).</li>
+      <li><strong>¿Qué hace <code>withFetch()</code>?</strong> — Cambia el backend de XMLHttpRequest a la Fetch API: necesario para streaming en SSR y recomendado en apps modernas.</li>
+    </ul>
+
     <div class="code-ref">
       📂 Implementación en el proyecto:
       <ul>
@@ -1326,6 +1578,52 @@ export const authGuard: CanActivateFn = (route, state) =&gt; &#123;
 
 // Uso en rutas
 &#123; path: 'admin', canActivate: [authGuard], component: AdminComponent &#125;</code></pre>
+
+    <h4>paramMap y Route Params como Inputs (Angular 16+)</h4>
+    <pre ngNonBindable><code class="language-typescript">// paramMap — API preferida sobre params (get/getAll/has, valores siempre string)
+this.route.paramMap.subscribe(pm =&gt; this.load(pm.get('id')!));
+
+// withComponentInputBinding — params, queryParams, data y resolvers
+// llegan directo como inputs del componente (sin inyectar ActivatedRoute)
+provideRouter(routes, withComponentInputBinding())
+
+export class UserDetailComponent &#123;
+  id = input.required&lt;string&gt;();   // ← route param :id
+  tab = input&lt;string&gt;();           // ← queryParam ?tab=...
+  user = input&lt;User&gt;();            // ← resolver &#123; user: userResolver &#125;
+&#125;</code></pre>
+
+    <h4>Otros Guards: CanDeactivate y CanMatch</h4>
+    <pre ngNonBindable><code class="language-typescript">// CanDeactivate — confirmar salida con cambios sin guardar
+export const unsavedChangesGuard: CanDeactivateFn&lt;EditorComponent&gt; =
+  (component) =&gt; component.form.pristine || confirm('¿Descartar cambios?');
+
+// CanMatch — decide si la ruta MATCHEA (permite rutas alternativas)
+// Bonus: si rechaza, el bundle lazy NI SIQUIERA se descarga
+&#123; path: 'admin', canMatch: [isAdminGuard], loadComponent: () =&gt; import('./admin') &#125;,
+&#123; path: 'admin', component: AccessDeniedComponent &#125;, // fallback si no matchea
+
+// Secuencia completa de Router Events:
+// NavigationStart → RouteConfigLoadStart/End (lazy) → RoutesRecognized
+// → GuardsCheckStart → GuardsCheckEnd → ResolveStart → ResolveEnd
+// → NavigationEnd | NavigationCancel | NavigationError</code></pre>
+
+    <h4>⚠️ Errores comunes</h4>
+    <ul>
+      <li>Usar <code>snapshot</code> cuando el mismo componente se reutiliza entre navegaciones (<code>/user/1 → /user/2</code>) — el Router NO destruye el componente y el snapshot queda obsoleto.</li>
+      <li>Navegación relativa sin <code>relativeTo</code>: <code>router.navigate(['../edit'], &#123; relativeTo: this.route &#125;)</code>.</li>
+      <li>Guards/resolvers que devuelven Observables que <strong>nunca completan</strong> (ej: un BehaviorSubject de estado) — la navegación se cuelga; cerrar con <code>take(1)</code> o <code>first()</code>.</li>
+      <li>Por defecto los guards y resolvers NO se re-ejecutan si solo cambian los queryParams — configurar <code>runGuardsAndResolvers</code> si lo necesitas.</li>
+      <li>Un resolver lento bloquea toda la navegación — para mejor UX, considerar skeleton + carga en el componente.</li>
+    </ul>
+
+    <h4>🎤 Preguntas de entrevista</h4>
+    <ul>
+      <li><strong>¿Route params vs queryParams?</strong> — Los params identifican el recurso y son parte del path (<code>/user/:id</code>, obligatorios); los queryParams son estado opcional (<code>?page=2&amp;sort=asc</code>), ideales para filtros/paginación compartibles por URL.</li>
+      <li><strong>¿Resolver vs cargar en ngOnInit?</strong> — Resolver: los datos existen antes de renderizar (sin flicker), pero retrasa la navegación. ngOnInit: navegación instantánea con estado de loading. Elegir según UX.</li>
+      <li><strong>¿CanMatch vs CanActivate?</strong> — CanMatch decide si la ruta participa en el matching (y evita descargar el bundle lazy); CanActivate solo bloquea la activación de una ruta ya elegida.</li>
+      <li><strong>¿Cómo detectar el fin de una navegación?</strong> — <code>router.events</code> filtrando <code>NavigationEnd</code> (analytics, scroll-to-top, spinners globales).</li>
+    </ul>
   </div>
 
   <!-- ═══════════════════════════════════════════════ -->

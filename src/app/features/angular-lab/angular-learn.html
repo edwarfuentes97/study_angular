@@ -11,13 +11,64 @@
           valores actuales del template con los anteriores y actualiza el DOM si hay diferencias.
         </p>
 
+        <h4>Zone.js por dentro</h4>
+        <p>
+          Zone.js hace <strong>monkey-patching</strong> de las APIs asíncronas del navegador
+          (<code>addEventListener</code>, <code>setTimeout</code>, <code>Promise.then</code>,
+          <code>XMLHttpRequest</code>/<code>fetch</code>). Angular ejecuta la app dentro de la
+          <code>NgZone</code>: cuando la última tarea asíncrona termina, la zona emite
+          <code>onMicrotaskEmpty</code> y <code>ApplicationRef.tick()</code> inicia un ciclo de CD
+          desde la raíz. Por eso "todo funciona mágicamente" sin avisarle a Angular… y por eso
+          también se revisa de más.
+        </p>
+        <pre ngNonBindable><code>// Simplificación conceptual de lo que hace Zone.js
+const originalSetTimeout = window.setTimeout;
+window.setTimeout = (fn, delay) =&gt; originalSetTimeout(() =&gt; &#123;
+  fn();                          // 1. ejecuta tu callback
+  ngZone.notifyTaskDone();       // 2. avisa a Angular
+  // 3. onMicrotaskEmpty → ApplicationRef.tick() → CD en TODO el árbol
+&#125;, delay);
+
+// Escapar de la zona: trabajo intensivo que NO debe disparar CD
+export class CanvasComponent &#123;
+  private ngZone = inject(NgZone);
+
+  startAnimation() &#123;
+    this.ngZone.runOutsideAngular(() =&gt; &#123;
+      setInterval(() =&gt; this.drawFrame(), 16); // 60fps sin ciclos de CD
+    &#125;);
+  &#125;
+
+  // Volver a entrar cuando sí necesitas actualizar la UI
+  finish() &#123;
+    this.ngZone.run(() =&gt; this.status = 'done');
+  &#125;
+&#125;</code></pre>
+
+        <h4>El árbol de Change Detection</h4>
+        <p>
+          CD recorre el árbol de componentes <strong>top-down</strong> (de la raíz hacia las hojas),
+          en una sola pasada y de forma <strong>unidireccional</strong>: un padre se revisa siempre
+          antes que sus hijos. Con Default se visita todo el árbol; con OnPush las ramas "limpias"
+          se <strong>saltan completas</strong> (incluidos sus descendientes). Por eso
+          <code>markForCheck()</code> marca también a los <em>ancestros</em>: si el camino desde la
+          raíz no está marcado, el ciclo nunca llegaría hasta el componente. En dev mode Angular
+          ejecuta una segunda pasada de verificación — el origen del famoso
+          <code>ExpressionChangedAfterItHasBeenCheckedError</code>.
+        </p>
+        <pre ngNonBindable><code>AppComponent (Default)            ← tick() siempre empieza aquí
+├── HeaderComponent (OnPush)      ← limpio → se SALTA (y todo lo que cuelga de él)
+├── ListComponent (OnPush) ✔      ← &#64;Input cambió por referencia → se revisa
+│   └── ItemComponent (OnPush)    ← se evalúan sus bindings porque el padre lo revisa
+└── FooterComponent (Default)     ← se revisa en cada ciclo, cambie o no</code></pre>
+
         <h4>Default Strategy</h4>
         <p>
           Revisa <strong>TODOS</strong> los componentes en cada ciclo de CD, sin importar si cambiaron
           o no. Simple pero costoso en apps grandes — un solo click puede causar que cientos de
           componentes se revisen innecesariamente.
         </p>
-        <pre ngNonBindable><code>// Default — se revisa en CADA ciclo de CD, incluso si nada cambió
+        <pre ngNonBindable><code ngNonBindable>// Default — se revisa en CADA ciclo de CD, incluso si nada cambió
 &#64;Component(&#123;
   selector: 'app-default',
   template: \`&lt;p&gt;&#123;&#123; heavyComputation() &#125;&#125;&lt;/p&gt;\`
@@ -41,7 +92,7 @@ export class DefaultComponent &#123;
           <li><strong>(d)</strong> Un <strong>Signal</strong> leído en el template cambia</li>
           <li><strong>(e)</strong> Se llama <code>markForCheck()</code> manualmente</li>
         </ul>
-        <pre ngNonBindable><code>&#64;Component(&#123;
+        <pre ngNonBindable><code ngNonBindable>&#64;Component(&#123;
   selector: 'app-onpush',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: \`
@@ -94,26 +145,76 @@ export class OnPushComponent &#123;
   &#125;
 &#125;</code></pre>
 
-        <h4>Zoneless Angular (experimental)</h4>
+        <h4>markForCheck() vs detectChanges()</h4>
+        <table class="compare-table">
+          <thead>
+            <tr>
+              <th>Aspecto</th>
+              <th><code>markForCheck()</code></th>
+              <th><code>detectChanges()</code></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Qué hace</td>
+              <td>Marca el componente <strong>y sus ancestros</strong> como dirty</td>
+              <td>Ejecuta CD <strong>síncronamente</strong> en el componente y sus hijos</td>
+            </tr>
+            <tr>
+              <td>Cuándo corre la CD</td>
+              <td>En el <strong>próximo ciclo</strong> (se agrupa/coalesce con otros cambios)</td>
+              <td><strong>Inmediatamente</strong>, fuera del ciclo normal</td>
+            </tr>
+            <tr>
+              <td>Riesgos</td>
+              <td>Prácticamente ninguno</td>
+              <td><code>ExpressionChanged...Error</code>, ciclos infinitos, coste si se abusa</td>
+            </tr>
+            <tr>
+              <td>Uso típico</td>
+              <td>OnPush + datos que llegan fuera de Angular (WebSocket, callbacks de libs de terceros)</td>
+              <td>Componentes con <code>detach()</code>, forzar render en tests</td>
+            </tr>
+          </tbody>
+        </table>
         <p>
-          Angular está migrando hacia un modelo sin Zone.js. Con Zoneless, solo los <strong>Signals</strong>
-          y llamadas explícitas a <code>markForCheck()</code> disparan Change Detection. Esto elimina
-          la sobrecarga de Zone.js y da control total sobre cuándo se actualiza la UI.
+          <strong>Regla práctica:</strong> el 95% de las veces quieres <code>markForCheck()</code>
+          (o mejor: un Signal, que lo hace por ti). <code>detectChanges()</code> es un martillo
+          para casos muy puntuales.
         </p>
-        <pre ngNonBindable><code>// app.config.ts — activar Zoneless
+
+        <h4>Zoneless con provideZonelessChangeDetection()</h4>
+        <p>
+          Angular ya soporta un modelo <strong>sin Zone.js</strong>: en vez de interceptar todas
+          las APIs asíncronas, la CD se programa solo cuando Angular recibe una
+          <strong>notificación explícita</strong>. Disparan CD en modo zoneless: escribir un
+          <strong>Signal</strong> leído en un template, <code>markForCheck()</code> (el
+          <code>async</code> pipe lo llama internamente), eventos de template
+          (<code>(click)</code>, etc.) y crear/destruir vistas dinámicas. Beneficios: menos
+          overhead, sin polyfill de Zone.js en el bundle, stack traces limpios y mejor interop
+          con librerías externas.
+        </p>
+        <pre ngNonBindable><code>// app.config.ts — activar Zoneless (estable desde Angular 20;
+// en v18/19 se llamaba provideExperimentalZonelessChangeDetection)
 export const appConfig: ApplicationConfig = &#123;
   providers: [
-    provideExperimentalZonelessChangeDetection(),
-    // Ya NO necesitas Zone.js — quítalo de polyfills
+    provideZonelessChangeDetection(),
+    // Quita 'zone.js' del array "polyfills" en angular.json
   ]
 &#125;;
 
-// Con Zoneless, setTimeout NO dispara CD:
-setTimeout(() =&gt; this.value = 'nuevo', 1000); // ❌ NO actualiza la UI
+// Con Zoneless, esto NO actualiza la UI (nadie notifica a Angular):
+setTimeout(() =&gt; &#123; this.value = 'nuevo'; &#125;, 1000);   // ❌
 
-// Solo signals y markForCheck funcionan:
-this.mySignal.set('nuevo');    // ✅ Dispara CD
-this.cdr.markForCheck();       // ✅ Dispara CD</code></pre>
+// Esto SÍ funciona:
+setTimeout(() =&gt; this.valueSignal.set('nuevo'), 1000); // ✅ Signal
+this.cdr.markForCheck();                                // ✅ notificación explícita
+data$ | async                                           // ✅ usa markForCheck por dentro
+
+// Checklist de migración a zoneless:
+// 1. Todos los componentes OnPush (o basados en signals)
+// 2. Estado en Signals / async pipe — nada de mutar campos "a mano"
+// 3. Nada que dependa de NgZone.onStable / tick implícito</code></pre>
 
         <h4>🧠 Diagrama mental</h4>
         <p>
@@ -130,9 +231,67 @@ this.cdr.markForCheck();       // ✅ Dispara CD</code></pre>
           </li>
           <li>
             <strong>ExpressionChangedAfterItHasBeenCheckedError:</strong> Ocurre cuando un valor del
-            template cambia durante el mismo ciclo de CD (por ejemplo, en <code>ngOnInit</code> o
-            <code>ngAfterViewInit</code>). Solución: usar <code>setTimeout</code> o mover la lógica
-            al constructor/signal.
+            template cambia durante el mismo ciclo de CD (por ejemplo, en <code>ngAfterViewInit</code>).
+            Soluciones modernas: mover el estado a un <strong>Signal</strong>, usar
+            <code>afterNextRender()</code>, o como último recurso diferir con
+            <code>setTimeout</code>/<code>queueMicrotask</code>.
+          </li>
+          <li>
+            <strong>Llamar funciones en el template:</strong> <code ngNonBindable>&#123;&#123; total() &#125;&#125;</code>
+            (método normal, no signal) se re-ejecuta en <em>cada</em> ciclo de CD. Solución:
+            <code>computed()</code>, pipes puros o precalcular el valor.
+          </li>
+          <li>
+            <strong>Suscribirse y mutar un campo con OnPush:</strong> el callback de
+            <code>subscribe()</code> corre dentro de la zona, pero el componente OnPush no está dirty
+            → la vista no se actualiza. Solución: <code>async</code> pipe, <code>toSignal()</code> o
+            <code>markForCheck()</code>.
+          </li>
+          <li>
+            <strong>Poner OnPush "a medias":</strong> si el padre es OnPush y se salta, los hijos
+            Default que cuelgan de él tampoco se revisan. La estrategia debe pensarse por
+            <em>ramas</em>, no por componentes sueltos.
+          </li>
+        </ul>
+
+        <h4>✅ Mejores prácticas</h4>
+        <ul>
+          <li>Usa <strong>OnPush por defecto</strong> en componentes nuevos (configúralo en los schematics de <code>angular.json</code>).</li>
+          <li>Trata los <code>&#64;Input()</code> como <strong>inmutables</strong>: nuevas referencias, nunca mutación.</li>
+          <li>Prefiere <strong>Signals</strong> o <code>async</code> pipe antes que <code>ChangeDetectorRef</code> manual.</li>
+          <li>Trabajo intensivo que no toca la UI → <code>NgZone.runOutsideAngular()</code>.</li>
+          <li>Diseña hoy pensando en <strong>zoneless</strong>: OnPush + Signals hace la migración trivial.</li>
+        </ul>
+
+        <h4>🎤 Preguntas de entrevista</h4>
+        <ul>
+          <li>
+            <strong>¿Qué es Zone.js y cómo lo usa Angular?</strong> Una librería que hace
+            monkey-patching de las APIs asíncronas del navegador. Angular ejecuta la app dentro de
+            NgZone y dispara <code>ApplicationRef.tick()</code> cuando la zona queda vacía de tareas,
+            revisando todo el árbol de componentes.
+          </li>
+          <li>
+            <strong>¿Qué dispara CD en un componente OnPush?</strong> Cambio de referencia en un
+            <code>&#64;Input</code>, un evento de template en el componente o sus hijos, una emisión
+            del <code>async</code> pipe, un Signal leído en el template que cambia, o
+            <code>markForCheck()</code>.
+          </li>
+          <li>
+            <strong>¿Diferencia entre markForCheck() y detectChanges()?</strong>
+            <code>markForCheck()</code> solo marca dirty hacia arriba y espera al próximo ciclo;
+            <code>detectChanges()</code> ejecuta CD síncrona inmediata sobre el componente y sus hijos.
+          </li>
+          <li>
+            <strong>¿Cómo prepararías una app para zoneless?</strong> Migrar todo a OnPush, mover el
+            estado a Signals (o <code>async</code> pipe), eliminar dependencias implícitas de Zone.js
+            (mutaciones en <code>setTimeout</code>, <code>onStable</code>) y activar
+            <code>provideZonelessChangeDetection()</code>.
+          </li>
+          <li>
+            <strong>¿Por qué OnPush exige inmutabilidad?</strong> Porque la comprobación del input es
+            por referencia (<code>===</code>): si mutas el objeto, la referencia no cambia y Angular
+            asume que no hay nada nuevo que renderizar.
           </li>
         </ul>
 
@@ -466,6 +625,157 @@ export class CartService &#123;
   &#125;
 &#125;</code></pre>
 
+        <!-- 2.10 untracked() -->
+        <h4>2.10 untracked() — Leer sin crear dependencia</h4>
+        <p>
+          Dentro de un <code>computed()</code> o <code>effect()</code>, <em>toda</em> lectura de un
+          Signal crea una dependencia reactiva. <code>untracked()</code> permite leer un Signal
+          <strong>sin suscribirse</strong> a él: el efecto no se re-ejecutará cuando ese Signal cambie.
+        </p>
+        <pre ngNonBindable><code>import &#123; signal, effect, untracked &#125; from '&#64;angular/core';
+
+const counter = signal(0);
+const currentUser = signal('Ed');
+
+effect(() =&gt; &#123;
+  // Se re-ejecuta cuando counter cambia...
+  const value = counter();
+
+  // ...pero NO cuando currentUser cambia (solo se lee su valor actual)
+  const user = untracked(currentUser);
+  console.log(`$&#123;user&#125; llevó el contador a $&#123;value&#125;`);
+&#125;);
+
+// También sirve para invocar funciones que leen signals internamente
+effect(() =&gt; &#123;
+  const value = counter();
+  untracked(() =&gt; this.analytics.track('counter_changed', value));
+&#125;);</code></pre>
+
+        <!-- 2.11 Signal inputs / model / output -->
+        <h4>2.11 input(), input.required(), model() y output()</h4>
+        <p>
+          Desde Angular 17.1+ los inputs pueden ser <strong>Signals</strong>: son de solo lectura,
+          participan en <code>computed()</code>, y <code>input.required()</code> obliga al padre a
+          proveer el valor (error de compilación si falta). <code>model()</code> crea un Signal
+          <em>escribible</em> con two-way binding <code>[(...)]</code>, y <code>output()</code>
+          reemplaza a <code>&#64;Output() + EventEmitter</code> con una API más simple.
+        </p>
+        <pre ngNonBindable><code ngNonBindable>import &#123; Component, input, model, output, computed &#125; from '&#64;angular/core';
+
+&#64;Component(&#123;
+  selector: 'app-product-card',
+  template: `
+    &lt;h3&gt;&#123;&#123; product().name &#125;&#125;&lt;/h3&gt;
+    &lt;p&gt;&#123;&#123; priceWithTax() | currency &#125;&#125;&lt;/p&gt;
+    &lt;input type="checkbox" [checked]="selected()"
+           (change)="selected.set(!selected())" /&gt;
+    &lt;button (click)="addToCart.emit(product().id)"&gt;Agregar&lt;/button&gt;
+  `
+&#125;)
+export class ProductCardComponent &#123;
+  // input requerido — el padre DEBE pasarlo o no compila
+  product = input.required&lt;Product&gt;();
+
+  // input opcional con valor por defecto y transform
+  discount = input(0, &#123; transform: (v: number | string) =&gt; Number(v) &#125;);
+
+  // model() — two-way binding: &lt;app-product-card [(selected)]="isSelected" /&gt;
+  selected = model(false);
+
+  // output() — sin EventEmitter
+  addToCart = output&lt;string&gt;();
+
+  // Los inputs son signals → componen con computed()
+  priceWithTax = computed(() =&gt;
+    this.product().price * (1 - this.discount()) * 1.16
+  );
+&#125;
+
+// En el padre:
+// &lt;app-product-card [product]="p" [discount]="0.1"
+//                   [(selected)]="isSelected"
+//                   (addToCart)="onAdd($event)" /&gt;</code></pre>
+        <p>
+          <strong>Ventajas sobre <code>&#64;Input()</code> clásico:</strong> tipado de required en
+          compile-time, derivaciones con <code>computed()</code> en vez de <code>ngOnChanges</code>,
+          funcionan de forma nativa con OnPush y zoneless, y son de solo lectura (el hijo no puede
+          pisar el valor del padre por accidente).
+        </p>
+
+        <h4>✅ Mejores prácticas</h4>
+        <ul>
+          <li><strong>Estado derivado → <code>computed()</code>, nunca <code>effect() + set()</code>.</strong> El anti-pattern más común es sincronizar signals con efectos.</li>
+          <li>Expón signals <strong>privados y escribibles</strong> hacia fuera como <code>asReadonly()</code>.</li>
+          <li>Reserva <code>effect()</code> para el <em>mundo exterior</em>: localStorage, analytics, DOM, logging.</li>
+          <li>Para objetos, define una <code>equal</code> function o mantén inmutabilidad estricta con <code>update()</code> + spread.</li>
+          <li>Combina con RxJS donde aporte: <code>toObservable()</code> → <code>debounceTime</code>/<code>switchMap</code> → <code>toSignal()</code>.</li>
+        </ul>
+
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li>
+            <strong>Mutar en vez de reemplazar:</strong>
+            <code>items.update(l =&gt; &#123; l.push(x); return l; &#125;)</code> devuelve la misma
+            referencia → con la igualdad por defecto (<code>===</code>) nadie se entera. Usa
+            <code>[...l, x]</code>.
+          </li>
+          <li>
+            <strong>Crear <code>effect()</code> en <code>ngOnInit</code>:</strong> lanza error de
+            injection context. Créalo como campo de clase, en el constructor, o pasa
+            <code>&#123; injector &#125;</code>.
+          </li>
+          <li>
+            <strong>Escribir un Signal dentro de <code>computed()</code>:</strong> prohibido —
+            los computed deben ser funciones puras sin side effects.
+          </li>
+          <li>
+            <strong>Bucles con <code>effect()</code>:</strong> leer y escribir el mismo Signal dentro
+            de un efecto crea un ciclo. Suele indicar que necesitabas <code>computed()</code> o
+            <code>linkedSignal()</code>.
+          </li>
+          <li>
+            <strong>Olvidar los paréntesis en el template:</strong> <code ngNonBindable>&#123;&#123; count &#125;&#125;</code>
+            imprime la función; es <code ngNonBindable>&#123;&#123; count() &#125;&#125;</code>.
+          </li>
+        </ul>
+
+        <h4>🎤 Preguntas de entrevista</h4>
+        <ul>
+          <li>
+            <strong>¿Signal vs Observable — cuándo usar cada uno?</strong> Signals: estado síncrono de
+            UI con lectura directa y CD granular. Observables: eventos en el tiempo, cancelación,
+            operadores de timing (debounce, retry, race). Se combinan con
+            <code>toSignal()</code>/<code>toObservable()</code>.
+          </li>
+          <li>
+            <strong>¿Qué significa que computed() sea "glitch-free" y lazy?</strong> Nunca expone
+            valores intermedios inconsistentes (se recalcula de forma atómica) y no se evalúa hasta
+            que alguien lo lee; además memoiza el resultado.
+          </li>
+          <li>
+            <strong>¿Por qué computed() en vez de effect() para derivar estado?</strong>
+            <code>computed()</code> es declarativo, memoizado y sin timing issues;
+            <code>effect() + set()</code> introduce escrituras asíncronas, posibles ciclos y estados
+            intermedios inválidos.
+          </li>
+          <li>
+            <strong>¿Qué hace untracked()?</strong> Lee un Signal dentro de un contexto reactivo sin
+            registrarlo como dependencia, evitando re-ejecuciones no deseadas.
+          </li>
+          <li>
+            <strong>¿input() vs &#64;Input()?</strong> <code>input()</code> devuelve un Signal
+            readonly: required en compile-time, componible con <code>computed()</code>, y notifica CD
+            granular. <code>&#64;Input()</code> es un campo mutable que requiere
+            <code>ngOnChanges</code> para reaccionar.
+          </li>
+          <li>
+            <strong>¿Cómo relacionas Signals con zoneless?</strong> Los Signals notifican a Angular
+            exactamente qué vista depende de qué valor, eliminando la necesidad de Zone.js para saber
+            "algo pudo cambiar".
+          </li>
+        </ul>
+
         <div class="code-ref">
           📂 Implementación en el proyecto:
           <ul>
@@ -478,34 +788,242 @@ export class CartService &#123;
       <div class="card" id="3-reactive-forms">
         <h3>3. Reactive Forms</h3>
         <p>
-          Reactive Forms ofrecen un modelo imperativo para construir formularios complejos.
-          <code>FormGroup</code> agrupa controles, <code>FormControl</code> maneja valores
-          individuales, y <code>FormArray</code> permite listas dinámicas. Los
-          <code>Validators</code> built-in cubren casos comunes (required, minLength, pattern), y
-          puedes crear validadores custom como funciones puras. El estado del formulario (valid,
-          dirty, touched) se actualiza automáticamente.
+          Reactive Forms ofrecen un modelo <strong>explícito e inmutable</strong> del formulario en la
+          clase del componente: el estado (valor, validez, <code>dirty</code>, <code>touched</code>,
+          <code>pending</code>) vive en objetos <code>FormControl</code>/<code>FormGroup</code>/<code>FormArray</code>
+          y el template solo se "engancha" con <code>[formGroup]</code> y <code>formControlName</code>.
+          Esto los hace predecibles, testeables sin DOM y componibles con RxJS.
         </p>
-        <pre><code>import &#123; FormGroup, FormControl, FormArray, Validators &#125; from '&#64;angular/forms';
 
-// FormGroup con validadores
-const form = new FormGroup(&#123;
-  name:  new FormControl('', [Validators.required, Validators.minLength(3)]),
-  email: new FormControl('', [Validators.required, Validators.email]),
-  skills: new FormArray([new FormControl('Angular')])
-&#125;);
+        <h4>3.1 Formularios tipados (Angular 14+)</h4>
+        <p>
+          Desde Angular 14 los formularios son <strong>estrictamente tipados</strong>:
+          <code>form.value</code> conoce la forma exacta de los datos. Ojo:
+          <code>value</code> es <code>Partial&lt;T&gt;</code> (los controles <em>disabled</em> se
+          excluyen), mientras que <code>getRawValue()</code> devuelve todo. Con
+          <code>NonNullableFormBuilder</code> evitas el molesto <code>string | null</code>
+          (al hacer <code>reset()</code> vuelve al valor inicial, no a <code>null</code>).
+        </p>
+        <pre ngNonBindable><code>import &#123; NonNullableFormBuilder, Validators &#125; from '&#64;angular/forms';
 
-// Agregar dinámicamente al FormArray
-(form.get('skills') as FormArray).push(new FormControl('RxJS'));
+export class ProfileFormComponent &#123;
+  private fb = inject(NonNullableFormBuilder);
 
-// Validador custom
-function forbiddenName(name: string): ValidatorFn &#123;
-  return (control: AbstractControl) =&gt;
-    control.value === name ? &#123; forbiddenName: &#123; value: control.value &#125; &#125; : null;
+  form = this.fb.group(&#123;
+    name:  ['', [Validators.required, Validators.minLength(3)]],
+    email: ['', [Validators.required, Validators.email]],
+    age:   [18, Validators.min(0)],
+    address: this.fb.group(&#123;
+      street: [''],
+      city:   [''],
+    &#125;),
+  &#125;);
+
+  save() &#123;
+    if (this.form.invalid) &#123;
+      this.form.markAllAsTouched(); // muestra todos los errores
+      return;
+    &#125;
+    // Tipado: &#123; name: string; email: string; age: number; address: ... &#125;
+    const data = this.form.getRawValue();
+    this.api.saveProfile(data);
+  &#125;
 &#125;
 
-// Acceder a errores
-form.get('email')?.errors;    // &#123; required: true &#125; | &#123; email: true &#125; | null
-form.get('email')?.touched;   // boolean</code></pre>
+// Acceso tipado a controles y errores
+this.form.controls.email.errors;   // &#123; required: true &#125; | &#123; email: true &#125; | null
+this.form.controls.email.touched;  // boolean
+this.form.controls.age.setValue(30);      // solo acepta number ✅
+// this.form.controls.age.setValue('30'); // ❌ error de compilación</code></pre>
+
+        <h4>3.2 FormArray — listas dinámicas</h4>
+        <pre ngNonBindable><code>form = this.fb.group(&#123;
+  name: [''],
+  skills: this.fb.array&lt;string&gt;([]),
+&#125;);
+
+get skills() &#123; return this.form.controls.skills; &#125;
+
+addSkill()        &#123; this.skills.push(this.fb.control('')); &#125;
+removeSkill(i: number) &#123; this.skills.removeAt(i); &#125;
+
+// Template:
+// &lt;div formArrayName="skills"&gt;
+//   &#64;for (ctrl of skills.controls; track ctrl; let i = $index) &#123;
+//     &lt;input [formControlName]="i" /&gt;
+//     &lt;button type="button" (click)="removeSkill(i)"&gt;✕&lt;/button&gt;
+//   &#125;
+// &lt;/div&gt;</code></pre>
+
+        <h4>3.3 Validadores síncronos custom</h4>
+        <p>
+          Un validador es una <strong>función pura</strong>: recibe el control y devuelve
+          <code>null</code> (válido) o un objeto de errores. Para validación
+          <strong>cross-field</strong> (comparar dos campos) se aplica al <code>FormGroup</code>,
+          que recibe el grupo completo.
+        </p>
+        <pre ngNonBindable><code>// Validador parametrizable (factory)
+export function forbiddenName(name: string): ValidatorFn &#123;
+  return (control: AbstractControl): ValidationErrors | null =&gt;
+    control.value === name
+      ? &#123; forbiddenName: &#123; value: control.value &#125; &#125;
+      : null;
+&#125;
+
+// Cross-field: password === confirmPassword (se aplica al grupo)
+export const passwordsMatch: ValidatorFn = (group: AbstractControl) =&gt; &#123;
+  const pass = group.get('password')?.value;
+  const confirm = group.get('confirmPassword')?.value;
+  return pass === confirm ? null : &#123; passwordsMismatch: true &#125;;
+&#125;;
+
+form = this.fb.group(
+  &#123;
+    username: ['', [Validators.required, forbiddenName('admin')]],
+    password: ['', Validators.minLength(8)],
+    confirmPassword: [''],
+  &#125;,
+  &#123; validators: passwordsMatch &#125;  // ← validador a nivel de grupo
+);
+
+// Template: &#64;if (form.hasError('passwordsMismatch')) &#123; ... &#125;</code></pre>
+
+        <h4>3.4 Validadores asíncronos</h4>
+        <p>
+          Los <code>AsyncValidatorFn</code> devuelven <code>Observable</code> o
+          <code>Promise</code> y solo corren <strong>después</strong> de que los validadores
+          síncronos pasan. Mientras esperan, el control queda en estado
+          <code>pending</code>. Buenas prácticas: debounce con <code>timer()</code> y cancelar la
+          petición anterior con <code>switchMap</code>.
+        </p>
+        <pre ngNonBindable><code>&#64;Injectable(&#123; providedIn: 'root' &#125;)
+export class UsernameValidator &#123;
+  private api = inject(UserApiService);
+
+  unique(): AsyncValidatorFn &#123;
+    return (control: AbstractControl): Observable&lt;ValidationErrors | null&gt; =&gt;
+      timer(300).pipe(                       // debounce: espera a que dejen de teclear
+        switchMap(() =&gt; this.api.checkUsername(control.value)),
+        map(taken =&gt; (taken ? &#123; usernameTaken: true &#125; : null)),
+        catchError(() =&gt; of(null)),          // si la API falla, no bloquees el form
+      );
+  &#125;
+&#125;
+
+username = this.fb.control('', &#123;
+  validators: [Validators.required],
+  asyncValidators: [inject(UsernameValidator).unique()],
+  updateOn: 'blur',   // valida al salir del campo, no en cada tecla
+&#125;);
+
+// Template:
+// &#64;if (username.pending) &#123; &lt;span&gt;Verificando…&lt;/span&gt; &#125;
+// &#64;if (username.hasError('usernameTaken')) &#123; &lt;span&gt;Ya existe&lt;/span&gt; &#125;</code></pre>
+
+        <h4>3.5 valueChanges + operadores RxJS</h4>
+        <p>
+          Todo control expone <code>valueChanges</code> y <code>statusChanges</code> como
+          Observables. El patrón clásico de <strong>búsqueda reactiva</strong>:
+        </p>
+        <pre ngNonBindable><code>search = this.fb.control('');
+
+results$ = this.search.valueChanges.pipe(
+  debounceTime(300),           // espera 300ms de silencio
+  distinctUntilChanged(),      // ignora si el valor no cambió
+  filter(term =&gt; term.length &gt;= 2),
+  switchMap(term =&gt; this.api.search(term)),  // cancela la request anterior
+);
+
+// O como Signal, sin async pipe:
+results = toSignal(this.results$, &#123; initialValue: [] &#125;);
+
+// Reaccionar a un campo para habilitar/deshabilitar otro
+constructor() &#123;
+  this.form.controls.hasDiscount.valueChanges
+    .pipe(takeUntilDestroyed())   // cleanup automático
+    .subscribe(has =&gt; &#123;
+      const code = this.form.controls.discountCode;
+      has ? code.enable() : code.disable();
+    &#125;);
+&#125;</code></pre>
+
+        <h4>3.6 updateOn — cuándo se propaga el valor</h4>
+        <p>
+          Por defecto los controles se actualizan en cada tecla (<code>'change'</code>).
+          <code>updateOn: 'blur'</code> retrasa valor + validación hasta salir del campo, y
+          <code>'submit'</code> hasta el envío — clave para no disparar validadores asíncronos
+          (HTTP) en cada pulsación.
+        </p>
+        <pre ngNonBindable><code>// Por control
+email = new FormControl('', &#123;
+  validators: [Validators.email],
+  updateOn: 'blur',
+&#125;);
+
+// Por grupo (aplica a todos los hijos que no lo sobrescriban)
+form = new FormGroup(&#123; ... &#125;, &#123; updateOn: 'submit' &#125;);</code></pre>
+
+        <h4>✅ Mejores prácticas</h4>
+        <ul>
+          <li>Usa <code>NonNullableFormBuilder</code> y deja que TypeScript infiera los tipos del form.</li>
+          <li><code>patchValue()</code> para updates parciales, <code>setValue()</code> cuando debes proveer todo (te protege de olvidar campos).</li>
+          <li>En el submit: <code>form.markAllAsTouched()</code> si es inválido, y deshabilita el botón con <code>form.pending</code> en cuenta.</li>
+          <li>Suscripciones a <code>valueChanges</code> siempre con <code>takeUntilDestroyed()</code> o conviértelas con <code>toSignal()</code>.</li>
+          <li>Extrae validadores a archivos propios y testéalos como funciones puras.</li>
+        </ul>
+
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li>
+            <strong>Usar <code>form.value</code> con controles disabled:</strong> desaparecen del
+            objeto (es <code>Partial</code>). Si los necesitas, usa <code>getRawValue()</code>.
+          </li>
+          <li>
+            <strong>Async validator sin debounce:</strong> una petición HTTP por tecla. Combina
+            <code>timer + switchMap</code> o <code>updateOn: 'blur'</code>.
+          </li>
+          <li>
+            <strong>Poner el validador cross-field en un control:</strong> desde un control no ves a
+            sus hermanos de forma fiable; va en el <code>FormGroup</code>.
+          </li>
+          <li>
+            <strong>Suscribirse a <code>valueChanges</code> y hacer <code>setValue()</code> del mismo
+            control:</strong> bucle infinito. Usa <code>&#123; emitEvent: false &#125;</code>.
+          </li>
+          <li>
+            <strong>Olvidar <code>type="button"</code></strong> en botones de agregar/quitar dentro
+            del <code>&lt;form&gt;</code>: hacen submit accidental.
+          </li>
+        </ul>
+
+        <h4>🎤 Preguntas de entrevista</h4>
+        <ul>
+          <li>
+            <strong>¿Reactive vs Template-driven?</strong> Reactive: modelo en la clase, síncrono,
+            tipado, testeable, escala a forms complejos. Template-driven: <code>ngModel</code> en el
+            HTML, asíncrono, válido para forms triviales.
+          </li>
+          <li>
+            <strong>¿Cómo validas que dos campos coincidan?</strong> Con un <code>ValidatorFn</code>
+            aplicado al <code>FormGroup</code>, que lee ambos controles con <code>get()</code> y
+            devuelve el error a nivel de grupo.
+          </li>
+          <li>
+            <strong>¿Qué es el estado <code>pending</code>?</strong> El control tiene validadores
+            asíncronos en vuelo; ni válido ni inválido todavía. Útil para spinners y para bloquear el
+            submit.
+          </li>
+          <li>
+            <strong>¿setValue vs patchValue?</strong> <code>setValue</code> exige el objeto completo y
+            falla si falta un campo; <code>patchValue</code> acepta parciales e ignora claves extra.
+          </li>
+          <li>
+            <strong>¿Qué aportan los typed forms?</strong> Autocompletado y errores de compilación en
+            <code>value</code>, <code>setValue</code>, <code>controls.x</code> — antes todo era
+            <code>any</code> y los typos explotaban en runtime.
+          </li>
+        </ul>
+
         <div class="code-ref">
           📂 <code>features/angular-lab/forms/reactive-form-demo.ts</code> — FormGroup, FormArray, validadores custom
         </div>
@@ -514,33 +1032,130 @@ form.get('email')?.touched;   // boolean</code></pre>
       <div class="card" id="4-lazy-loading">
         <h3>4. Lazy Loading</h3>
         <p>
-          Lazy loading permite cargar módulos o componentes standalone bajo demanda, reduciendo el
-          bundle inicial. Con <code>loadComponent</code> se carga un componente standalone
-          directamente en una ruta. Con <code>loadChildren</code> se carga un archivo de rutas
-          completo. Las estrategias de preloading (<code>PreloadAllModules</code>,
-          <code>NoPreloading</code>, o custom) controlan cuándo se descargan los chunks en
-          segundo plano.
+          Lazy loading divide la app en <strong>chunks</strong> que el navegador descarga bajo
+          demanda, reduciendo el bundle inicial (y el Time to Interactive). El bundler detecta los
+          <code>import()</code> dinámicos y genera un archivo JS separado por cada uno. Con
+          <code>loadComponent</code> se carga un componente standalone en una ruta; con
+          <code>loadChildren</code>, un árbol de rutas completo (una feature).
         </p>
-        <pre><code>import &#123; Routes &#125; from '&#64;angular/router';
-import &#123; PreloadAllModules &#125; from '&#64;angular/router';
+        <pre ngNonBindable><code>import &#123; Routes &#125; from '&#64;angular/router';
 
-// Lazy load de un componente standalone
 export const routes: Routes = [
+  // Lazy load de un componente standalone
   &#123;
     path: 'dashboard',
     loadComponent: () =&gt;
       import('./dashboard/dashboard').then(m =&gt; m.DashboardComponent)
   &#125;,
-  // Lazy load de rutas hijas
+  // Lazy load de una feature completa (rutas hijas)
   &#123;
     path: 'admin',
     loadChildren: () =&gt;
       import('./admin/admin.routes').then(m =&gt; m.ADMIN_ROUTES)
   &#125;,
+  // Con default export no hace falta el .then()
+  &#123;
+    path: 'about',
+    loadComponent: () =&gt; import('./about/about')  // export default class...
+  &#125;,
+];</code></pre>
+
+        <h4>Preloading strategies</h4>
+        <p>
+          Sin preloading, el chunk se descarga al navegar (el usuario espera).
+          Las estrategias descargan chunks <strong>en segundo plano</strong> después del arranque:
+          <code>PreloadAllModules</code> (todos), <code>NoPreloading</code> (default, ninguno) o una
+          <strong>estrategia custom</strong> para precargar solo lo probable.
+        </p>
+        <pre ngNonBindable><code>// Estrategia selectiva: precarga solo rutas marcadas con data.preload
+&#64;Injectable(&#123; providedIn: 'root' &#125;)
+export class SelectivePreloadStrategy implements PreloadingStrategy &#123;
+  preload(route: Route, load: () =&gt; Observable&lt;unknown&gt;): Observable&lt;unknown&gt; &#123;
+    return route.data?.['preload'] ? load() : of(null);
+  &#125;
+&#125;
+
+export const routes: Routes = [
+  &#123; path: 'checkout', loadChildren: () =&gt; import('./checkout/routes'),
+    data: &#123; preload: true &#125; &#125;,   // ← crítico, precárgalo
+  &#123; path: 'reports',  loadChildren: () =&gt; import('./reports/routes') &#125;, // solo on-demand
 ];
 
-// Preloading strategy en provideRouter
-provideRouter(routes, withPreloading(PreloadAllModules));</code></pre>
+// app.config.ts
+provideRouter(routes, withPreloading(SelectivePreloadStrategy));
+
+// Alternativa built-in: precargar cuando el link entra en el viewport / hover
+// provideRouter(routes, withComponentInputBinding(), withPreloading(...))</code></pre>
+
+        <h4>Guards funcionales en rutas lazy</h4>
+        <p>
+          Detalle importante: con <code>canActivate</code>, la ruta ya "matcheó", así que el chunk
+          <strong>se descarga igual</strong> aunque el guard rechace. <code>canMatch</code> corre
+          <em>antes</em> del match: si devuelve <code>false</code>, el Router sigue probando otras
+          rutas y el bundle <strong>nunca se descarga</strong> — ideal para rutas por rol.
+        </p>
+        <pre ngNonBindable><code>export const adminOnly: CanMatchFn = () =&gt;
+  inject(AuthService).hasRole('admin');
+
+export const routes: Routes = [
+  // Misma URL, distinto bundle según el rol — canMatch decide cuál matchea
+  &#123; path: 'home', canMatch: [adminOnly],
+    loadComponent: () =&gt; import('./admin-home') &#125;,
+  &#123; path: 'home',
+    loadComponent: () =&gt; import('./user-home') &#125;,
+];</code></pre>
+
+        <h4>✅ Mejores prácticas</h4>
+        <ul>
+          <li>Lazy-load por <strong>feature</strong> (con <code>loadChildren</code> + archivo de rutas), no componente a componente.</li>
+          <li>La ruta inicial y el shell <strong>no</strong> se lazy-loadean: los necesitas ya.</li>
+          <li>Precarga selectiva de las rutas con más probabilidad de visita.</li>
+          <li>Verifica el split real con <code>ng build --stats-json</code> + source-map-explorer / esbuild analyzer.</li>
+          <li>Para diferir <em>trozos de una misma página</em> usa <code>&#64;defer</code> (ver card de Control Flow), no rutas.</li>
+        </ul>
+
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li>
+            <strong>Romper el code-splitting con un import estático:</strong> si cualquier archivo
+            del bundle inicial hace <code>import &#123; AdminComponent &#125; from ...</code>, ese
+            código se cuela en el chunk principal aunque la ruta sea lazy.
+          </li>
+          <li>
+            <strong>Servicios <code>providedIn: 'root'</code> vs providers de ruta:</strong> proveer
+            un servicio en las rutas lazy crea una <em>instancia distinta</em> por inyector de ruta —
+            a veces deseado, a veces un bug de "estado que se pierde".
+          </li>
+          <li>
+            <strong>Usar <code>canActivate</code> esperando ahorrar la descarga:</strong> el chunk ya
+            se pidió; para eso es <code>canMatch</code>.
+          </li>
+        </ul>
+
+        <h4>🎤 Preguntas de entrevista</h4>
+        <ul>
+          <li>
+            <strong>¿Cómo funciona lazy loading por debajo?</strong> <code>import()</code> dinámico →
+            el bundler corta un chunk separado → el Router lo descarga y ejecuta al activar la ruta
+            (o antes, con preloading).
+          </li>
+          <li>
+            <strong>¿loadComponent vs loadChildren?</strong> <code>loadComponent</code> carga un
+            componente standalone individual; <code>loadChildren</code> carga un array de rutas (una
+            feature entera con sus hijos, guards y providers).
+          </li>
+          <li>
+            <strong>¿canMatch vs canActivate en rutas lazy?</strong> <code>canMatch</code> impide el
+            match y la descarga del bundle, y permite fallback a otra ruta con el mismo path;
+            <code>canActivate</code> solo bloquea la activación.
+          </li>
+          <li>
+            <strong>¿Cuándo NO conviene PreloadAllModules?</strong> Apps grandes en redes lentas o
+            móviles: saturas la red descargando features que quizá nunca se usen. Mejor una
+            estrategia selectiva.
+          </li>
+        </ul>
+
         <div class="code-ref">
           📂 Implementación en el proyecto:
           <ul>
@@ -553,37 +1168,207 @@ provideRouter(routes, withPreloading(PreloadAllModules));</code></pre>
       <div class="card" id="5-interceptors-amp-guards">
         <h3>5. Interceptors &amp; Guards</h3>
         <p>
-          Desde Angular 15+, los interceptors y guards se escriben como funciones en vez de clases.
-          Los interceptors funcionales reciben <code>req</code> y <code>next</code>, permitiendo
-          modificar requests, manejar errores, y encadenar lógica. Los guards funcionales
-          (<code>CanActivateFn</code>, <code>CanMatchFn</code>) simplifican la protección de rutas
-          usando <code>inject()</code> para acceder a servicios. Se registran con
-          <code>withInterceptors()</code> en <code>provideHttpClient()</code>.
+          Desde Angular 15+, interceptors y guards se escriben como <strong>funciones</strong> en vez
+          de clases: menos boilerplate, tree-shakables y con acceso a servicios vía
+          <code>inject()</code>. Un <code>HttpInterceptorFn</code> recibe <code>req</code> y
+          <code>next</code> y forma una <strong>cadena</strong>: cada interceptor puede transformar la
+          request (inmutable → siempre <code>clone()</code>) y/o la response. Se registran con
+          <code>provideHttpClient(withInterceptors([...]))</code> y se ejecutan
+          <strong>en el orden del array</strong> (y en orden inverso para la respuesta).
         </p>
-        <pre><code>import &#123; HttpInterceptorFn &#125; from '&#64;angular/common/http';
-import &#123; inject &#125; from '&#64;angular/core';
-import &#123; CanActivateFn, Router &#125; from '&#64;angular/router';
 
-// Interceptor funcional — agrega token y maneja 401
+        <h4>5.1 Auth token + manejo de 401</h4>
+        <pre ngNonBindable><code>import &#123; HttpInterceptorFn &#125; from '&#64;angular/common/http';
+import &#123; inject &#125; from '&#64;angular/core';
+
 export const authInterceptor: HttpInterceptorFn = (req, next) =&gt; &#123;
-  const token = inject(AuthService).getToken();
-  const cloned = req.clone(&#123;
-    setHeaders: &#123; Authorization: \`Bearer $&#123;token&#125;\` &#125;
-  &#125;);
+  // ⚠️ inject() SOLO en el cuerpo síncrono — captura los servicios aquí,
+  // no dentro de los callbacks de RxJS (ahí ya no hay injection context)
+  const auth = inject(AuthService);
+  const router = inject(Router);
+
+  const token = auth.getToken();
+  const cloned = token
+    ? req.clone(&#123; setHeaders: &#123; Authorization: `Bearer $&#123;token&#125;` &#125; &#125;)
+    : req;
+
   return next(cloned).pipe(
-    catchError(err =&gt; &#123;
-      if (err.status === 401) inject(Router).navigate(['/login']);
+    catchError((err: HttpErrorResponse) =&gt; &#123;
+      if (err.status === 401) &#123;
+        auth.logout();
+        router.navigate(['/login']);
+      &#125;
       return throwError(() =&gt; err);
+    &#125;)
+  );
+&#125;;</code></pre>
+
+        <h4>5.2 Retry con backoff exponencial</h4>
+        <pre ngNonBindable><code>export const retryInterceptor: HttpInterceptorFn = (req, next) =&gt; &#123;
+  // Solo reintenta GETs (los POST no son idempotentes)
+  if (req.method !== 'GET') return next(req);
+
+  return next(req).pipe(
+    retry(&#123;
+      count: 3,
+      delay: (error: HttpErrorResponse, retryCount) =&gt; &#123;
+        // No reintentes errores del cliente (4xx)
+        if (error.status &gt;= 400 &amp;&amp; error.status &lt; 500) &#123;
+          return throwError(() =&gt; error);
+        &#125;
+        // Backoff: 1s, 2s, 4s
+        return timer(1000 * Math.pow(2, retryCount - 1));
+      &#125;,
+    &#125;)
+  );
+&#125;;</code></pre>
+
+        <h4>5.3 Logging con duración</h4>
+        <pre ngNonBindable><code>export const loggingInterceptor: HttpInterceptorFn = (req, next) =&gt; &#123;
+  const started = performance.now();
+  let status = 'failed';
+
+  return next(req).pipe(
+    tap(event =&gt; &#123;
+      if (event.type === HttpEventType.Response) status = `$&#123;event.status&#125;`;
+    &#125;),
+    finalize(() =&gt; &#123;
+      const elapsed = Math.round(performance.now() - started);
+      console.log(`$&#123;req.method&#125; $&#123;req.urlWithParams&#125; → $&#123;status&#125; en $&#123;elapsed&#125;ms`);
+    &#125;)
+  );
+&#125;;</code></pre>
+
+        <h4>5.4 Caching de GETs</h4>
+        <pre ngNonBindable><code>&#64;Injectable(&#123; providedIn: 'root' &#125;)
+export class HttpCache &#123;
+  readonly store = new Map&lt;string, HttpResponse&lt;unknown&gt;&gt;();
+&#125;
+
+export const cacheInterceptor: HttpInterceptorFn = (req, next) =&gt; &#123;
+  if (req.method !== 'GET') return next(req);
+
+  const cache = inject(HttpCache);
+  const cached = cache.store.get(req.urlWithParams);
+  if (cached) return of(cached.clone());   // respuesta síncrona desde cache
+
+  return next(req).pipe(
+    tap(event =&gt; &#123;
+      if (event instanceof HttpResponse) &#123;
+        cache.store.set(req.urlWithParams, event.clone());
+      &#125;
     &#125;)
   );
 &#125;;
 
-// Guard funcional
-export const authGuard: CanActivateFn = () =&gt;
-  inject(AuthService).isLoggedIn() || inject(Router).createUrlTree(['/login']);
+// Registro — el ORDEN importa: logging ve lo que auth ya modificó
+provideHttpClient(
+  withInterceptors([authInterceptor, retryInterceptor, cacheInterceptor, loggingInterceptor])
+);</code></pre>
 
-// Registro
-provideHttpClient(withInterceptors([authInterceptor]));</code></pre>
+        <h4>5.5 Guards funcionales</h4>
+        <p>
+          Los guards son funciones que devuelven <code>boolean | UrlTree</code> (o
+          <code>Observable</code>/<code>Promise</code> de ellos). Devolver un
+          <strong><code>UrlTree</code></strong> es la forma correcta de redirigir — sin efectos
+          colaterales de <code>navigate()</code> dentro del guard. Tipos:
+          <code>CanActivateFn</code> (entrar), <code>CanActivateChildFn</code> (hijos),
+          <code>CanDeactivateFn</code> (salir — cambios sin guardar), <code>CanMatchFn</code>
+          (matchear/descargar) y <code>ResolveFn</code> (pre-cargar datos).
+        </p>
+        <pre ngNonBindable><code>// CanActivateFn — con redirect vía UrlTree
+export const authGuard: CanActivateFn = (route, state) =&gt; &#123;
+  const auth = inject(AuthService);
+  const router = inject(Router);
+  return auth.isLoggedIn()
+    ? true
+    : router.createUrlTree(['/login'], &#123;
+        queryParams: &#123; returnUrl: state.url &#125;,  // volver después del login
+      &#125;);
+&#125;;
+
+// CanDeactivateFn — evita perder cambios sin guardar
+export interface HasUnsavedChanges &#123;
+  hasUnsavedChanges(): boolean;
+&#125;
+export const unsavedChangesGuard: CanDeactivateFn&lt;HasUnsavedChanges&gt; =
+  (component) =&gt;
+    !component.hasUnsavedChanges() || confirm('¿Salir sin guardar?');
+
+// ResolveFn — datos listos antes de renderizar la ruta
+export const userResolver: ResolveFn&lt;User&gt; = (route) =&gt;
+  inject(UserService).getById(route.paramMap.get('id')!);
+
+export const routes: Routes = [
+  &#123;
+    path: 'profile/:id',
+    canActivate: [authGuard],
+    canDeactivate: [unsavedChangesGuard],
+    resolve: &#123; user: userResolver &#125;,
+    loadComponent: () =&gt; import('./profile/profile'),
+  &#125;,
+];</code></pre>
+
+        <h4>✅ Mejores prácticas</h4>
+        <ul>
+          <li>Redirige desde guards devolviendo <code>UrlTree</code>, no llamando <code>router.navigate()</code>.</li>
+          <li>Captura los servicios con <code>inject()</code> al inicio de la función, antes de cualquier callback asíncrono.</li>
+          <li>Interceptors pequeños y de responsabilidad única; el orden de registro es parte del diseño.</li>
+          <li>Excluye endpoints (login, assets) con condiciones sobre <code>req.url</code> o con <code>HttpContextToken</code>.</li>
+          <li>Guards con lógica compleja → delega en un servicio y testéalo con <code>TestBed.runInInjectionContext()</code>.</li>
+        </ul>
+
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li>
+            <strong><code>inject()</code> dentro de un callback RxJS</strong> (ej. en
+            <code>catchError</code>): lanza <code>NG0203</code> porque el injection context ya
+            terminó. Captura las dependencias fuera del pipe.
+          </li>
+          <li>
+            <strong>Intentar mutar la request:</strong> <code>HttpRequest</code> es inmutable;
+            <code>req.headers.set(...)</code> devuelve una copia que estás descartando. Siempre
+            <code>req.clone(&#123;...&#125;)</code>.
+          </li>
+          <li>
+            <strong>Reintentar o cachear POSTs:</strong> duplicas operaciones de escritura. Limita
+            retry/cache a métodos idempotentes.
+          </li>
+          <li>
+            <strong>Bucle infinito de refresh token:</strong> el interceptor de auth intercepta
+            también la petición de refresh. Márcala con un <code>HttpContextToken</code> para
+            saltarla.
+          </li>
+        </ul>
+
+        <h4>🎤 Preguntas de entrevista</h4>
+        <ul>
+          <li>
+            <strong>¿Por qué <code>req.clone()</code>?</strong> Las requests son inmutables para que
+            un retry/reintento reciba siempre la request original sin efectos acumulados de otros
+            interceptors.
+          </li>
+          <li>
+            <strong>¿En qué orden corren los interceptors?</strong> Request: en el orden del array de
+            <code>withInterceptors</code>. Response: en orden inverso (como capas de cebolla).
+          </li>
+          <li>
+            <strong>¿Interceptor funcional vs de clase?</strong> Mismo poder; el funcional es menos
+            código, tree-shakable y usa <code>inject()</code>. Los de clase siguen soportados vía
+            <code>withInterceptorsFromDi()</code> (legacy).
+          </li>
+          <li>
+            <strong>¿Cómo redirige un guard correctamente?</strong> Devolviendo
+            <code>router.createUrlTree([...])</code>; el Router cancela la navegación actual y
+            ejecuta la nueva de forma atómica.
+          </li>
+          <li>
+            <strong>¿Resolver vs cargar datos en ngOnInit?</strong> El resolver garantiza datos antes
+            de renderizar (sin estados "cargando" parciales), pero bloquea la navegación; para UX
+            fluida suele preferirse skeleton + carga en el componente.
+          </li>
+        </ul>
+
         <div class="code-ref">
           📂 Implementación en el proyecto:
           <ul>
@@ -591,6 +1376,483 @@ provideHttpClient(withInterceptors([authInterceptor]));</code></pre>
             <li><code>core/guards/auth.guard.ts</code> — CanActivateFn funcional</li>
             <li><code>app.config.ts</code> — provideHttpClient(withInterceptors([...]))</li>
           </ul>
+        </div>
+      </div>
+
+      <div class="card" id="6-dependency-injection-avanzada">
+        <h3>6. Dependency Injection Avanzada</h3>
+        <p>
+          El sistema de DI de Angular resuelve dependencias consultando una <strong>jerarquía de
+          inyectores</strong>. Entender esa jerarquía —y las formas de configurar providers—
+          distingue a un dev senior: controla el <em>scope</em> (singleton vs instancia por
+          componente), el tree-shaking y la testabilidad.
+        </p>
+
+        <h4>6.1 providedIn y providers tree-shakables</h4>
+        <p>
+          <code>providedIn: 'root'</code> registra el servicio en el inyector raíz como
+          <strong>singleton</strong> y lo hace <strong>tree-shakable</strong>: si nadie lo inyecta,
+          no entra al bundle. Alternativas: <code>'platform'</code> (compartido entre varias apps
+          Angular en la misma página) y declararlo en el array <code>providers</code> de un
+          componente o una ruta (instancia por inyector).
+        </p>
+        <pre ngNonBindable><code>// Singleton global, tree-shakable — el caso del 95%
+&#64;Injectable(&#123; providedIn: 'root' &#125;)
+export class CartService &#123; ... &#125;
+
+// Instancia POR COMPONENTE (y sus hijos): estado aislado por instancia
+&#64;Component(&#123;
+  selector: 'app-wizard',
+  providers: [WizardStateService],  // cada &lt;app-wizard&gt; tiene el suyo
+&#125;)
+export class WizardComponent &#123; ... &#125;
+
+// Instancia por FEATURE lazy (providers a nivel de ruta)
+export const routes: Routes = [&#123;
+  path: 'admin',
+  providers: [AdminAuditService],   // vive mientras la ruta esté activa
+  loadChildren: () =&gt; import('./admin/admin.routes'),
+&#125;];</code></pre>
+
+        <h4>6.2 InjectionToken + useValue / useClass / useFactory / useExisting</h4>
+        <p>
+          Para inyectar cosas que <strong>no son clases</strong> (configs, funciones, primitivas) o
+          para elegir implementación, se usa <code>InjectionToken</code> con las cuatro "recetas" de
+          provider:
+        </p>
+        <pre ngNonBindable><code>// Token tipado para configuración
+export interface AppConfig &#123;
+  apiUrl: string;
+  featureFlags: Record&lt;string, boolean&gt;;
+&#125;
+export const APP_CONFIG = new InjectionToken&lt;AppConfig&gt;('app.config');
+
+// useValue — un objeto literal
+&#123; provide: APP_CONFIG, useValue: &#123; apiUrl: '/api', featureFlags: &#123;&#125; &#125; &#125;
+
+// useClass — sustituir implementación (ej. en tests o por entorno)
+&#123; provide: LoggerService, useClass: environment.production
+    ? RemoteLoggerService
+    : ConsoleLoggerService &#125;
+
+// useFactory — construcción con lógica y dependencias
+&#123;
+  provide: STORAGE,
+  useFactory: () =&gt; &#123;
+    const platformId = inject(PLATFORM_ID);
+    return isPlatformBrowser(platformId) ? localStorage : new MemoryStorage();
+  &#125;,
+&#125;
+
+// useExisting — alias: dos tokens, UNA misma instancia
+&#123; provide: BasicLogger, useExisting: LoggerService &#125;
+
+// Token con factory por defecto (no necesita provider explícito)
+export const WINDOW = new InjectionToken&lt;Window&gt;('window', &#123;
+  providedIn: 'root',
+  factory: () =&gt; window,
+&#125;);
+
+// Consumo
+export class ApiService &#123;
+  private config = inject(APP_CONFIG);
+  private win = inject(WINDOW);
+&#125;</code></pre>
+
+        <h4>6.3 Jerarquía de inyectores</h4>
+        <p>
+          Hay dos árboles paralelos: el <strong>EnvironmentInjector</strong> (root → providers de
+          rutas lazy) y el <strong>ElementInjector</strong> (por elemento DOM con providers:
+          componentes/directivas). Al resolver, Angular sube por el ElementInjector del componente;
+          si no encuentra el token, salta al EnvironmentInjector y sube hasta root. Si nada lo
+          provee: <code>NullInjectorError: No provider for X</code>.
+        </p>
+        <pre ngNonBindable><code>Resolución de inject(TokenX) desde un componente:
+
+ElementInjector del componente
+  → ElementInjector del padre → ... → raíz del árbol de elementos
+    → EnvironmentInjector de la ruta (providers de ruta lazy)
+      → EnvironmentInjector root (providedIn: 'root', app.config.ts)
+        → PlatformInjector → NullInjector ❌ (error)</code></pre>
+        <p>
+          Modificadores de resolución con <code>inject()</code>:
+        </p>
+        <pre ngNonBindable><code>// No falles si no existe → devuelve null
+private analytics = inject(AnalyticsService, &#123; optional: true &#125;);
+
+// Solo busca en el inyector del propio elemento
+private local = inject(TabsService, &#123; self: true, optional: true &#125;);
+
+// Empieza a buscar en el PADRE (patrón: componentes anidados recursivos)
+private parent = inject(MenuComponent, &#123; skipSelf: true, optional: true &#125;);
+
+// No pases del host (útil en directivas dentro de componentes)
+private form = inject(ControlContainer, &#123; host: true &#125;);</code></pre>
+
+        <h4>6.4 inject() vs constructor</h4>
+        <pre ngNonBindable><code>// Antes (constructor injection)
+constructor(
+  private http: HttpClient,
+  &#64;Inject(APP_CONFIG) private config: AppConfig,
+  &#64;Optional() private logger?: LoggerService,
+) &#123;&#125;
+
+// Ahora (inject) — sin decoradores, tipos inferidos, funciona en funciones
+private http = inject(HttpClient);
+private config = inject(APP_CONFIG);          // tipo AppConfig inferido
+private logger = inject(LoggerService, &#123; optional: true &#125;);
+
+// Habilita helpers reutilizables (composición, estilo hooks)
+export function injectQueryParam(name: string): Signal&lt;string | null&gt; &#123;
+  const route = inject(ActivatedRoute);
+  return toSignal(route.queryParamMap.pipe(map(p =&gt; p.get(name))),
+    &#123; initialValue: null &#125;);
+&#125;</code></pre>
+        <p>
+          <strong>Regla:</strong> <code>inject()</code> solo funciona en <em>injection context</em>:
+          inicializadores de campos, constructores, factories de providers, guards/interceptors
+          funcionales y <code>runInInjectionContext()</code>. En <code>ngOnInit</code>, callbacks o
+          <code>setTimeout</code> lanza <code>NG0203</code>.
+        </p>
+
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li>
+            <strong>Doble instancia accidental:</strong> proveer en <code>providers</code> de un
+            componente un servicio que ya es <code>providedIn: 'root'</code> crea otra instancia para
+            ese subárbol — y "misteriosamente" el estado no se comparte.
+          </li>
+          <li>
+            <strong><code>inject()</code> fuera de contexto:</strong> llamarlo en
+            <code>ngOnInit</code> o dentro de un callback. Muévelo a un campo de clase o usa
+            <code>runInInjectionContext(injector, ...)</code>.
+          </li>
+          <li>
+            <strong>Token sin provider ni factory por defecto:</strong>
+            <code>NullInjectorError</code> en runtime. Da al token una <code>factory</code> o
+            márcalo <code>optional</code> con fallback.
+          </li>
+          <li>
+            <strong>Lógica pesada en factories:</strong> los providers se instancian lazy pero de
+            forma síncrona en la primera inyección — nada de HTTP en un <code>useFactory</code>.
+          </li>
+        </ul>
+
+        <h4>🎤 Preguntas de entrevista</h4>
+        <ul>
+          <li>
+            <strong>¿Qué es un InjectionToken y cuándo lo usas?</strong> Un identificador único y
+            tipado para inyectar valores que no son clases (config, window, callbacks) o para
+            desacoplar interfaz de implementación (las interfaces TS no existen en runtime).
+          </li>
+          <li>
+            <strong>¿providedIn: 'root' vs providers de componente?</strong> Root: singleton global
+            tree-shakable. Componente: una instancia por instancia del componente, destruida con él —
+            ideal para estado local (wizard, tabs).
+          </li>
+          <li>
+            <strong>¿Cómo resuelve Angular una dependencia?</strong> Sube por el árbol de
+            ElementInjectors del componente, luego por los EnvironmentInjectors (ruta → root →
+            platform); el primer provider encontrado gana, o NullInjectorError.
+          </li>
+          <li>
+            <strong>¿Ventajas de inject() sobre constructor?</strong> Tipado sin decoradores, permite
+            funciones helper reutilizables, evita problemas de herencia (no hay que repetir el
+            constructor) y es la única opción en guards/interceptors funcionales.
+          </li>
+        </ul>
+
+        <div class="code-ref">
+          📂 <code>app.config.ts</code> — providers a nivel de aplicación (provideRouter, provideHttpClient)
+        </div>
+      </div>
+
+      <div class="card" id="7-control-flow-moderno">
+        <h3>7. Control Flow Moderno</h3>
+        <p>
+          Angular 17 introdujo la sintaxis de control flow nativa
+          (<code>&#64;if</code>/<code>&#64;for</code>/<code>&#64;switch</code>/<code>&#64;defer</code>):
+          integrada en el compilador (sin importar directivas), con mejor type-narrowing, hasta 90%
+          más rápida en listas que <code>*ngFor</code> y con soporte de <strong>carga diferida
+          declarativa</strong>. Es la sintaxis recomendada (hay migración automática:
+          <code>ng generate &#64;angular/core:control-flow</code>).
+        </p>
+
+        <h4>7.1 &#64;if / &#64;else</h4>
+        <pre ngNonBindable><code ngNonBindable>&#64;if (user(); as u) &#123;
+  &lt;p&gt;Hola, &#123;&#123; u.name &#125;&#125;&lt;/p&gt;      &lt;!-- "as" guarda el valor ya narrowed --&gt;
+&#125; &#64;else if (isLoading()) &#123;
+  &lt;app-spinner /&gt;
+&#125; &#64;else &#123;
+  &lt;a routerLink="/login"&gt;Inicia sesión&lt;/a&gt;
+&#125;</code></pre>
+
+        <h4>7.2 &#64;for con track obligatorio</h4>
+        <p>
+          <code>track</code> es <strong>obligatorio</strong> (en <code>*ngFor</code> el trackBy era
+          opcional y casi nadie lo usaba). Le dice a Angular la identidad de cada item para
+          <em>reusar</em> nodos DOM en vez de destruir y recrear al cambiar la lista.
+        </p>
+        <pre ngNonBindable><code ngNonBindable>&#64;for (product of products(); track product.id) &#123;
+  &lt;app-product-card [product]="product" /&gt;
+
+  &lt;!-- Variables de contexto disponibles --&gt;
+  &lt;span&gt;&#123;&#123; $index &#125;&#125; de &#123;&#123; $count &#125;&#125;&lt;/span&gt;
+  &#64;if ($first) &#123; &lt;span&gt;⭐ primero&lt;/span&gt; &#125;
+  &lt;!-- también: $last, $even, $odd --&gt;
+&#125; &#64;empty &#123;
+  &lt;p&gt;No hay productos que coincidan.&lt;/p&gt;   &lt;!-- sin ngIf extra --&gt;
+&#125;</code></pre>
+
+        <h4>7.3 &#64;switch</h4>
+        <pre ngNonBindable><code>&#64;switch (status()) &#123;
+  &#64;case ('loading') &#123; &lt;app-skeleton /&gt; &#125;
+  &#64;case ('error')   &#123; &lt;app-error [detail]="error()" /&gt; &#125;
+  &#64;case ('empty')   &#123; &lt;app-empty-state /&gt; &#125;
+  &#64;default          &#123; &lt;app-results [items]="items()" /&gt; &#125;
+&#125;</code></pre>
+
+        <h4>7.4 &#64;defer — lazy loading dentro del template</h4>
+        <p>
+          <code>&#64;defer</code> corta en un <strong>chunk separado</strong> los componentes usados
+          dentro del bloque y los carga según un <strong>trigger</strong>. Es lazy loading a nivel de
+          vista, sin tocar el router. Bloques asociados: <code>&#64;placeholder</code> (antes de
+          cargar), <code>&#64;loading</code> (durante) y <code>&#64;error</code>.
+        </p>
+        <pre ngNonBindable><code>&#64;defer (on viewport) &#123;
+  &lt;app-comments [postId]="postId()" /&gt;   &lt;!-- chunk aparte --&gt;
+&#125; &#64;placeholder &#123;
+  &lt;div class="comments-skeleton"&gt;&lt;/div&gt;  &lt;!-- requerido por "on viewport" --&gt;
+&#125; &#64;loading (minimum 300ms; after 100ms) &#123;
+  &lt;app-spinner /&gt;                        &lt;!-- evita flicker --&gt;
+&#125; &#64;error &#123;
+  &lt;p&gt;No se pudieron cargar los comentarios.&lt;/p&gt;
+&#125;
+
+&lt;!-- Triggers disponibles --&gt;
+&#64;defer (on idle) &#123; ... &#125;                &lt;!-- default: requestIdleCallback --&gt;
+&#64;defer (on interaction) &#123; ... &#125;         &lt;!-- click/keydown en el placeholder --&gt;
+&#64;defer (on hover) &#123; ... &#125;
+&#64;defer (on timer(3s)) &#123; ... &#125;
+&#64;defer (on immediate) &#123; ... &#125;
+&#64;defer (when panelOpen()) &#123; ... &#125;       &lt;!-- condición custom (one-shot) --&gt;
+
+&lt;!-- prefetch: descarga antes, renderiza después --&gt;
+&#64;defer (on interaction; prefetch on idle) &#123;
+  &lt;app-heavy-chart /&gt;
+&#125;</code></pre>
+
+        <h4>✅ Mejores prácticas</h4>
+        <ul>
+          <li><code>track item.id</code> con IDs estables; <code>track $index</code> solo para listas estáticas que nunca se reordenan.</li>
+          <li>Usa <code>&#64;empty</code> en vez de un <code>&#64;if</code> extra para listas vacías.</li>
+          <li><code>&#64;defer</code> para lo pesado y "below the fold": charts, editores, mapas, comentarios.</li>
+          <li>Combina <code>&#64;loading (minimum ...)</code> para evitar parpadeos de spinner en conexiones rápidas.</li>
+        </ul>
+
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li>
+            <strong><code>track $index</code> en listas que se reordenan/filtran:</strong> Angular
+            reasigna datos a los DOM nodes equivocados (inputs descolocados, animaciones rotas). Usa
+            un ID estable.
+          </li>
+          <li>
+            <strong><code>&#64;defer (on viewport)</code> sin <code>&#64;placeholder</code>:</strong>
+            error de compilación — el trigger necesita un elemento que observar con
+            IntersectionObserver.
+          </li>
+          <li>
+            <strong>Esperar que <code>&#64;defer</code> "des-renderice":</strong> una vez disparado,
+            el contenido queda cargado; <code>when</code> no es un <code>&#64;if</code> reactivo.
+          </li>
+          <li>
+            <strong>Componentes del bloque <code>&#64;defer</code> referenciados también fuera:</strong>
+            si algo más los importa estáticamente, no habrá chunk separado.
+          </li>
+        </ul>
+
+        <h4>🎤 Preguntas de entrevista</h4>
+        <ul>
+          <li>
+            <strong>¿Ventajas del nuevo control flow sobre *ngIf/*ngFor?</strong> Nativo del
+            compilador (sin imports de CommonModule), type-narrowing real en <code>&#64;if</code>,
+            <code>track</code> obligatorio (mejor performance por defecto), <code>&#64;empty</code>,
+            y <code>&#64;defer</code> que las directivas estructurales no pueden ofrecer.
+          </li>
+          <li>
+            <strong>¿Qué hace exactamente <code>track</code>?</strong> Define la clave de identidad
+            de cada item para el algoritmo de diffing: con ella Angular mueve/reusa nodos DOM
+            existentes en vez de destruirlos y recrearlos.
+          </li>
+          <li>
+            <strong>¿Qué genera <code>&#64;defer</code> en build?</strong> Un chunk JS independiente
+            con los componentes/directivas/pipes usados solo dentro del bloque; se descarga cuando el
+            trigger se cumple (o antes, con <code>prefetch</code>).
+          </li>
+          <li>
+            <strong>¿<code>&#64;defer</code> vs lazy loading de rutas?</strong> Rutas: divide por
+            navegación (páginas). <code>&#64;defer</code>: divide dentro de una misma página por
+            visibilidad/interacción. Se complementan.
+          </li>
+        </ul>
+
+        <div class="code-ref">
+          📂 <code>features/angular-lab/signals/signals-demo.html</code> — &#64;if/&#64;for en acción con signals
+        </div>
+      </div>
+
+      <div class="card" id="8-hydration-y-ssr">
+        <h3>8. Hydration y SSR</h3>
+        <p>
+          Con <strong>SSR</strong> (Server-Side Rendering, paquete <code>&#64;angular/ssr</code>) el
+          servidor renderiza el HTML de la ruta y el navegador muestra contenido
+          <em>inmediatamente</em>, mejorando FCP/LCP y SEO. Después, la app cliente arranca y
+          <strong>hidrata</strong> ese HTML: en vez de destruirlo y re-renderizar (el
+          comportamiento antiguo, que causaba parpadeo), Angular <strong>reutiliza el DOM
+          existente</strong> y solo le adjunta listeners y estado.
+        </p>
+
+        <h4>8.1 Modos de renderizado</h4>
+        <table class="compare-table">
+          <thead>
+            <tr>
+              <th>Modo</th>
+              <th>Dónde se genera el HTML</th>
+              <th>Ideal para</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>CSR</strong> (default)</td>
+              <td>Navegador, en runtime</td>
+              <td>Dashboards, apps internas tras login</td>
+            </tr>
+            <tr>
+              <td><strong>SSR</strong></td>
+              <td>Servidor, por request</td>
+              <td>Contenido dinámico público (e-commerce, feeds)</td>
+            </tr>
+            <tr>
+              <td><strong>SSG / Prerender</strong></td>
+              <td>Servidor, en build time</td>
+              <td>Landing pages, blogs, docs (contenido estable)</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h4>8.2 Activar hydration + event replay</h4>
+        <pre ngNonBindable><code>// app.config.ts
+export const appConfig: ApplicationConfig = &#123;
+  providers: [
+    provideClientHydration(
+      withEventReplay(),      // captura clicks ANTES de hidratar y los re-emite
+      withHttpTransferCacheOptions(&#123; includePostRequests: false &#125;),
+      // ↑ las respuestas HTTP del servidor viajan embebidas en el HTML:
+      //   el cliente NO repite las mismas requests al hidratar
+    ),
+  ],
+&#125;;
+
+// Configuración por ruta (Angular 19+): elegir modo por página
+export const serverRoutes: ServerRoute[] = [
+  &#123; path: 'landing',   renderMode: RenderMode.Prerender &#125;,
+  &#123; path: 'products/**', renderMode: RenderMode.Server &#125;,
+  &#123; path: 'admin/**',  renderMode: RenderMode.Client &#125;,
+];</code></pre>
+
+        <h4>8.3 Incremental hydration (Angular 19+)</h4>
+        <p>
+          Combina hydration con <code>&#64;defer</code>: el HTML llega completo del servidor, pero el
+          <strong>JavaScript</strong> de cada bloque se descarga e hidrata solo cuando hace falta.
+          Menos JS inicial, misma UI visible.
+        </p>
+        <pre ngNonBindable><code>// requiere provideClientHydration(withIncrementalHydration())
+&#64;defer (hydrate on viewport) &#123;
+  &lt;app-reviews /&gt;    &lt;!-- HTML visible desde el server;
+                          su JS se hidrata al entrar en pantalla --&gt;
+&#125;
+&#64;defer (hydrate on interaction) &#123; &lt;app-configurator /&gt; &#125;
+&#64;defer (hydrate never) &#123; &lt;app-static-footer /&gt; &#125;  &lt;!-- nunca se hidrata --&gt;</code></pre>
+
+        <h4>8.4 Código seguro para el servidor</h4>
+        <pre ngNonBindable><code>// ❌ En el servidor no existen window/document/localStorage
+ngOnInit() &#123; this.width = window.innerWidth; &#125; // ReferenceError en SSR
+
+// ✅ Opción 1: afterNextRender — solo corre en el navegador, post-render
+constructor() &#123;
+  afterNextRender(() =&gt; &#123;
+    this.width = window.innerWidth;
+    this.chart = new Chart(this.canvas.nativeElement, ...);
+  &#125;);
+&#125;
+
+// ✅ Opción 2: comprobar la plataforma
+private platformId = inject(PLATFORM_ID);
+ngOnInit() &#123;
+  if (isPlatformBrowser(this.platformId)) &#123;
+    this.restoreFromLocalStorage();
+  &#125;
+&#125;</code></pre>
+
+        <h4>✅ Mejores prácticas</h4>
+        <ul>
+          <li>Todo acceso a APIs del navegador → <code>afterNextRender()</code> o guardas de plataforma.</li>
+          <li>Activa <code>withEventReplay()</code>: sin él, los clicks previos a la hidratación se pierden.</li>
+          <li>Aprovecha el TransferCache de HTTP para no duplicar requests servidor/cliente.</li>
+          <li>HTML válido estricto: la estructura que renderiza el servidor debe coincidir con la del cliente.</li>
+          <li>Como escape hatch puntual: atributo <code>ngSkipHydration</code> en el host del componente problemático.</li>
+        </ul>
+
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li>
+            <strong>Manipulación directa del DOM</strong> (<code>document.querySelector</code>,
+            innerHTML manual, o librerías jQuery-style): el DOM del cliente deja de coincidir con el
+            del servidor → <em>hydration mismatch</em> (errores NG0500).
+          </li>
+          <li>
+            <strong>HTML inválido en templates:</strong> un <code>&lt;div&gt;</code> dentro de
+            <code>&lt;p&gt;</code>, o <code>&lt;tr&gt;</code> sin <code>&lt;tbody&gt;</code> — el
+            navegador "recoloca" nodos y la estructura ya no coincide al hidratar.
+          </li>
+          <li>
+            <strong>Renderizar contenido no determinista</strong> (fechas <code>Date.now()</code>,
+            aleatorios) distinto en servidor y cliente: mismatch garantizado.
+          </li>
+          <li>
+            <strong>Usar <code>localStorage</code>/<code>window</code> en constructores o
+            ngOnInit:</strong> en SSR ese código corre en Node y explota.
+          </li>
+        </ul>
+
+        <h4>🎤 Preguntas de entrevista</h4>
+        <ul>
+          <li>
+            <strong>¿Qué problema resuelve la hydration no destructiva?</strong> Antes Angular
+            descartaba el HTML del servidor y re-renderizaba todo (flicker + trabajo duplicado);
+            ahora reutiliza el DOM existente y solo adjunta listeners y estado.
+          </li>
+          <li>
+            <strong>¿Qué es incremental hydration?</strong> Hidratar bloques <code>&#64;defer</code>
+            bajo demanda (<code>hydrate on viewport/interaction</code>): el HTML es visible desde el
+            inicio pero su JS se carga solo cuando se necesita.
+          </li>
+          <li>
+            <strong>¿Cómo evitas "window is not defined"?</strong> Moviendo el código de navegador a
+            <code>afterNextRender()</code>, usando <code>isPlatformBrowser(PLATFORM_ID)</code>, o
+            inyectando abstracciones (<code>DOCUMENT</code>, tokens custom para
+            <code>window</code>).
+          </li>
+          <li>
+            <strong>¿SSR siempre es mejor?</strong> No: añade infraestructura (servidor Node),
+            latencia por request y complejidad. Para apps tras login sin SEO, CSR (o prerender del
+            shell) suele ser más simple y suficiente.
+          </li>
+        </ul>
+
+        <div class="code-ref">
+          📂 <code>app.config.ts</code> — punto de entrada donde se activaría provideClientHydration()
         </div>
       </div>
 

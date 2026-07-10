@@ -26,4 +26,389 @@
       </ol>
     </div>
   }
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       Behavioral & System Design — Guía completa
+       Subtopics: STAR Method · System Design · Cultural Fit
+       ═══════════════════════════════════════════════════════════════════ -->
+  <div class="deep-guide">
+    <header class="deep-header">
+      <h2 class="deep-title">🧭 Behavioral &amp; System Design — Guía Completa</h2>
+      <p class="deep-subtitle">
+        Preparación profesional para la parte no-técnica (y semi-técnica) de la entrevista:
+        <strong>STAR Method</strong>, <strong>System Design de frontend</strong> y
+        <strong>Cultural Fit</strong>. Incluye ejemplos completos, respuestas modelo
+        y un checklist final de preparación.
+      </p>
+      <nav class="toc" aria-label="Índice de la guía">
+        <a href="/guide#star-method">⭐ STAR Method</a>
+        <a href="/guide#system-design">🏗️ System Design</a>
+        <a href="/guide#cultural-fit">🤝 Cultural Fit</a>
+        <a href="/guide#faq-behavioral">🎤 Preguntas frecuentes</a>
+        <a href="/guide#checklist">✅ Checklist</a>
+      </nav>
+    </header>
+
+    <!-- ─────────────────────────── 1 · STAR METHOD ─────────────────────────── -->
+    <h2 class="topic-title" id="star-method">⭐ 1 · STAR Method</h2>
+
+    <div class="cards">
+      <div class="card" id="star-que-es">
+        <h3>1.1 · Qué es STAR y por qué funciona</h3>
+        <p>
+          <strong>STAR</strong> es una estructura narrativa para responder preguntas behavioral
+          («cuéntame sobre una vez que…»). Obliga a dar contexto, concretar tu contribución
+          y cerrar con un resultado medible — exactamente lo que el entrevistador evalúa.
+        </p>
+        <ul class="def-list">
+          <li><strong>S — Situation:</strong> contexto breve (proyecto, equipo, restricciones). 2-3 frases, sin novela.</li>
+          <li><strong>T — Task:</strong> cuál era <em>tu</em> responsabilidad u objetivo concreto en esa situación.</li>
+          <li><strong>A — Action:</strong> qué hiciste <em>tú</em>, paso a paso. Es el 60% de la respuesta. Habla en primera persona («yo decidí», «yo propuse»).</li>
+          <li><strong>R — Result:</strong> el desenlace, idealmente cuantificado (%, tiempo, dinero, adopción) + qué aprendiste.</li>
+        </ul>
+        <p>
+          Duración objetivo: <strong>90 segundos a 2 minutos</strong> por respuesta. Si el
+          entrevistador quiere más detalle, preguntará. Variante útil:
+          <strong>STAR-L</strong> (añade «Learning» al final) — muy valorada en preguntas sobre errores.
+        </p>
+      </div>
+
+      <div class="card" id="star-historias-base">
+        <h3>1.2 · Prepara 6-8 historias base reutilizables</h3>
+        <p>
+          No prepares 40 respuestas: prepara <strong>6-8 historias sólidas</strong> de tu carrera
+          y aprende a <em>re-enfocarlas</em> según la pregunta. Una misma historia de migración
+          puede responder a «liderazgo», «deadline» o «aprendizaje rápido» cambiando el énfasis.
+        </p>
+        <ul class="def-list">
+          <li><strong>Historia 1 — Conflicto interpersonal:</strong> desacuerdo con un compañero/PM que resolviste con comunicación.</li>
+          <li><strong>Historia 2 — Incidente en producción:</strong> un bug grave, cómo lo diagnosticaste, mitigaste y evitaste que se repitiera.</li>
+          <li><strong>Historia 3 — Deadline agresivo:</strong> cómo priorizaste, negociaste scope y entregaste lo esencial.</li>
+          <li><strong>Historia 4 — Desacuerdo técnico:</strong> defendiste (o cediste) una decisión de arquitectura con datos.</li>
+          <li><strong>Historia 5 — Liderazgo / mentoring:</strong> lideraste una iniciativa o hiciste crecer a alguien del equipo.</li>
+          <li><strong>Historia 6 — Aprendizaje rápido:</strong> dominaste una tecnología nueva bajo presión (p. ej. Signals, NgRx, micro-frontends).</li>
+          <li><strong>Historia 7 — Fracaso / error propio:</strong> algo que salió mal por tu decisión y qué cambiaste desde entonces.</li>
+          <li><strong>Historia 8 — Impacto de negocio:</strong> una mejora técnica que movió una métrica de producto (conversión, performance, retención).</li>
+        </ul>
+        <p>
+          Para cada historia escribe: contexto en 1 frase, 3 acciones clave, 1 resultado con
+          número, 1 aprendizaje. Ensáyalas en voz alta — no memorices palabra por palabra,
+          memoriza la <strong>estructura</strong>.
+        </p>
+      </div>
+
+      <div class="card" id="star-ejemplo-conflicto">
+        <h3>1.3 · Ejemplo STAR — Conflicto en el equipo</h3>
+        <p class="star-q">«Cuéntame sobre un conflicto con un compañero de equipo.»</p>
+        <ul class="star-steps">
+          <li><strong>S:</strong> «En un proyecto Angular con 5 devs, otro senior y yo discrepábamos sobre el manejo de estado: él quería servicios con Subjects por todas partes y yo proponía centralizar en NgRx. La discusión empezó a bloquear PRs.»</li>
+          <li><strong>T:</strong> «Como responsable del frontend, necesitaba desbloquear al equipo sin imponer mi criterio ni dañar la relación.»</li>
+          <li><strong>A:</strong> «Propuse una sesión de 1 hora fuera del PR: cada uno presentó su enfoque con un caso real del proyecto. Definimos criterios objetivos (testabilidad, curva de aprendizaje del equipo, debugging) y prototipamos ambos en una feature pequeña. Acordamos NgRx para estado global compartido y servicios con Signals para estado local — y lo documentamos como ADR para futuras discusiones.»</li>
+          <li><strong>R:</strong> «Desbloqueamos 6 PRs esa semana, el criterio quedó documentado y no volvimos a tener esa discusión. Aprendí que mover el debate del PR a criterios objetivos despersonaliza el conflicto.»</li>
+        </ul>
+      </div>
+
+      <div class="card" id="star-ejemplo-error-produccion">
+        <h3>1.4 · Ejemplo STAR — Error en producción</h3>
+        <p class="star-q">«Háblame de un bug grave en producción y cómo lo manejaste.»</p>
+        <ul class="star-steps">
+          <li><strong>S:</strong> «Un lunes por la mañana, el checkout de nuestra app dejó de funcionar para ~30% de usuarios tras un deploy del viernes. Soporte escalaba tickets y no había alerta clara.»</li>
+          <li><strong>T:</strong> «Yo era el dev de guardia: mi prioridad era mitigar primero y diagnosticar después.»</li>
+          <li><strong>A:</strong> «Ejecuté el rollback al release anterior en 15 minutos para frenar el impacto. Luego reproduje el fallo: un interceptor nuevo transformaba errores HTTP y rompía el retry del pago en navegadores con third-party cookies bloqueadas. Escribí un test E2E que reproducía el caso, apliqué el fix y lo verifiqué en staging con el mismo escenario.»</li>
+          <li><strong>R:</strong> «Impacto total de ~45 minutos. En el post-mortem (sin culpables) propuse dos mejoras que se adoptaron: smoke tests E2E del checkout en el pipeline y alertas sobre la tasa de error de pagos. Ese fallo concreto no volvió a ocurrir.»</li>
+        </ul>
+      </div>
+
+      <div class="card" id="star-ejemplo-deadline">
+        <h3>1.5 · Ejemplo STAR — Deadline imposible</h3>
+        <p class="star-q">«Cuéntame de una vez que tuviste un deadline que parecía imposible.»</p>
+        <ul class="star-steps">
+          <li><strong>S:</strong> «Marketing comprometió una landing con configurador de producto para una campaña en 3 semanas; nuestra estimación honesta era de 6.»</li>
+          <li><strong>T:</strong> «Como tech lead del frontend, debía encontrar un plan viable sin quemar al equipo ni entregar algo roto.»</li>
+          <li><strong>A:</strong> «En lugar de decir solo "no llegamos", llevé a negocio tres opciones con trade-offs: (a) todo en 6 semanas, (b) MVP del configurador con las 3 opciones más vendidas en 3 semanas, (c) todo en 3 semanas asumiendo deuda y riesgo alto. Recomendé (b), corté scope (sin comparador, sin guardado de configuraciones), reutilicé componentes existentes de la design system y montamos feature flags para iterar después de la campaña.»</li>
+          <li><strong>R:</strong> «Entregamos el MVP a tiempo, la campaña convirtió un 18% mejor que la landing anterior, y las features recortadas salieron en las 3 semanas siguientes. Aprendí que un deadline "imposible" casi siempre es una negociación de scope, no de horas extra.»</li>
+        </ul>
+      </div>
+
+      <div class="card" id="star-ejemplo-desacuerdo">
+        <h3>1.6 · Ejemplo STAR — Desacuerdo técnico</h3>
+        <p class="star-q">«Describe una vez que no estuviste de acuerdo con una decisión técnica.»</p>
+        <ul class="star-steps">
+          <li><strong>S:</strong> «El equipo quería adoptar micro-frontends para una app mantenida por un solo equipo de 6 personas, motivado más por hype que por necesidad.»</li>
+          <li><strong>T:</strong> «Yo creía que el coste (tooling, versionado, UX inconsistente) superaba el beneficio, y quería frenar la decisión sin bloquear al equipo con opiniones.»</li>
+          <li><strong>A:</strong> «Preparé un documento de una página comparando micro-frontends contra un monorepo modular con lazy loading y boundaries claros por feature. Incluí datos: nuestro tiempo de build, tamaño del equipo y frecuencia real de deploys independientes (casi nula). Propuse revisar la decisión en 6 meses si el equipo crecía o si aparecían equipos autónomos por dominio.»</li>
+          <li><strong>R:</strong> «Se adoptó el monorepo modular; un año después seguía siendo suficiente y evitamos semanas de infraestructura. Igual de importante: cuando en otro debate los datos me dieron la contra, cedí públicamente — "disagree and commit" funciona en ambas direcciones.»</li>
+        </ul>
+      </div>
+
+      <div class="card" id="star-ejemplo-liderazgo">
+        <h3>1.7 · Ejemplo STAR — Liderazgo</h3>
+        <p class="star-q">«Cuéntame de una vez que lideraste sin tener autoridad formal.»</p>
+        <ul class="star-steps">
+          <li><strong>S:</strong> «Nuestra suite de tests de frontend tardaba 40 minutos y fallaba de forma intermitente; todo el mundo se quejaba pero nadie era "dueño" del problema.»</li>
+          <li><strong>T:</strong> «Sin ser lead, decidí tomar ownership y conseguir que el equipo invirtiera en arreglarlo.»</li>
+          <li><strong>A:</strong> «Medí primero: identifiqué los 20 tests más lentos y los 10 más flaky con datos del CI. Presenté los números en la retro y propuse un plan por fases: paralelizar la suite, sustituir sleeps por waits deterministas y mover tests de integración lentos a unit tests con mocks. Organicé dos "fix-it days" y documenté patrones de testing para que las mejoras perduraran.»</li>
+          <li><strong>R:</strong> «La suite bajó de 40 a 12 minutos y la tasa de flaky cayó en un ~90%. Dos compañeros adoptaron el rol de guardianes del CI. Me enseñó que liderazgo es, sobre todo, hacer visible un problema con datos y facilitar que otros ayuden a resolverlo.»</li>
+        </ul>
+      </div>
+
+      <div class="card" id="star-ejemplo-aprendizaje">
+        <h3>1.8 · Ejemplo STAR — Aprendizaje rápido</h3>
+        <p class="star-q">«Cuéntame de una vez que tuviste que aprender algo nuevo muy rápido.»</p>
+        <ul class="star-steps">
+          <li><strong>S:</strong> «Me uní a un proyecto que usaba NgRx intensivamente (Effects, EntityAdapter, selectors compuestos) y yo solo había trabajado con servicios y RxJS básico. Tenía 2 semanas antes de mi primera feature grande.»</li>
+          <li><strong>T:</strong> «Necesitaba ser productivo rápido sin frenar al equipo con preguntas básicas.»</li>
+          <li><strong>A:</strong> «Diseñé un plan: primero leí el state tree del proyecto real en vez de tutoriales genéricos, tracé el flujo completo de una feature existente (action → reducer → effect → selector → component) y lo dibujé. Hice mis primeros PRs pequeños sobre código existente para recibir feedback temprano, y anoté cada corrección de las reviews en un documento personal de patrones del equipo.»</li>
+          <li><strong>R:</strong> «Entregué la feature a tiempo y al mes ya hacía reviews de NgRx a otros. Mi documento de patrones se convirtió en la guía de onboarding del equipo. Aprendí que estudiar el código real del proyecto rinde más que cualquier curso.»</li>
+        </ul>
+      </div>
+
+      <div class="card" id="star-errores-comunes">
+        <h3>1.9 · Errores comunes al responder behavioral</h3>
+        <ul class="def-list">
+          <li><strong>Respuestas vagas:</strong> «solucionamos el problema mejorando la comunicación» no dice nada. Da detalles concretos: qué reunión convocaste, qué documento escribiste, qué código cambiaste.</li>
+          <li><strong>No cuantificar resultados:</strong> cierra siempre con un número o hecho verificable: «redujimos el LCP de 4s a 1.8s», «el bug no se repitió en 12 meses», «adopción por 3 equipos».</li>
+          <li><strong>Hablar en "nosotros" sin aclarar tu rol:</strong> el entrevistador te evalúa a ti. Usa «yo propuse / yo implementé / yo negocié» para tus acciones y «nosotros» solo para el resultado colectivo.</li>
+          <li><strong>Situación eterna, acción anémica:</strong> si llevas 1 minuto de contexto y no has dicho qué hiciste, vas mal. Contexto en 20-30 segundos.</li>
+          <li><strong>Historias sin conflicto real:</strong> «una vez todo salió bien» no demuestra nada. Elige historias con fricción, riesgo o error — ahí es donde se ve tu criterio.</li>
+          <li><strong>Culpar a otros:</strong> aunque el PM/QA/otro equipo tuviera parte de culpa, céntrate en lo que estaba bajo tu control y en lo que tú cambiaste.</li>
+          <li><strong>No cerrar con aprendizaje:</strong> en preguntas de error o fracaso, el «qué haría diferente hoy» es lo que más puntúa.</li>
+          <li><strong>Inventar:</strong> las historias falsas se caen con dos preguntas de seguimiento. Mejor una historia modesta y real que una épica inventada.</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- ─────────────────────── 2 · SYSTEM DESIGN (FRONTEND) ─────────────────────── -->
+    <h2 class="topic-title" id="system-design">🏗️ 2 · System Design (Frontend)</h2>
+
+    <div class="cards">
+      <div class="card" id="sd-framework">
+        <h3>2.1 · Framework de respuesta (úsalo siempre)</h3>
+        <p>
+          En una entrevista de frontend system design no se espera que dibujes data centers:
+          se evalúa cómo estructuras <strong>requisitos → contratos → componentes → estado →
+          performance → edge cases</strong>. Verbaliza cada paso y valida con el entrevistador
+          antes de avanzar.
+        </p>
+        <ul class="def-list">
+          <li><strong>Paso 1 — Requisitos (5 min):</strong> funcionales («qué hace») y no funcionales: usuarios concurrentes, dispositivos, latencia aceptable, offline, SEO, accesibilidad. Pregunta explícitamente: «¿es mobile-first?», «¿cuántos datos/updates por segundo?», «¿qué navegadores soportamos?».</li>
+          <li><strong>Paso 2 — API y contratos de datos:</strong> define las entidades y endpoints (o eventos) que consumirás: REST vs GraphQL vs WebSocket/SSE, forma del payload, paginación, versionado. Escribir 2-3 interfaces TypeScript en la pizarra da mucha señal.</li>
+          <li><strong>Paso 3 — Arquitectura de componentes:</strong> árbol de componentes con boundaries claros: containers (smart) vs presentacionales (dumb), qué se lazy-loadea, qué es reutilizable, qué vive en la design system.</li>
+          <li><strong>Paso 4 — Estado:</strong> clasifica el estado: servidor (cache de datos remotos), UI local (modales, tabs), global compartido (usuario, permisos), URL (filtros, página). Elige herramienta por categoría (Signals, NgRx, query params) y justifica.</li>
+          <li><strong>Paso 5 — Performance:</strong> bundle splitting, lazy loading, virtualización de listas, memoización de cálculos, imágenes responsivas, métricas objetivo (LCP, INP, CLS).</li>
+          <li><strong>Paso 6 — Edge cases y resiliencia:</strong> estados de loading/empty/error, conexión intermitente, reintentos, datos parciales, race conditions, sesión expirada, i18n y accesibilidad.</li>
+        </ul>
+        <p>
+          Regla de oro: <strong>di los trade-offs en voz alta</strong>. «Elijo SSE sobre WebSocket
+          porque el flujo es unidireccional y SSE reconecta solo; si necesitáramos enviar datos
+          del cliente al servidor en tiempo real, cambiaría a WebSocket» vale más que la elección en sí.
+        </p>
+      </div>
+
+      <div class="card" id="sd-dashboard-tiempo-real">
+        <h3>2.2 · Ejemplo guiado — Dashboard con datos en tiempo real</h3>
+        <p><strong>Enunciado:</strong> diseña un dashboard de analytics que muestra métricas actualizadas en tiempo real (ventas, usuarios activos, errores).</p>
+        <ul class="def-list">
+          <li><strong>Requisitos:</strong> ¿frecuencia de update (1/s o 1/min)? ¿cuántos widgets simultáneos? ¿los datos históricos se consultan igual que los live? ¿multi-tab? Decide: updates cada 2-5s, ~12 widgets, históricos por REST y live por push.</li>
+          <li><strong>Transporte:</strong> <strong>SSE o WebSocket</strong> para el flujo live (SSE si es solo servidor→cliente), REST para snapshot inicial e históricos. Patrón: al montar, fetch del snapshot + suscripción al stream de deltas; reconciliar por timestamp para no pisar datos.</li>
+          <li><strong>Componentes:</strong> un <code>DashboardContainer</code> (smart) que gestiona la conexión, y widgets presentacionales (<code>KpiCard</code>, <code>LineChart</code>, <code>AlertsFeed</code>) que solo reciben datos. Layout configurable con CDK Drag&amp;Drop como extensión.</li>
+          <li><strong>Estado:</strong> un store (NgRx o servicio con Signals) con una entrada por métrica; los widgets se suscriben con selectors granulares para que solo re-renderice el widget cuya métrica cambió (OnPush + signals encaja perfecto).</li>
+          <li><strong>Performance:</strong> <em>throttle/buffer</em> de updates (pintar como mucho cada 500ms-1s aunque lleguen más eventos), gráficos en canvas para series largas, pausar el stream cuando la pestaña está oculta (<code>visibilitychange</code>), virtualizar el feed de eventos.</li>
+          <li><strong>Edge cases:</strong> reconexión con backoff exponencial + re-sync del snapshot al reconectar; indicador visual de «datos desactualizados» si el stream cae; relojes del cliente no confiables (usa timestamps del servidor); permisos por widget.</li>
+        </ul>
+      </div>
+
+      <div class="card" id="sd-typeahead">
+        <h3>2.3 · Ejemplo guiado — Buscador con typeahead</h3>
+        <p><strong>Enunciado:</strong> diseña un buscador con sugerencias mientras el usuario escribe (estilo Google/Amazon).</p>
+        <ul class="def-list">
+          <li><strong>Requisitos:</strong> latencia percibida &lt; 200ms, resultados relevantes con 2-3 caracteres, teclado y screen reader, funciona con conexión lenta.</li>
+          <li><strong>Flujo RxJS (el clásico):</strong> <code>debounceTime(250-300ms)</code> para no disparar en cada tecla, <code>distinctUntilChanged</code> para queries repetidas, y <strong><code>switchMap</code></strong> para cancelar la request anterior — esto elimina las race conditions donde una respuesta vieja llega después que una nueva.</li>
+          <li><strong>API:</strong> <code>GET /suggest?q=term&amp;limit=10</code> devolviendo id, texto y tipo de sugerencia. Considera un límite de longitud de query y normalización (trim, lowercase) en el cliente.</li>
+          <li><strong>Caching:</strong> cache en memoria por query (Map con LRU) para respuestas instantáneas al borrar caracteres; opcionalmente precargar sugerencias del historial del usuario.</li>
+          <li><strong>Accesibilidad:</strong> patrón <strong>combobox de WAI-ARIA</strong>: <code>role="combobox"</code>, <code>aria-expanded</code>, <code>aria-activedescendant</code> para la opción resaltada, navegación con flechas/Enter/Escape, y anunciar «N resultados» con <code>aria-live="polite"</code>.</li>
+          <li><strong>Edge cases:</strong> query vacía (mostrar historial o nada), sin resultados (mensaje útil, no silencio), error de red (mantener las últimas sugerencias válidas y permitir Enter para búsqueda completa), IME/composición en idiomas asiáticos, y resaltar el término coincidente escapando el HTML de la sugerencia.</li>
+        </ul>
+      </div>
+
+      <div class="card" id="sd-tabla-100k">
+        <h3>2.4 · Ejemplo guiado — Tabla con 100k filas</h3>
+        <p><strong>Enunciado:</strong> diseña una tabla de datos con 100.000 filas, con sort, filtros y selección.</p>
+        <ul class="def-list">
+          <li><strong>Primera pregunta:</strong> ¿de verdad hay que traer 100k filas al cliente? Casi siempre la respuesta correcta es <strong>server-side</strong>: paginar, ordenar y filtrar en el servidor y traer páginas de 50-100 filas. Di esto explícitamente y luego resuelve ambos escenarios.</li>
+          <li><strong>Si los datos deben estar en el cliente:</strong> <strong>virtual scrolling</strong> (CDK <code>cdk-virtual-scroll-viewport</code>): solo se renderizan las ~30 filas visibles + buffer, el resto es un espaciador. Con filas de altura variable, usa estimación + medición.</li>
+          <li><strong>Sort/filter de 100k en cliente:</strong> muévelo a un <strong>Web Worker</strong> para no bloquear el main thread; devuelve solo los índices ordenados/filtrados. Memoiza resultados por combinación de filtros.</li>
+          <li><strong>Estado:</strong> filtros, orden y página viven en la <strong>URL</strong> (query params) → shareable, sobrevive refresh y habilita botón atrás. Selección: guarda ids seleccionados (Set), con semántica clara para «seleccionar todo» sobre resultados filtrados (id-list vs "all except").</li>
+          <li><strong>Performance:</strong> <code>trackBy</code> por id obligatorio, OnPush, celdas sin funciones en el template (pre-computar), evitar pipes costosos por celda, y contenido diferido para celdas caras (sparklines, avatares).</li>
+          <li><strong>Edge cases y a11y:</strong> semántica de tabla accesible (roles de grid, navegación por teclado entre celdas), anunciar cambios de orden, estados loading por página, filas que cambian mientras el usuario tiene selección activa, exportar a CSV en el servidor (no serializar 100k filas en el cliente).</li>
+        </ul>
+      </div>
+
+      <div class="card" id="sd-design-system">
+        <h3>2.5 · Ejemplo guiado — Design system / component library</h3>
+        <p><strong>Enunciado:</strong> diseña una librería de componentes compartida entre varios equipos/productos.</p>
+        <ul class="def-list">
+          <li><strong>Requisitos:</strong> ¿cuántos equipos y apps la consumen? ¿theming (multi-marca, dark mode)? ¿qué política de breaking changes toleran los consumidores? Esto define el rigor del versionado.</li>
+          <li><strong>Capas:</strong> (1) <strong>design tokens</strong> (colores, espaciado, tipografía como CSS custom properties), (2) <strong>primitivas</strong> sin opinión visual fuerte (Button, Input, Dialog) con accesibilidad resuelta dentro, (3) <strong>patrones compuestos</strong> (DataTable, Form layouts). Los tokens permiten theming sin tocar componentes.</li>
+          <li><strong>API de componentes:</strong> pequeña y estable: inputs/outputs claros, <code>ng-content</code> para composición en vez de un input por cada variación, y directivas de slot para casos avanzados. Cada prop pública es un contrato que costará romper.</li>
+          <li><strong>Distribución y versionado:</strong> paquete npm con <strong>semver estricto</strong>, changelog, y política de deprecación (avisar N versiones antes de eliminar). En monorepo (Nx), boundaries que impidan a las apps importar internals de la librería.</li>
+          <li><strong>Calidad:</strong> Storybook como documentación viva y contrato visual, tests de accesibilidad automatizados (axe), visual regression tests para detectar cambios de estilo no intencionados, y ejemplos de uso por componente.</li>
+          <li><strong>Gobernanza (lo que diferencia una respuesta senior):</strong> proceso de contribución (¿los equipos consumidores pueden hacer PRs?), criterio de entrada («¿cuándo un componente merece estar en la librería?» — regla de 3 usos), y canal de soporte/adopción. Una design system sin gobernanza muere en 1 año.</li>
+        </ul>
+      </div>
+
+      <div class="card" id="sd-temas-transversales">
+        <h3>2.6 · Temas transversales (menciónalos en cualquier diseño)</h3>
+        <ul class="def-list">
+          <li><strong>Caching:</strong> distingue capas: HTTP cache (ETag, Cache-Control), cache en memoria de la app (stale-while-revalidate: muestra lo cacheado y refresca en background), y persistente (IndexedDB para offline). Define siempre la <em>invalidación</em>: por tiempo (TTL), por evento (tras una mutación) o manual.</li>
+          <li><strong>Paginación vs infinite scroll:</strong> paginación para tareas orientadas a encontrar/volver a un ítem (admin, tablas, SEO); infinite scroll para consumo continuo (feeds). Infinite scroll exige virtualización, restaurar posición al volver atrás y un footer alcanzable. Cursor-based pagination sobre offset cuando los datos cambian con frecuencia.</li>
+          <li><strong>Optimistic updates:</strong> aplica el cambio en la UI inmediatamente, envía la request, y ante fallo haz <strong>rollback + notificación</strong>. Ideal para acciones de baja fricción (like, toggle, reordenar). Necesitas: id temporal para creaciones, cola de mutaciones si hay dependencias, y reconciliación con la respuesta del servidor.</li>
+          <li><strong>Error handling:</strong> clasifica: errores esperables (validación, 404 → mensaje en contexto), recuperables (red, 5xx → retry con backoff + botón reintentar), y fatales (error boundary / pantalla de fallback). Un interceptor centraliza logging y auth (401 → refresh token o login), pero el <em>mensaje</em> al usuario se decide cerca de la feature.</li>
+          <li><strong>Accesibilidad:</strong> no es una capa final: semántica correcta (botones que son <code>button</code>), foco gestionado en modales y navegación SPA (anunciar cambio de ruta), contraste AA, targets táctiles, <code>aria-live</code> para contenido dinámico, y testear con teclado solo.</li>
+          <li><strong>i18n:</strong> extraer textos desde el día 1 (no hardcodear), pluralización y géneros con ICU, formatos de fecha/número por locale, RTL (usa CSS logical properties), y cuidado con textos 30-40% más largos en alemán/francés rompiendo layouts. Decide: build por locale (Angular i18n) vs runtime (Transloco) según necesidad de cambio en caliente.</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- ─────────────────────────── 3 · CULTURAL FIT ─────────────────────────── -->
+    <h2 class="topic-title" id="cultural-fit">🤝 3 · Cultural Fit</h2>
+
+    <div class="cards">
+      <div class="card" id="cf-preguntas-tipicas">
+        <h3>3.1 · Preguntas típicas y cómo responderlas</h3>
+        <p>
+          El objetivo del entrevistador es predecir cómo trabajarás con el equipo. La estrategia
+          correcta es <strong>honestidad estratégica</strong>: no mientas (se nota y se paga después),
+          pero elige qué aspectos verdaderos de ti enfatizar según lo que la empresa valora.
+          Investiga antes sus valores publicados y ejemplos reales de cómo trabajan.
+        </p>
+        <ul class="def-list">
+          <li><strong>«¿Por qué quieres trabajar aquí?»</strong> — Conecta algo específico y verificable de la empresa (producto, stack, escala, cultura de ingeniería) con tu trayectoria. Evita halagos genéricos («son líderes del sector») que delatan cero investigación.</li>
+          <li><strong>«¿Por qué dejas tu trabajo actual?»</strong> — Enfócate en lo que buscas (crecimiento, escala, dominio), nunca en rajar de tu empresa actual. «Busco X que aquí existe» siempre gana a «huyo de Y».</li>
+          <li><strong>«¿Cómo es tu entorno de trabajo ideal?»</strong> — Sé honesto en lo importante para ti (feedback directo, autonomía, code reviews serias); es un filtro bidireccional. Fingir encajar en una cultura que odias es perder tú.</li>
+          <li><strong>«¿Cuál es tu mayor debilidad?»</strong> — Una debilidad real (no «soy demasiado perfeccionista») + el sistema concreto que usas para mitigarla. Ej.: «tiendo a sobre-diseñar; ahora escribo primero la versión simple y solo abstraigo cuando aparece el segundo caso de uso».</li>
+          <li><strong>«¿Dónde te ves en 3-5 años?»</strong> — Muestra dirección (profundizar como IC, liderar técnicamente, dominar un área) sin dar un guion rígido que no puedas cumplir. Honesto sobre IC vs management si lo tienes claro.</li>
+          <li><strong>«¿Cómo recibes feedback negativo?»</strong> — No digas «me encanta el feedback»: cuenta una vez concreta que recibiste feedback duro, qué sentiste y qué cambiaste. La especificidad es la prueba de honestidad.</li>
+        </ul>
+      </div>
+
+      <div class="card" id="cf-preguntas-al-entrevistador">
+        <h3>3.2 · Preguntas inteligentes para hacer al entrevistador</h3>
+        <p>
+          Tus preguntas son parte de la evaluación — y tu mejor herramienta para detectar si
+          <em>tú</em> quieres trabajar ahí. Prioriza preguntas cuya respuesta te dé información
+          real sobre el día a día.
+        </p>
+        <ul class="def-list">
+          <li><strong>Sobre el trabajo real:</strong> «¿Cómo es el ciclo de vida de una feature, de idea a producción?» · «¿Qué porcentaje del tiempo se dedica a features nuevas vs mantenimiento/deuda?» · «¿Cómo se decide qué se construye — cuánta voz tiene ingeniería?»</li>
+          <li><strong>Sobre calidad e ingeniería:</strong> «¿Cómo son las code reviews aquí — qué se valora en una?» · «¿Qué pasa cuando algo se rompe en producción — cómo fue el último incidente?» (la respuesta revela cultura de blame o de aprendizaje) · «¿Cuál es el estado del testing y del CI?»</li>
+          <li><strong>Sobre crecimiento:</strong> «¿Cómo funciona la evaluación de desempeño y las promociones?» · «¿Puedes contarme la historia de alguien del equipo que haya crecido aquí?»</li>
+          <li><strong>Sobre el equipo:</strong> «¿Qué es lo más difícil de trabajar en este equipo ahora mismo?» (pregunta valiente; respuestas evasivas son información) · «¿Qué diferencia a la gente que mejor funciona aquí?»</li>
+          <li><strong>Para el manager:</strong> «¿Cómo es tu estilo de management — cuándo intervienes y cuándo delegas?» · «¿Qué esperarías de mí en los primeros 90 días?»</li>
+        </ul>
+        <p>
+          Evita preguntar en la primera ronda solo por vacaciones/beneficios (hazlo con el
+          recruiter o al tener oferta), y nunca digas «no tengo preguntas»: comunica desinterés.
+        </p>
+      </div>
+
+      <div class="card" id="cf-red-flags">
+        <h3>3.3 · Red flags a evitar (en ti) y a detectar (en ellos)</h3>
+        <p><strong>Red flags que tú no debes emitir:</strong></p>
+        <ul class="def-list">
+          <li>Hablar mal de ex-empleadores o ex-compañeros con nombres y rencor — proyecta que harás lo mismo con ellos.</li>
+          <li>Presentarte como héroe solitario («yo lo arreglé todo, el resto no sabía») — anti-señal de trabajo en equipo.</li>
+          <li>Rigidez tecnológica: «solo trabajo con X» o desprecio por el stack actual de la empresa que quieres que te contrate.</li>
+          <li>No hacer ninguna pregunta, o preguntar solo por salario/teletrabajo en la primera conversación técnica.</li>
+          <li>Respuestas ensayadas palabra por palabra o contradicciones entre entrevistas del mismo proceso — cuadra tus historias.</li>
+          <li>Echar la culpa de cada fracaso a factores externos: nunca haber cometido un error es la mayor red flag de todas.</li>
+        </ul>
+        <p><strong>Red flags que debes detectar en la empresa:</strong></p>
+        <ul class="def-list">
+          <li>Nadie sabe explicar por qué está abierta la vacante, o el rol cambia de descripción según el entrevistador.</li>
+          <li>«Aquí somos una familia» + urgencia extrema por incorporarte + evasivas al preguntar por horarios reales u on-call.</li>
+          <li>Hablan mal de la persona a la que reemplazarías, o del equipo actual.</li>
+          <li>Proceso caótico: entrevistadores que llegan sin haber leído tu CV, feedback que nunca llega, rondas infinitas sin criterio claro.</li>
+          <li>Al preguntar por el último incidente en producción o por deuda técnica, la respuesta es culpar a individuos.</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- ──────────────────── 4 · PREGUNTAS FRECUENTES BEHAVIORAL ──────────────────── -->
+    <h2 class="topic-title" id="faq-behavioral">🎤 4 · Preguntas frecuentes de entrevista behavioral</h2>
+
+    <div class="cards">
+      <div class="card" id="faq-respuestas-modelo">
+        <h3>4.1 · Respuestas modelo breves</h3>
+        <p>
+          Guías de 20-30 segundos para las preguntas más repetidas. Úsalas como esqueleto y
+          rellénalas con <em>tus</em> historias base (sección 1.2).
+        </p>
+        <dl class="faq-list">
+          <dt>«Háblame de ti.»</dt>
+          <dd>Presente → pasado → futuro en 60-90s: «Soy frontend engineer con N años, especializado en Angular y state management a escala. Vengo de [contexto relevante] donde [logro con número]. Ahora busco [lo que este rol ofrece]». Nada de biografía completa.</dd>
+
+          <dt>«Cuéntame de un error del que estés orgulloso de cómo lo manejaste.»</dt>
+          <dd>Historia real + ownership inmediato («lo comuniqué en cuanto lo detecté») + fix + medida preventiva que quedó institucionalizada (test, alerta, checklist). El aprendizaje pesa más que el error.</dd>
+
+          <dt>«¿Cómo priorizas cuando todo es urgente?»</dt>
+          <dd>Criterio explícito: impacto en usuario/negocio y coste de retraso; hago visible el trade-off al stakeholder («si entra A, sale B») en vez de decidir en silencio; y protejo lo irreversible (seguridad, pérdida de datos) por encima de todo.</dd>
+
+          <dt>«Cuéntame de una vez que recibiste feedback difícil.»</dt>
+          <dd>Feedback concreto que dolió («mis reviews eran demasiado duras»), reacción honesta inicial, qué cambiaste de forma verificable (empecé a abrir con lo positivo, sugerencias en vez de órdenes) y el resultado en el equipo.</dd>
+
+          <dt>«¿Cómo manejas trabajar con alguien difícil?»</dt>
+          <dd>Primero entender antes que juzgar (1:1, preguntar su contexto), buscar el interés común, acordar reglas de colaboración concretas, y escalar solo con hechos si no funciona. Cierra con la relación mejorada, no con «lo evité».</dd>
+
+          <dt>«Cuéntame de una decisión que tomaste con información incompleta.»</dt>
+          <dd>Marco: qué sabía, qué no, coste de esperar vs decidir. Tomé la decisión reversible más barata, definí una señal para revisarla («si en 2 semanas la métrica X no mejora, revertimos») y documenté el razonamiento.</dd>
+
+          <dt>«¿Qué haces si no estás de acuerdo con tu manager?»</dt>
+          <dd>Expreso mi desacuerdo en privado, con datos y una alternativa concreta; escucho su contexto (suele tener información que yo no tengo); y si la decisión se mantiene, la ejecuto con total compromiso — disagree and commit, no sabotaje pasivo.</dd>
+
+          <dt>«¿Cómo te mantienes actualizado?»</dt>
+          <dd>Sé específico y honesto: fuentes concretas (release notes de Angular, blogs/newsletters que de verdad leas), un proyecto lateral o laboratorio donde pruebas cosas, y tu filtro: «no adopto nada en producción solo por novedad».</dd>
+
+          <dt>«¿Por qué deberíamos contratarte?»</dt>
+          <dd>Cruza 2-3 requisitos explícitos del rol con evidencia tuya («necesitáis X: yo hice X con este resultado») + un diferencial honesto. Es un resumen de ventas basado en hechos, no en adjetivos.</dd>
+        </dl>
+      </div>
+    </div>
+
+    <!-- ───────────────────────── 5 · CHECKLIST PRE-ENTREVISTA ───────────────────────── -->
+    <h2 class="topic-title" id="checklist">✅ 5 · Checklist de preparación pre-entrevista</h2>
+
+    <div class="cards">
+      <div class="card" id="checklist-pre-entrevista">
+        <h3>5.1 · La semana anterior</h3>
+        <ul class="check-list">
+          <li>Investigar la empresa: producto (úsalo si puedes), modelo de negocio, stack (ofertas de empleo, blog de ingeniería), noticias recientes y valores publicados.</li>
+          <li>Releer la job description y mapear cada requisito con una evidencia tuya concreta.</li>
+          <li>Escribir/repasar tus 6-8 historias STAR base y ensayarlas en voz alta (grábate una vez).</li>
+          <li>Preparar tu respuesta de 90 segundos a «háblame de ti» adaptada a este rol.</li>
+          <li>Practicar 1-2 diseños de system design con el framework de la sección 2.1, hablando en voz alta.</li>
+          <li>Buscar a tus entrevistadores (LinkedIn) para conocer su rol y adaptar tus preguntas.</li>
+          <li>Preparar 4-6 preguntas para el entrevistador, ordenadas por prioridad.</li>
+        </ul>
+        <h3>5.2 · El día anterior</h3>
+        <ul class="check-list">
+          <li>Verificar logística: hora (¡zona horaria!), link de la videollamada o dirección, duración y formato de cada ronda.</li>
+          <li>Probar el setup técnico: cámara, micrófono, conexión, editor/entorno si hay live coding.</li>
+          <li>Repasar tus propios proyectos del CV: te preguntarán por cualquier línea que hayas escrito ahí.</li>
+          <li>Repaso ligero de fundamentos (esta guía) — nada de atracones de madrugada.</li>
+          <li>Preparar agua, notas breves (tus historias en 1 línea cada una) y dormir bien.</li>
+        </ul>
+        <h3>5.3 · Durante y después</h3>
+        <ul class="check-list">
+          <li>Llegar/conectarte 5-10 minutos antes; tener el CV y la job description a mano.</li>
+          <li>En cada pregunta behavioral: elegir historia base → STAR → cerrar con resultado y aprendizaje.</li>
+          <li>En system design: requisitos primero, verbalizar trade-offs, validar con el entrevistador antes de profundizar.</li>
+          <li>Si no sabes algo: dilo, razona en voz alta cómo lo averiguarías — no inventes.</li>
+          <li>Cerrar preguntando por los próximos pasos y plazos del proceso.</li>
+          <li>Después: anotar las preguntas que te hicieron y qué mejorarías — cada entrevista alimenta la siguiente.</li>
+          <li>Enviar un mensaje breve de agradecimiento si tienes contacto directo con el recruiter.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
 </section>

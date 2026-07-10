@@ -34,7 +34,76 @@ export class UserContainerComponent &#123;
 export class UserListComponent &#123;
   &#64;Input() users: User[] = [];
   &#64;Output() select = new EventEmitter&lt;User&gt;();
+&#125;
+
+// ─── Versión moderna con signal inputs (Angular 17.1+) ──
+&#64;Component(&#123;
+  changeDetection: ChangeDetectionStrategy.OnPush
+&#125;)
+export class UserListComponent &#123;
+  users = input.required&lt;User[]&gt;();   // input() signal
+  select = output&lt;User&gt;();            // output() function
 &#125;</code></pre>
+
+        <h4>Beneficios del patrón</h4>
+        <ul>
+          <li><strong>Testing barato:</strong> un dumb component se prueba solo con inputs y
+            outputs — sin mocks de servicios, Store ni HTTP. Los smart se prueban mockeando
+            una sola dependencia (Store o facade).</li>
+          <li><strong>Reutilización:</strong> el mismo presentacional sirve en varias
+            pantallas porque no sabe de dónde vienen los datos.</li>
+          <li><strong>Rendimiento:</strong> con <code>OnPush</code>, el dumb solo se
+            re-renderiza cuando cambia la referencia de sus inputs.</li>
+          <li><strong>Flujo unidireccional:</strong> datos hacia abajo, eventos hacia arriba.
+            Depurar significa mirar un solo punto: el container.</li>
+        </ul>
+<pre><code>// Test de un dumb component — sin mocks
+it('emite select al hacer click en un usuario', () =&gt; &#123;
+  const fixture = TestBed.createComponent(UserListComponent);
+  fixture.componentRef.setInput('users', [&#123; id: 1, name: 'Ana' &#125;]);
+  fixture.detectChanges();
+
+  let selected: User | undefined;
+  fixture.componentInstance.select.subscribe(u =&gt; (selected = u));
+
+  fixture.nativeElement.querySelector('li').click();
+  expect(selected?.id).toBe(1);
+&#125;);</code></pre>
+
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li>Inyectar servicios (HTTP, Store) dentro del presentacional — deja de ser dumb
+            y pierde reutilización y testabilidad.</li>
+          <li>Mutar el objeto recibido por <code>&#64;Input</code> dentro del hijo: rompe
+            OnPush y crea efectos laterales invisibles para el padre.</li>
+          <li>Convertir TODO en dumb components: un container por cada 5-10 presentacionales
+            es la proporción típica; el dogmatismo genera prop-drilling de 4 niveles.</li>
+          <li>Pasar callbacks como <code>&#64;Input</code> en lugar de usar
+            <code>&#64;Output</code>: oculta el flujo de eventos y complica el testing.</li>
+        </ul>
+
+        <h4>🎤 Preguntas de entrevista</h4>
+        <details class="qa">
+          <summary>¿Cómo decides si un componente debe ser smart o dumb?</summary>
+          <p>Si necesita saber <em>de dónde</em> vienen los datos (servicio, Store, ruta) es
+          smart; si solo necesita saber <em>qué</em> pintar y qué eventos emitir, es dumb.
+          Regla práctica: los componentes de página/ruta son smart; casi todo lo demás
+          puede ser presentacional.</p>
+        </details>
+        <details class="qa">
+          <summary>¿Por qué los dumb components se benefician de OnPush?</summary>
+          <p>Porque todas sus fuentes de cambio son inputs (referencias) y eventos propios,
+          exactamente lo que OnPush escucha. Angular puede saltarse el componente en cada
+          ciclo de change detection si sus inputs no cambiaron.</p>
+        </details>
+        <details class="qa">
+          <summary>¿El patrón sigue vigente con signals?</summary>
+          <p>Sí. Cambia la sintaxis (<code>input()</code>/<code>output()</code> en lugar de
+          decoradores) pero la separación estado/presentación sigue siendo el criterio
+          arquitectónico. Con signals incluso mejora: los inputs signal integran
+          naturalmente con <code>computed()</code> en el hijo.</p>
+        </details>
+
         <div class="code-ref">
           📂 Implementación en el proyecto:
           <ul>
@@ -78,6 +147,50 @@ export class ThemeSignalService &#123;
     this.theme.update(t =&gt; t === 'dark' ? 'light' : 'dark');
   &#125;
 &#125;</code></pre>
+
+        <h4>¿Qué canal usar?</h4>
+        <ul>
+          <li><strong>input()/output():</strong> relación padre-hijo directa. Siempre la
+            primera opción: explícita, tipada y visible en el template.</li>
+          <li><strong>Servicio compartido (signal o BehaviorSubject):</strong> hermanos o
+            componentes lejanos que comparten un estado pequeño (tema, sidebar, toasts).</li>
+          <li><strong>Store (NgRx):</strong> estado consumido por varias features, con
+            necesidad de trazabilidad (DevTools) o efectos coordinados.</li>
+          <li><strong>Router state (params/queryParams):</strong> cuando el estado debe
+            sobrevivir a un refresh o ser compartible por URL (filtros, paginación, id
+            seleccionado).</li>
+        </ul>
+
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li>Exponer el <code>BehaviorSubject</code> directamente en lugar de
+            <code>asObservable()</code>: cualquiera puede hacer <code>next()</code> y el
+            estado se vuelve impredecible.</li>
+          <li>Exponer un <code>signal</code> escribible público cuando solo un módulo
+            debería mutarlo — expón <code>readonly()</code> o <code>computed()</code> y
+            métodos de mutación.</li>
+          <li>Saltar directo a NgRx para comunicar dos componentes hermanos: un servicio
+            con signal resuelve el 80 % de los casos.</li>
+          <li>Duplicar en un Store estado que ya vive en la URL (query params) — dos
+            fuentes de verdad que se desincronizan.</li>
+        </ul>
+
+        <h4>🎤 Preguntas de entrevista</h4>
+        <details class="qa">
+          <summary>¿Signal o BehaviorSubject para un servicio compartido?</summary>
+          <p>Signal si el consumo es principalmente en templates y el valor es síncrono:
+          menos boilerplate, sin <code>async</code> pipe, integración con
+          <code>computed()</code>. BehaviorSubject/Observable si necesitas operadores de
+          tiempo (debounce, switchMap) o interoperar con streams; siempre puedes puentear
+          con <code>toSignal()</code>/<code>toObservable()</code>.</p>
+        </details>
+        <details class="qa">
+          <summary>¿Cuándo el estado debe vivir en la URL?</summary>
+          <p>Cuando el usuario espera poder recargar, compartir el enlace o usar
+          atrás/adelante y ver lo mismo: filtros de búsqueda, página actual, pestaña
+          activa, id del detalle abierto. La URL es estado global gratuito y persistente.</p>
+        </details>
+
         <div class="code-ref">
           📂 <code>features/architecture-lab/architecture-lab.ts</code> — @Input/@Output, servicios compartidos, signals
         </div>
@@ -119,6 +232,35 @@ export class ThemeSignalService &#123;
 │       ├── product-list.ts
 │       └── products.routes.ts
 └── app.routes.ts</code></pre>
+
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li>Carpetas por tipo técnico a nivel raíz (<code>components/</code>,
+            <code>services/</code>, <code>pipes/</code> globales): al crecer, cada cambio
+            de una feature toca 4 carpetas distintas. Agrupa por dominio.</li>
+          <li>Meter en <code>shared/</code> componentes con lógica de negocio "porque dos
+            features lo usan": si tiene reglas de dominio no es shared, extrae la lógica
+            a un servicio de core o duplica el componente.</li>
+          <li><code>core/</code> convertido en cajón de sastre: si un servicio solo lo usa
+            una feature, vive en esa feature.</li>
+        </ul>
+
+        <h4>🎤 Preguntas de entrevista</h4>
+        <details class="qa">
+          <summary>¿Qué va en core/ y qué en shared/?</summary>
+          <p><code>core/</code>: cosas que existen una sola vez en la app (auth,
+          interceptors, configuración, ErrorHandler). <code>shared/</code>: piezas de UI
+          sin estado y sin dependencias hacia arriba, reutilizables por cualquier feature
+          (botones, pipes, directivas). Core es "infraestructura singleton", shared es
+          "kit de UI".</p>
+        </details>
+        <details class="qa">
+          <summary>Con standalone components ¿sigue teniendo sentido core/shared/features?</summary>
+          <p>Sí. Los NgModules desaparecen pero las <em>fronteras lógicas</em> siguen:
+          la estructura de carpetas + reglas de import (lint) reemplazan lo que antes
+          forzaban los módulos.</p>
+        </details>
+
         <div class="code-ref">
           📂 Estructura actual del proyecto:
           <ul>
@@ -154,6 +296,27 @@ export class UserCardModule &#123;&#125;
   template: \`...\`
 &#125;)
 export class UserCardComponent &#123;&#125;</code></pre>
+
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li>Escribir <code>standalone: true</code> en Angular 19+: ya es el default;
+            el flag explícito solo añade ruido (y <code>standalone: false</code> es lo
+            que hay que marcar en código legacy).</li>
+          <li>Importar <code>CommonModule</code> completo cuando solo usas un pipe:
+            importa <code>AsyncPipe</code>, <code>DatePipe</code>, etc. individualmente
+            (o usa control flow <code>&#64;if/&#64;for</code> que no requiere imports).</li>
+          <li>Migrar a standalone y conservar NgModules "de agrupación" vacíos: elimina
+            la capa, las rutas con <code>loadComponent</code> la reemplazan.</li>
+        </ul>
+
+        <h4>🎤 Preguntas de entrevista</h4>
+        <details class="qa">
+          <summary>¿Qué problema resolvía SCAM y por qué standalone lo elimina?</summary>
+          <p>SCAM daba a cada componente un módulo propio para lograr imports granulares y
+          tree-shaking fino. Standalone hace eso nativo: el componente declara sus propias
+          dependencias en <code>imports</code>, sin módulo intermedio.</p>
+        </details>
+
         <div class="code-ref">
           📂 Todos los componentes del proyecto son Standalone (Angular 20.3 default)
         </div>
@@ -178,6 +341,28 @@ import &#123;
   CurrencyFormatPipe,
   TooltipDirective
 &#125; from '../../shared';</code></pre>
+
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li><strong>Imports circulares:</strong> si <code>a.ts</code> importa desde el
+            barrel y el barrel re-exporta <code>a.ts</code>, obtienes
+            <code>undefined</code> en runtime. Dentro de la misma carpeta importa siempre
+            por ruta directa, nunca desde el propio <code>index.ts</code>.</li>
+          <li><strong>Barrels gigantes:</strong> un único <code>index.ts</code> para toda
+            la app arrastra medio proyecto a cada chunk y degrada el tree-shaking y el
+            build incremental. Un barrel por capa/feature, no uno global.</li>
+          <li>Re-exportar TODO (<code>export *</code>) incluyendo internos: el barrel es
+            la API pública — exporta explícitamente solo lo que otras capas deben ver.</li>
+        </ul>
+
+        <h4>🎤 Preguntas de entrevista</h4>
+        <details class="qa">
+          <summary>¿Qué desventajas tienen los barrel exports?</summary>
+          <p>Dependencias circulares difíciles de depurar, peor tree-shaking si el bundler
+          no puede probar ausencia de side effects, y builds incrementales más lentos
+          porque tocar un archivo invalida a todos los consumidores del barrel. Por eso se
+          usan como <em>API pública entre capas</em>, no para cada carpeta interna.</p>
+        </details>
       </div>
 
       <!-- 6. Arquitectura de una app Angular Enterprise -->
@@ -286,6 +471,57 @@ import &#123; AuthService &#125; from '&#64;core';</code></pre>
   &#125;
 &#125;</code></pre>
 
+        <h4>Cómo hacer cumplir las reglas (lint)</h4>
+        <p>
+          Las reglas de dependencia que no se verifican automáticamente se violan en el
+          primer sprint con prisa. Con <code>eslint-plugin-boundaries</code> (o los module
+          boundaries de Nx) el import prohibido rompe el CI:
+        </p>
+        <pre><code>// eslint.config.js (extracto con eslint-plugin-boundaries)
+settings: &#123;
+  'boundaries/elements': [
+    &#123; type: 'core', pattern: 'src/app/core/*' &#125;,
+    &#123; type: 'shared', pattern: 'src/app/shared/*' &#125;,
+    &#123; type: 'feature', pattern: 'src/app/features/*', capture: ['name'] &#125;
+  ]
+&#125;,
+rules: &#123;
+  'boundaries/element-types': ['error', &#123;
+    default: 'disallow',
+    rules: [
+      &#123; from: 'shared', allow: ['shared'] &#125;,
+      &#123; from: 'core', allow: ['core', 'shared'] &#125;,
+      // un feature NO puede importar de otro feature
+      &#123; from: 'feature', allow: ['core', 'shared', ['feature', &#123; name: '$&#123;from.name&#125;' &#125;]] &#125;
+    ]
+  &#125;]
+&#125;</code></pre>
+
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li>Definir las reglas de capas solo en un README: sin lint, la arquitectura se
+            erosiona silenciosamente.</li>
+          <li>Imports entre features "solo por esta vez": crea un grafo de dependencias
+            que impide extraer, lazy-loadear o borrar features de forma segura.</li>
+          <li>Path aliases sin regla de lint equivalente: <code>&#64;features/a</code>
+            importando <code>&#64;features/b</code> sigue compilando feliz.</li>
+        </ul>
+
+        <h4>🎤 Preguntas de entrevista</h4>
+        <details class="qa">
+          <summary>Dos features necesitan el mismo dato, ¿qué haces?</summary>
+          <p>Nunca importar una desde la otra. Opciones: (1) subir el estado a un servicio
+          o Store en <code>core/</code>, (2) extraer el modelo/lógica compartida a una lib
+          o carpeta de dominio compartido, (3) comunicarlas por la URL si es estado
+          navegacional. El criterio: la dependencia siempre apunta "hacia abajo".</p>
+        </details>
+        <details class="qa">
+          <summary>¿Cómo evitas que la arquitectura se degrade con el tiempo?</summary>
+          <p>Automatización: lint de boundaries en CI, revisión de imports en PRs,
+          budgets de bundle por lazy chunk, y ADRs (Architecture Decision Records) para
+          que las excepciones queden documentadas y no se conviertan en precedente.</p>
+        </details>
+
         <div class="code-ref">
           📂 Implementación en el proyecto:
           <ul>
@@ -346,7 +582,7 @@ export class ChildComponent &#123;
           relación padre-hijo. Usa <code>BehaviorSubject</code> para mantener y emitir
           el último valor.
         </p>
-        <pre ngNonBindable><code>&#64;Injectable(&#123; providedIn: 'root' &#125;)
+        <pre ngNonBindable><code ngNonBindable>&#64;Injectable(&#123; providedIn: 'root' &#125;)
 export class NotificationService &#123;
   private notificationsSubject = new BehaviorSubject&lt;string[]&gt;([]);
   notifications$ = this.notificationsSubject.asObservable();
@@ -388,7 +624,7 @@ export class ToastComponent &#123;
           Un signal en un servicio es la alternativa moderna a <code>BehaviorSubject</code>.
           Más simple, síncrono y con mejor integración con el template.
         </p>
-        <pre ngNonBindable><code>&#64;Injectable(&#123; providedIn: 'root' &#125;)
+        <pre ngNonBindable><code ngNonBindable>&#64;Injectable(&#123; providedIn: 'root' &#125;)
 export class CartService &#123;
   items = signal&lt;CartItem[]&gt;([]);
   total = computed(() =&gt;
@@ -493,6 +729,33 @@ export class EventBus &#123;
 
 // ✅ Mejor alternativa: NgRx Store o un servicio tipado con signals</code></pre>
 
+        <h4>7. Router state — La URL como fuente de verdad</h4>
+        <p>
+          Params, query params y data de resolvers son un canal de comunicación de primera
+          clase: sobreviven al refresh, son compartibles y activan el botón atrás/adelante.
+          Con <code>withComponentInputBinding()</code> los params llegan directo como inputs.
+        </p>
+        <pre><code>// app.config.ts
+provideRouter(routes, withComponentInputBinding());
+
+// Ruta: /products?category=books&amp;page=2
+&#64;Component(&#123; ... &#125;)
+export class ProductListComponent &#123;
+  // query params → signal inputs automáticamente
+  category = input&lt;string&gt;();
+  page = input(1, &#123; transform: numberAttribute &#125;);
+
+  private router = inject(Router);
+
+  setCategory(cat: string) &#123;
+    // escribir estado = navegar
+    this.router.navigate([], &#123;
+      queryParams: &#123; category: cat, page: 1 &#125;,
+      queryParamsHandling: 'merge'
+    &#125;);
+  &#125;
+&#125;</code></pre>
+
         <h4>Tabla de decisión</h4>
         <table>
           <thead>
@@ -505,8 +768,35 @@ export class EventBus &#123;
             <tr><td>Cross-feature</td><td>NgRx Store</td></tr>
             <tr><td>Estado de UI local</td><td>Signal en componente</td></tr>
             <tr><td>Estado global (auth, config)</td><td>Service con signal o NgRx</td></tr>
+            <tr><td>Filtros / paginación / id seleccionado</td><td>Router state (query params)</td></tr>
           </tbody>
         </table>
+
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li>Encadenar <code>&#64;Output</code> a través de 3+ niveles (event bubbling
+            manual): señal de que falta un servicio compartido o un container intermedio.</li>
+          <li>Usar <code>&#64;ViewChild</code> para leer estado del hijo en cada ciclo:
+            invierte el flujo de datos; el hijo debería emitirlo.</li>
+          <li>Olvidar desuscribirse de observables de servicios en componentes
+            (usa <code>takeUntilDestroyed()</code>, <code>async</code> pipe o
+            <code>toSignal()</code>).</li>
+        </ul>
+
+        <h4>🎤 Preguntas de entrevista</h4>
+        <details class="qa">
+          <summary>¿Por qué un Event Bus global se considera anti-pattern?</summary>
+          <p>Porque desacopla en exceso: cualquier parte de la app puede emitir o escuchar
+          cualquier evento, sin tipado fuerte ni trazabilidad. Depurar "quién emitió esto"
+          es arqueología. Un Store con actions tipadas da el mismo desacoplamiento pero
+          con contrato explícito y DevTools.</p>
+        </details>
+        <details class="qa">
+          <summary>Dos componentes hermanos deben sincronizar un contador, ¿qué usas?</summary>
+          <p>Un servicio con <code>signal</code> provisto en el ancestro común (o root si
+          es app-wide). Input/Output vía el padre también funciona si el padre ya existe
+          y son pocos niveles; NgRx sería sobredimensionado.</p>
+        </details>
 
         <div class="code-ref">
           📂 Implementación en el proyecto:
@@ -530,7 +820,7 @@ export class EventBus &#123;
           Contadores, toggles, estado de formulario, visibilidad de UI.
           No necesita salir del componente.
         </p>
-        <pre ngNonBindable><code>&#64;Component(&#123;
+        <pre ngNonBindable><code ngNonBindable>&#64;Component(&#123;
   template: \`
     &lt;button (click)="showPanel.set(!showPanel())"&gt;
       &#123;&#123; showPanel() ? 'Ocultar' : 'Mostrar' &#125;&#125;
@@ -581,7 +871,7 @@ export class LayoutComponent &#123;
           CRUD de una feature, estado de formulario complejo, filtros + paginación.
           El estado es más complejo que un solo signal pero no necesita ser global.
         </p>
-        <pre ngNonBindable><code>// NgRx SignalStore — alternativa moderna a ComponentStore
+        <pre ngNonBindable><code ngNonBindable>// NgRx SignalStore — alternativa moderna a ComponentStore
 import &#123; signalStore, withState, withComputed, withMethods, patchState &#125;
   from '&#64;ngrx/signals';
 
@@ -709,6 +999,44 @@ loginEffect = createEffect(() =&gt;
           </tbody>
         </table>
 
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li><strong>Todo al Store global:</strong> meter estado de UI efímero (modal
+            abierto, texto de un input) en NgRx genera boilerplate sin beneficio y acopla
+            componentes a estado que no les pertenece.</li>
+          <li><strong>Estado servidor tratado como estado cliente:</strong> cachear datos
+            HTTP a mano en el Store sin invalidación ni refetch. El "server state" tiene
+            su propio ciclo de vida (stale, revalidación) — modélalo explícitamente o usa
+            <code>httpResource</code> / una capa de caché dedicada.</li>
+          <li>Duplicar el mismo dato en varios niveles (componente + servicio + Store):
+            una sola fuente de verdad, lo demás son <code>computed()</code> derivados.</li>
+          <li>Elegir herramienta por moda y no por requisitos: migrar a NgRx "porque es
+            enterprise" o quitarlo "porque signals" sin analizar quién consume el estado.</li>
+        </ul>
+
+        <h4>🎤 Preguntas de entrevista</h4>
+        <details class="qa">
+          <summary>¿Cuándo justificarías introducir NgRx en un proyecto?</summary>
+          <p>Cuando varias features consumen y mutan el mismo estado, necesitas auditoría
+          o time-travel debugging, hay efectos coordinados complejos, o el equipo es
+          grande y el patrón único (action → reducer → selector) reduce fricción. Para
+          estado local o de feature, signals/SignalStore es suficiente.</p>
+        </details>
+        <details class="qa">
+          <summary>¿Qué diferencia hay entre estado de cliente y estado de servidor?</summary>
+          <p>El estado de cliente (tema, sidebar, selección) nace y muere en el navegador:
+          tú eres la fuente de verdad. El estado de servidor es una <em>copia caché</em>
+          de datos remotos: puede quedar obsoleto, requiere sincronización, loading y
+          errores. Confundirlos lleva a Stores llenos de flags <code>loading</code>
+          duplicados.</p>
+        </details>
+        <details class="qa">
+          <summary>¿Dónde debería vivir el estado de un formulario multi-paso?</summary>
+          <p>En un servicio con signals provisto en la ruta padre del wizard (scope de
+          feature, no root): sobrevive a la navegación entre pasos y se destruye al salir
+          del flujo. Global solo si otro módulo lo necesita.</p>
+        </details>
+
         <div class="code-ref">
           📂 Implementación en el proyecto:
           <ul>
@@ -718,4 +1046,686 @@ loginEffect = createEffect(() =&gt;
           </ul>
         </div>
       </div>
+
+      <!-- 9. Arquitectura por Capas y Feature Slicing -->
+      <div class="card" id="9-arquitectura-por-capas-y-feature-slicing">
+        <h3>9 · Arquitectura por Capas y Feature Slicing</h3>
+        <p>
+          Hay dos formas de partir una app: en <strong>capas horizontales</strong>
+          (presentación, aplicación, dominio, infraestructura — cada capa atraviesa toda
+          la app) o en <strong>slices verticales por feature</strong> (cada dominio de
+          negocio contiene todo lo que necesita). La práctica moderna combina ambas:
+          <em>primero se corta vertical por feature, y dentro de cada slice se aplican
+          capas ligeras</em>. Así los cambios de negocio quedan localizados en una carpeta
+          y el acoplamiento entre dominios es explícito.
+        </p>
+<pre><code>// Slice vertical con capas internas ligeras
+features/orders/
+├── ui/                        # capa presentación
+│   ├── order-list.component.ts     (smart)
+│   └── order-row.component.ts      (dumb)
+├── data/                      # capa acceso a datos
+│   ├── order-api.service.ts        (HTTP + DTOs)
+│   └── order.store.ts              (SignalStore del slice)
+├── domain/                    # capa dominio (TS puro)
+│   ├── order.model.ts
+│   └── order.rules.ts              (cálculos, validaciones)
+└── orders.routes.ts           # entrada lazy del slice</code></pre>
+
+        <h4>Reglas dentro del slice</h4>
+        <ul>
+          <li><code>ui/</code> depende de <code>data/</code> y <code>domain/</code>;
+            <code>data/</code> depende de <code>domain/</code>;
+            <code>domain/</code> no depende de nadie (ni de Angular).</li>
+          <li>El slice expone una API mínima (rutas + quizá un facade); el resto es
+            privado.</li>
+          <li>Lo compartido entre slices "baja" a <code>shared/</code> (UI) o a una
+            carpeta de dominio compartido — nunca se importa slice a slice.</li>
+        </ul>
+
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li>Capas horizontales puras en apps grandes: para tocar "pedidos" hay que
+            editar <code>components/</code>, <code>services/</code>, <code>models/</code>
+            y <code>store/</code> globales — alto acoplamiento por cercanía técnica en
+            vez de por dominio.</li>
+          <li>Slices que crecen sin capas internas: 40 archivos planos donde el HTTP, el
+            estado y la UI se mezclan en los mismos ficheros.</li>
+          <li>Crear las 4 capas completas en un slice de 3 pantallas: la estructura debe
+            ganarse su existencia; empieza plano y extrae capas cuando duela.</li>
+        </ul>
+
+        <h4>🎤 Preguntas de entrevista</h4>
+        <details class="qa">
+          <summary>¿Qué ventaja tiene el feature slicing sobre las capas horizontales?</summary>
+          <p>Cohesión: un cambio de negocio toca una sola carpeta. Además habilita lazy
+          loading natural (un slice = un chunk), ownership por equipo y borrado seguro
+          de features. Las capas horizontales optimizan para la simetría técnica, no para
+          el cambio.</p>
+        </details>
+        <details class="qa">
+          <summary>¿Cuándo "baja" código de un feature a shared?</summary>
+          <p>Cuando un segundo consumidor real lo necesita (regla de tres: con el tercero
+          seguro). Bajarlo especulativamente crea una capa shared enorme que nadie puede
+          modificar sin miedo.</p>
+        </details>
+
+        <div class="code-ref">
+          📂 <code>src/app/features/</code> — cada lab del proyecto es un slice vertical con sus rutas lazy
+        </div>
+      </div>
+
+      <!-- 10. Lazy Loading como Frontera Arquitectónica -->
+      <div class="card" id="10-lazy-loading-como-frontera-arquitectonica">
+        <h3>10 · Lazy Loading como Frontera Arquitectónica</h3>
+        <p>
+          El lazy loading no es solo una optimización de rendimiento: es la
+          <strong>frontera física</strong> que hace real la separación entre features.
+          Cada <code>loadChildren</code>/<code>loadComponent</code> produce un chunk
+          independiente; si dos features se importan entre sí, el bundler las fusiona y
+          la frontera desaparece. El tamaño de los chunks es, de hecho, un test de
+          arquitectura.
+        </p>
+<pre><code>// app.routes.ts — cada feature es una frontera
+export const routes: Routes = [
+  &#123;
+    path: 'orders',
+    loadChildren: () =&gt;
+      import('./features/orders/orders.routes')
+        .then(m =&gt; m.ORDERS_ROUTES)
+  &#125;,
+  &#123;
+    path: 'admin',
+    canMatch: [adminGuard],          // ni siquiera descarga el chunk sin permiso
+    loadChildren: () =&gt;
+      import('./features/admin/admin.routes')
+        .then(m =&gt; m.ADMIN_ROUTES)
+  &#125;
+];
+
+// orders.routes.ts — providers con scope de feature
+export const ORDERS_ROUTES: Routes = [&#123;
+  path: '',
+  providers: [
+    OrderStore,                      // vive y muere con el feature
+    &#123; provide: ORDER_CONFIG, useValue: defaultOrderConfig &#125;
+  ],
+  children: [
+    &#123; path: '', loadComponent: () =&gt; import('./ui/order-list.component').then(m =&gt; m.OrderListComponent) &#125;,
+    &#123; path: ':id', loadComponent: () =&gt; import('./ui/order-detail.component').then(m =&gt; m.OrderDetailComponent) &#125;
+  ]
+&#125;];</code></pre>
+
+        <h4>Mejores prácticas</h4>
+        <ul>
+          <li><strong>Providers a nivel de ruta:</strong> servicios y stores del feature se
+            declaran en sus rutas, no en root — se cargan con el chunk y no contaminan el
+            bundle inicial.</li>
+          <li><strong>canMatch para features protegidas:</strong> evita hasta la descarga
+            del código si el usuario no tiene acceso.</li>
+          <li><strong>Preloading selectivo:</strong> <code>PreloadAllModules</code> o una
+            estrategia custom (por ejemplo, precargar según rol o con
+            <code>requestIdleCallback</code>) equilibra arranque rápido y navegación
+            instantánea.</li>
+          <li><strong>Budgets en angular.json:</strong> fija límites de tamaño por bundle
+            para detectar cuando una frontera se rompió.</li>
+        </ul>
+
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li>Importar un símbolo de otro feature "solo un enum": el bundler arrastra el
+            chunk entero o lo duplica en un common chunk gigante.</li>
+          <li>Servicios de feature con <code>providedIn: 'root'</code> que referencian
+            código pesado: acaban en el bundle inicial aunque el feature sea lazy.</li>
+          <li>Lazy loading de TODO, incluida la pantalla principal: añade un roundtrip a
+            la ruta más visitada. La ruta crítica puede ir eager.</li>
+        </ul>
+
+        <h4>🎤 Preguntas de entrevista</h4>
+        <details class="qa">
+          <summary>¿Por qué lazy loading es una decisión arquitectónica y no solo de performance?</summary>
+          <p>Porque obliga a que las features sean autocontenidas: define fronteras de
+          compilación y despliegue, delimita el scope de los providers y hace medible el
+          acoplamiento (si el chunk crece o se fusiona, alguien cruzó la frontera).</p>
+        </details>
+        <details class="qa">
+          <summary>¿Diferencia entre canActivate y canMatch en rutas lazy?</summary>
+          <p><code>canActivate</code> bloquea la activación pero el chunk ya puede haberse
+          descargado; <code>canMatch</code> descarta la ruta antes de resolver el import,
+          así que el código ni se descarga. Para features por rol, canMatch.</p>
+        </details>
+
+        <div class="code-ref">
+          📂 <code>app.routes.ts</code> y <code>features/*/</code>*<code>.routes.ts</code> — todos los labs cargan lazy con loadChildren/loadComponent
+        </div>
+      </div>
+
+      <!-- 11. Librerías y Monorepos (Nx) -->
+      <div class="card" id="11-librerias-y-monorepos-nx">
+        <h3>11 · Librerías y Monorepos (Nx)</h3>
+        <p>
+          Cuando el proyecto (o la organización) crece, las carpetas dejan de ser
+          suficientes como frontera y se pasa a <strong>librerías dentro de un
+          monorepo</strong>. Nx es el estándar de facto: cada lib tiene su API pública
+          (un barrel), <em>tags</em> que declaran su tipo y dominio, y reglas de lint que
+          prohíben dependencias ilegales. Además Nx cachea builds y solo re-testea lo
+          afectado por un cambio (<code>nx affected</code>).
+        </p>
+<pre><code>// Taxonomía típica de libs en Nx
+libs/
+├── orders/
+│   ├── feature-list/        # smart components + rutas    [type:feature]
+│   ├── ui-order-card/       # dumb components             [type:ui]
+│   ├── data-access/         # servicios HTTP + estado     [type:data-access]
+│   └── domain/              # modelos + lógica pura       [type:util]
+├── shared/
+│   ├── ui-design-system/
+│   └── util-formatters/
+└── ...
+
+// Reglas de dependencia por tipo:
+// feature      → puede usar: feature, ui, data-access, util
+// ui           → puede usar: ui, util
+// data-access  → puede usar: data-access, util
+// util         → puede usar: util</code></pre>
+<pre><code>// eslint — module boundaries con tags
+"&#64;nx/enforce-module-boundaries": ["error", &#123;
+  "depConstraints": [
+    &#123; "sourceTag": "type:ui",
+      "onlyDependOnLibsWithTags": ["type:ui", "type:util"] &#125;,
+    &#123; "sourceTag": "type:data-access",
+      "onlyDependOnLibsWithTags": ["type:data-access", "type:util"] &#125;,
+    &#123; "sourceTag": "scope:orders",
+      "onlyDependOnLibsWithTags": ["scope:orders", "scope:shared"] &#125;
+  ]
+&#125;]</code></pre>
+
+        <h4>Mejores prácticas</h4>
+        <ul>
+          <li>Dos dimensiones de tags: <code>type:*</code> (qué es) y <code>scope:*</code>
+            (a qué dominio pertenece). Las reglas cruzan ambas.</li>
+          <li>Libs pequeñas y muchas: el grafo (<code>nx graph</code>) se vuelve la
+            documentación viva de la arquitectura.</li>
+          <li>Apps delgadas: la app solo compone libs y define configuración; toda la
+            lógica vive en libs reutilizables.</li>
+        </ul>
+
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li>Monorepo sin reglas de boundaries: acabas con un "monolito distribuido en
+            carpetas" donde todo importa de todo.</li>
+          <li>Una lib gigante <code>shared/utils</code> que depende de media app: rompe el
+            cacheo y el <code>affected</code> (todo cambio la "afecta").</li>
+          <li>Adoptar Nx en un equipo de 2 personas con una sola app pequeña: el overhead
+            de estructura supera el beneficio; la estructura core/shared/features basta.</li>
+        </ul>
+
+        <h4>🎤 Preguntas de entrevista</h4>
+        <details class="qa">
+          <summary>¿Qué aporta un monorepo Nx frente a multi-repo?</summary>
+          <p>Cambios atómicos cross-proyecto (un PR toca lib y consumidores), una sola
+          versión de dependencias, refactors seguros con tipado end-to-end, y CI
+          inteligente que solo construye/testea lo afectado. El costo: exige disciplina
+          de boundaries y tooling compartido.</p>
+        </details>
+        <details class="qa">
+          <summary>¿Para qué sirven los tags de Nx?</summary>
+          <p>Codifican la arquitectura en metadatos verificables: cada lib declara su tipo
+          y scope, y el linter convierte el diagrama de capas en errores de compilación.
+          Sin tags, las fronteras son solo convención.</p>
+        </details>
+      </div>
+
+      <!-- 12. Patrón Facade -->
+      <div class="card" id="12-patron-facade">
+        <h3>12 · Patrón Facade</h3>
+        <p>
+          Un <strong>facade</strong> es un servicio que expone una API simple y orientada
+          al dominio, ocultando la maquinaria de estado que hay detrás (NgRx, signals,
+          varios servicios coordinados). Los componentes dependen del facade, no del
+          Store: si mañana migras de NgRx a SignalStore, los componentes no se enteran.
+        </p>
+<pre><code>&#64;Injectable(&#123; providedIn: 'root' &#125;)
+export class ProductsFacade &#123;
+  private store = inject(Store);
+
+  // ── Lectura: el componente no conoce selectors ──
+  products = toSignal(this.store.select(selectAllProducts),
+    &#123; initialValue: [] as Product[] &#125;);
+  loading = toSignal(this.store.select(selectLoading),
+    &#123; initialValue: false &#125;);
+
+  // ── Escritura: el componente no conoce actions ──
+  load() &#123;
+    this.store.dispatch(ProductActions.load());
+  &#125;
+  addToCart(product: Product) &#123;
+    this.store.dispatch(CartActions.add(&#123; product &#125;));
+  &#125;
+&#125;
+
+// El componente queda trivial (y trivial de testear)
+&#64;Component(&#123; ... &#125;)
+export class ProductPageComponent &#123;
+  facade = inject(ProductsFacade);
+
+  constructor() &#123;
+    this.facade.load();
+  &#125;
+&#125;
+
+// Test: se mockea UNA dependencia con una API plana
+const facadeMock = &#123;
+  products: signal([&#123; id: 1, name: 'Test' &#125;]),
+  loading: signal(false),
+  load: jasmine.createSpy()
+&#125;;
+TestBed.configureTestingModule(&#123;
+  providers: [&#123; provide: ProductsFacade, useValue: facadeMock &#125;]
+&#125;);</code></pre>
+
+        <h4>Mejores prácticas</h4>
+        <ul>
+          <li>API en lenguaje de dominio (<code>addToCart</code>), no de implementación
+            (<code>dispatch</code>).</li>
+          <li>Un facade por feature/caso de uso, no un facade global.</li>
+          <li>El facade puede coordinar varios servicios (API + Store + router) y ofrecer
+            una sola operación de alto nivel al componente.</li>
+        </ul>
+
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li>Facade "dios" que agrega todo el estado de la app: mismo problema que un
+            componente inflado, pero en un servicio.</li>
+          <li>Pass-through anémico obligatorio: si el facade solo renombra métodos de un
+            único servicio sin añadir nada, es indirection gratuita — el patrón se aplica
+            cuando hay complejidad que ocultar.</li>
+          <li>Filtrar tipos de la implementación (exponer <code>Action</code> o
+            <code>MemoizedSelector</code> en la firma pública): rompe el aislamiento que
+            justificaba el facade.</li>
+        </ul>
+
+        <h4>🎤 Preguntas de entrevista</h4>
+        <details class="qa">
+          <summary>¿Qué problema resuelve un facade sobre NgRx?</summary>
+          <p>Desacopla componentes del mecanismo de estado: reduce el API surface que los
+          componentes conocen (ni actions ni selectors), simplifica los tests (un mock
+          plano) y permite cambiar la implementación de estado sin tocar la UI.</p>
+        </details>
+        <details class="qa">
+          <summary>¿Cuándo NO usarías un facade?</summary>
+          <p>Cuando no hay nada que ocultar: un componente que consume un único servicio
+          simple no gana nada con una capa más. El facade se justifica con múltiples
+          fuentes coordinadas o una librería de estado que quieres poder cambiar.</p>
+        </details>
+      </div>
+
+      <!-- 13. Patrón Repository -->
+      <div class="card" id="13-patron-repository">
+        <h3>13 · Patrón Repository</h3>
+        <p>
+          El <strong>repository</strong> abstrae el acceso a datos detrás de un contrato:
+          quien lo consume pide "productos" sin saber si vienen de HTTP, IndexedDB, un
+          mock o GraphQL. En Angular, como las interfaces de TypeScript desaparecen en
+          runtime, el contrato se materializa con una <strong>clase abstracta</strong>
+          (que sí puede ser token de DI).
+        </p>
+<pre><code>// ── Contrato (dominio) ────────────────────────────
+export abstract class ProductRepository &#123;
+  abstract getAll(): Observable&lt;Product[]&gt;;
+  abstract getById(id: string): Observable&lt;Product&gt;;
+  abstract save(product: Product): Observable&lt;Product&gt;;
+&#125;
+
+// ── Implementación HTTP (infraestructura) ─────────
+&#64;Injectable()
+export class HttpProductRepository extends ProductRepository &#123;
+  private http = inject(HttpClient);
+
+  getAll() &#123;
+    return this.http.get&lt;ProductDto[]&gt;('/api/products')
+      .pipe(map(dtos =&gt; dtos.map(toProduct)));
+  &#125;
+  getById(id: string) &#123;
+    return this.http.get&lt;ProductDto&gt;(\`/api/products/$&#123;id&#125;\`)
+      .pipe(map(toProduct));
+  &#125;
+  save(product: Product) &#123;
+    return this.http.post&lt;ProductDto&gt;('/api/products', toDto(product))
+      .pipe(map(toProduct));
+  &#125;
+&#125;
+
+// ── Wiring por DI: la app elige la implementación ──
+providers: [
+  &#123; provide: ProductRepository, useClass: HttpProductRepository &#125;
+]
+
+// En tests o demos: sin tocar a los consumidores
+providers: [
+  &#123; provide: ProductRepository, useClass: InMemoryProductRepository &#125;
+]</code></pre>
+
+        <h4>Mejores prácticas</h4>
+        <ul>
+          <li>El repository devuelve <strong>modelos de dominio</strong>, nunca DTOs
+            crudos: el mapeo es su responsabilidad.</li>
+          <li>Métodos con semántica de dominio (<code>findActive()</code>) mejor que un
+            genérico <code>query(params)</code> que filtra la UI.</li>
+          <li>Combínalo con facade/Store: el effect o el store llaman al repository, los
+            componentes nunca lo tocan directamente.</li>
+        </ul>
+
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li>Usar una <code>interface</code> TS como token de provider: no existe en
+            runtime; usa clase abstracta o <code>InjectionToken</code>.</li>
+          <li>Repository que expone detalles HTTP (<code>HttpResponse</code>, headers,
+            códigos de estado): el contrato debe ser agnóstico del transporte.</li>
+          <li>Crear repositories para una app que solo hará <code>GET</code> a 3
+            endpoints estables: un servicio API simple es suficiente; el patrón paga
+            cuando hay múltiples fuentes o testing intensivo.</li>
+        </ul>
+
+        <h4>🎤 Preguntas de entrevista</h4>
+        <details class="qa">
+          <summary>¿Por qué una clase abstracta y no una interface para el contrato?</summary>
+          <p>Las interfaces de TypeScript se borran al compilar, así que no pueden ser
+          tokens de inyección. Una clase abstracta existe en runtime, sirve como token y
+          además obliga a implementar el contrato. La alternativa es
+          <code>InjectionToken&lt;MiInterface&gt;</code>.</p>
+        </details>
+        <details class="qa">
+          <summary>¿Qué gana el testing con repositories?</summary>
+          <p>Los tests de lógica de negocio usan una implementación in-memory determinista
+          en lugar de <code>HttpTestingController</code>: menos setup, más rápidos, y
+          los tests no se rompen cuando cambia la forma de la API.</p>
+        </details>
+      </div>
+
+      <!-- 14. Patrón Adapter -->
+      <div class="card" id="14-patron-adapter">
+        <h3>14 · Patrón Adapter</h3>
+        <p>
+          El <strong>adapter</strong> traduce entre dos contratos incompatibles. En
+          frontend tiene dos usos estrella: (1) <em>anti-corruption layer</em> — traducir
+          respuestas del backend a tus modelos para que sus cambios no se propaguen por
+          la app; y (2) envolver librerías de terceros (charts, analytics, SDKs) detrás de
+          una interfaz propia para poder reemplazarlas.
+        </p>
+<pre><code>// ── 1. Adapter de API (anti-corruption) ───────────
+// Lo que manda el backend (snake_case, strings)
+interface UserApiResponse &#123;
+  user_id: number;
+  full_name: string;
+  created_at: string;          // "2026-07-10T12:00:00Z"
+  subscription_tier: 'FREE' | 'PRO' | 'ENT';
+&#125;
+
+// Tu modelo de dominio
+interface User &#123;
+  id: number;
+  name: string;
+  createdAt: Date;
+  isPremium: boolean;
+&#125;
+
+// El adapter: única pieza que conoce ambos mundos
+export function toUser(raw: UserApiResponse): User &#123;
+  return &#123;
+    id: raw.user_id,
+    name: raw.full_name,
+    createdAt: new Date(raw.created_at),
+    isPremium: raw.subscription_tier !== 'FREE'
+  &#125;;
+&#125;
+
+// ── 2. Adapter de librería de terceros ────────────
+export abstract class AnalyticsService &#123;
+  abstract track(event: string, data?: Record&lt;string, unknown&gt;): void;
+&#125;
+
+&#64;Injectable()
+export class MixpanelAnalytics extends AnalyticsService &#123;
+  track(event: string, data?: Record&lt;string, unknown&gt;) &#123;
+    mixpanel.track(event, data);   // API específica encapsulada
+  &#125;
+&#125;
+// Cambiar de proveedor = escribir otro adapter, cero cambios en la app</code></pre>
+
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li>Usar el tipo de la respuesta API directamente en componentes y templates:
+            cuando el backend renombra un campo, el grep recorre toda la app.</li>
+          <li>Adapters con lógica de negocio dentro: el adapter <em>traduce</em>; las
+            reglas viven en el dominio.</li>
+          <li>Envolver librerías estables y triviales "por si acaso": abstraer
+            <code>Date</code> o lodash rara vez paga; abstrae lo que es plausible
+            reemplazar (analytics, pagos, charts).</li>
+        </ul>
+
+        <h4>🎤 Preguntas de entrevista</h4>
+        <details class="qa">
+          <summary>¿Qué es un anti-corruption layer en frontend?</summary>
+          <p>Una franja de adapters/mappers en el borde de la app que traduce los
+          contratos externos (API, SDKs) a modelos propios. "Corrupción" es que las
+          convenciones ajenas (snake_case, fechas string, enums crípticos) se infiltren
+          en tu dominio y UI.</p>
+        </details>
+        <details class="qa">
+          <summary>¿Diferencia entre Adapter y Facade?</summary>
+          <p>El adapter <em>traduce</em> entre dos contratos existentes e incompatibles
+          (misma funcionalidad, distinta forma). El facade <em>simplifica</em>: expone una
+          API reducida sobre un subsistema complejo propio. Suelen convivir: el facade
+          usa repositories que internamente usan adapters.</p>
+        </details>
+      </div>
+
+      <!-- 15. API Layer: DTOs vs Modelos de Dominio -->
+      <div class="card" id="15-api-layer-dtos-vs-modelos-de-dominio">
+        <h3>15 · API Layer: DTOs vs Modelos de Dominio</h3>
+        <p>
+          Un <strong>DTO</strong> (Data Transfer Object) describe <em>exactamente</em> lo
+          que viaja por la red; un <strong>modelo de dominio</strong> describe lo que tu
+          app necesita para trabajar. Mantenerlos separados —con un mapper entre ambos—
+          aísla a toda la aplicación de los cambios del backend y concentra en un solo
+          punto las conversiones (fechas, nombres, campos derivados, defaults).
+        </p>
+<pre><code>// ── DTO: espejo del contrato HTTP (solo en la capa API) ──
+export interface InvoiceDto &#123;
+  id: string;
+  customer_name: string;
+  issued_at: string;             // ISO string
+  line_items: &#123; desc: string; cents: number &#125;[];
+  status: 'DRAFT' | 'SENT' | 'PAID' | 'VOID';
+&#125;
+
+// ── Modelo de dominio: lo que la app quiere usar ──
+export interface Invoice &#123;
+  id: string;
+  customerName: string;
+  issuedAt: Date;
+  lines: InvoiceLine[];
+  total: number;                 // derivado, calculado una vez
+  isPayable: boolean;            // regla de negocio explícita
+&#125;
+
+// ── Mapper: único punto de traducción ─────────────
+export function toInvoice(dto: InvoiceDto): Invoice &#123;
+  const lines = dto.line_items.map(li =&gt; (&#123;
+    description: li.desc,
+    amount: li.cents / 100
+  &#125;));
+  return &#123;
+    id: dto.id,
+    customerName: dto.customer_name,
+    issuedAt: new Date(dto.issued_at),
+    lines,
+    total: lines.reduce((s, l) =&gt; s + l.amount, 0),
+    isPayable: dto.status === 'SENT'
+  &#125;;
+&#125;
+
+// ── Servicio API: los DTOs no salen de aquí ───────
+&#64;Injectable(&#123; providedIn: 'root' &#125;)
+export class InvoiceApiService &#123;
+  private http = inject(HttpClient);
+
+  getInvoices(): Observable&lt;Invoice[]&gt; &#123;
+    return this.http.get&lt;InvoiceDto[]&gt;('/api/invoices')
+      .pipe(map(dtos =&gt; dtos.map(toInvoice)));
+  &#125;
+&#125;</code></pre>
+
+        <h4>Mejores prácticas</h4>
+        <ul>
+          <li>Los DTOs viven junto al servicio API y <strong>no se exportan</strong> fuera
+            de la capa de datos.</li>
+          <li>Mappers como funciones puras: triviales de testear y componibles.</li>
+          <li>En fronteras críticas, valida además en runtime (zod/valibot): el
+            <code>get&lt;T&gt;</code> de HttpClient es solo una promesa de tipos, no una
+            comprobación.</li>
+          <li>Fechas siempre a <code>Date</code> (o a tu tipo de fecha) en el mapper —
+            nunca strings ISO paseándose por templates.</li>
+        </ul>
+
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li>Usar el DTO como modelo "para no duplicar interfaces": ahorras 10 líneas hoy
+            y acoplas cada template al naming del backend para siempre.</li>
+          <li>Confiar en el genérico de <code>http.get&lt;T&gt;()</code> como validación:
+            si el backend manda otra cosa, el error explota lejos, en un template.</li>
+          <li>Mapear en el componente: cada consumidor repite (y desincroniza) la
+            conversión.</li>
+        </ul>
+
+        <h4>🎤 Preguntas de entrevista</h4>
+        <details class="qa">
+          <summary>El backend renombra un campo, ¿cuántos archivos cambias?</summary>
+          <p>Con capa de DTOs + mapper: dos (el DTO y el mapper). Sin ella: cada
+          componente, selector y test que tocaba ese campo. Esa es la métrica que
+          justifica la capa.</p>
+        </details>
+        <details class="qa">
+          <summary>¿TypeScript no valida ya la respuesta HTTP?</summary>
+          <p>No. Los tipos se borran en compilación; <code>get&lt;InvoiceDto&gt;</code> es
+          un cast implícito. Para garantías reales en runtime se valida el JSON en la
+          frontera (schemas con zod/valibot) o al menos se defiende el mapper con
+          defaults.</p>
+        </details>
+      </div>
+
+      <!-- 16. Manejo Global de Errores -->
+      <div class="card" id="16-manejo-global-de-errores">
+        <h3>16 · Manejo Global de Errores</h3>
+        <p>
+          Una app profesional tiene una estrategia de errores en dos niveles:
+          un <strong>interceptor HTTP</strong> para errores de red/API (mapear códigos,
+          reintentos, redirigir en 401, notificar) y un <strong>ErrorHandler</strong>
+          global como red de seguridad para todo lo no capturado (bugs, errores en
+          efectos). Así los componentes solo manejan los errores que pueden resolver.
+        </p>
+<pre><code>// ── Interceptor funcional: errores HTTP ───────────
+export const errorInterceptor: HttpInterceptorFn = (req, next) =&gt; &#123;
+  const router = inject(Router);
+  const toast = inject(ToastService);
+
+  return next(req).pipe(
+    retry(&#123; count: 1, delay: 300 &#125;),          // reintento leve en GET fallidos
+    catchError((error: HttpErrorResponse) =&gt; &#123;
+      switch (error.status) &#123;
+        case 401:
+          router.navigate(['/login']);
+          break;
+        case 403:
+          toast.error('No tienes permisos para esta acción');
+          break;
+        case 0:
+          toast.error('Sin conexión con el servidor');
+          break;
+        default:
+          toast.error('Ocurrió un error inesperado');
+      &#125;
+      // Re-lanza un error de dominio, no el HttpErrorResponse crudo
+      return throwError(() =&gt; new AppError(error.status, req.url));
+    &#125;)
+  );
+&#125;;
+
+// ── ErrorHandler global: red de seguridad ─────────
+&#64;Injectable()
+export class GlobalErrorHandler implements ErrorHandler &#123;
+  private logger = inject(LoggingService);
+
+  handleError(error: unknown): void &#123;
+    this.logger.report(error);               // Sentry, DataDog...
+    console.error(error);                    // nunca tragarse el error
+  &#125;
+&#125;
+
+// ── Registro en app.config.ts ─────────────────────
+export const appConfig: ApplicationConfig = &#123;
+  providers: [
+    provideBrowserGlobalErrorListeners(),    // captura errores fuera de Angular
+    provideHttpClient(withInterceptors([errorInterceptor])),
+    &#123; provide: ErrorHandler, useClass: GlobalErrorHandler &#125;
+  ]
+&#125;;</code></pre>
+
+        <h4>Mejores prácticas</h4>
+        <ul>
+          <li><strong>Clasifica:</strong> errores esperables (validación, 404 de un
+            recurso) se manejan localmente con UI específica; los inesperados suben al
+            handler global.</li>
+          <li>El interceptor traduce <code>HttpErrorResponse</code> a errores de dominio
+            tipados — los componentes nunca inspeccionan <code>status</code>.</li>
+          <li>Reporta a un servicio de observabilidad (Sentry/DataDog) desde el
+            ErrorHandler, con contexto (usuario, ruta, versión).</li>
+          <li>En streams, coloca <code>catchError</code> en el flujo interno para no
+            matar el observable fuente (típico en effects y polling).</li>
+        </ul>
+
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li><code>catchError(() =&gt; of([]))</code> silencioso por defecto: el usuario ve
+            una lista vacía y nadie sabe que la API está caída. Silenciar debe ser una
+            decisión explícita, no el patrón por defecto.</li>
+          <li>ErrorHandler que hace navegación o llamadas que pueden fallar sin
+            try/catch: un error dentro del handler produce loops.</li>
+          <li>Mostrar toasts desde interceptor Y componente para el mismo error: define
+            quién es dueño de la notificación (regla común: interceptor notifica lo
+            global, el componente lo contextual, nunca ambos).</li>
+          <li>Olvidar que ErrorHandler corre fuera de la zona en algunos casos: si el
+            handler muta estado de UI, puede necesitar <code>NgZone.run</code> (o mejor,
+            signals).</li>
+        </ul>
+
+        <h4>🎤 Preguntas de entrevista</h4>
+        <details class="qa">
+          <summary>¿Interceptor o ErrorHandler — cuál captura qué?</summary>
+          <p>El interceptor solo ve fallos de peticiones HTTP y actúa <em>dentro</em> del
+          stream (retry, mapear, redirigir). El ErrorHandler recibe cualquier excepción no
+          capturada en la app (templates, listeners, promesas de Angular). Son
+          complementarios: red de negocio vs red de seguridad.</p>
+        </details>
+        <details class="qa">
+          <summary>¿Dónde reintentarías una petición fallida?</summary>
+          <p>En el interceptor para políticas globales (reintento único en errores de red
+          idempotentes), o en el servicio/effect para políticas específicas
+          (<code>retry</code> con backoff exponencial). Nunca reintentar POST no
+          idempotentes a ciegas.</p>
+        </details>
+        <details class="qa">
+          <summary>¿Cómo evitas que un error HTTP mate un effect de NgRx?</summary>
+          <p>Poniendo el <code>catchError</code> dentro del observable interno del
+          <code>switchMap/exhaustMap</code> y devolviendo una action de fallo. Si el
+          catchError va en el stream exterior, el effect se completa y deja de escuchar
+          actions.</p>
+        </details>
+
+        <div class="code-ref">
+          📂 <code>core/interceptors/</code> — interceptors HTTP del proyecto
+        </div>
+      </div>
+
     </div>

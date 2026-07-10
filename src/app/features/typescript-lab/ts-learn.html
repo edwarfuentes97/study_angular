@@ -51,6 +51,103 @@ class Cache&lt;T = string&gt; &#123;
 
 const stringCache = new Cache();        // Cache&lt;string&gt;
 const numberCache = new Cache&lt;number&gt;(); // Cache&lt;number&gt;</code></pre>
+
+        <h4>Generics en funciones, interfaces e inferencia</h4>
+        <p>
+          Los generics no solo aplican a clases: funciones e interfaces también los
+          usan. TypeScript <strong>infiere</strong> el parámetro de tipo a partir de
+          los argumentos, por lo que rara vez hay que escribirlo explícitamente.
+        </p>
+        <pre><code>// Generic function — T se infiere del argumento
+function firstOrNull&lt;T&gt;(items: T[]): T | null &#123;
+  return items.length &gt; 0 ? items[0] : null;
+&#125;
+
+const n = firstOrNull([1, 2, 3]);       // T = number → number | null
+const s = firstOrNull(['a', 'b']);      // T = string → string | null
+
+// Múltiples parámetros de tipo relacionados
+function pluck&lt;T, K extends keyof T&gt;(items: T[], key: K): T[K][] &#123;
+  return items.map((item) =&gt; item[key]);
+&#125;
+
+const prices = pluck(products, 'price'); // number[]
+// pluck(products, 'colour');            // ❌ error: 'colour' no es keyof Product
+
+// Generic interface — típico en APIs
+interface ApiResult&lt;T&gt; &#123;
+  data: T;
+  total: number;
+  page: number;
+&#125;
+
+function fetchPage&lt;T&gt;(url: string): Promise&lt;ApiResult&lt;T&gt;&gt; &#123;
+  return fetch(url).then((r) =&gt; r.json());
+&#125;</code></pre>
+
+        <h4>✅ Mejores prácticas</h4>
+        <ul>
+          <li>
+            <strong>Usa constraints (<code>extends</code>)</strong> en lugar de castear a
+            <code>any</code> dentro del cuerpo: <code>T extends HasId</code> hace que
+            <code>item.id</code> sea seguro sin cast.
+          </li>
+          <li>
+            <strong>Deja que TypeScript infiera:</strong> <code>firstOrNull([1, 2])</code>
+            es mejor que <code>firstOrNull&lt;number&gt;([1, 2])</code>. Especifica el tipo
+            solo cuando la inferencia falla (por ejemplo, arrays vacíos).
+          </li>
+          <li>
+            <strong>Nombres descriptivos</strong> cuando hay varios parámetros:
+            <code>&lt;TItem, TKey&gt;</code> comunica más que <code>&lt;T, U&gt;</code>.
+          </li>
+          <li>
+            <strong>No hagas genérico lo que no lo necesita:</strong> si el parámetro de
+            tipo aparece una sola vez en la firma, probablemente sobra.
+          </li>
+        </ul>
+
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li>
+            <strong>Usar <code>any</code> para "salir del paso":</strong>
+            <code>(item as any).id</code> compila pero pierde toda la seguridad. La
+            solución correcta es el constraint <code>T extends HasId</code>.
+          </li>
+          <li>
+            <strong>Confundir <code>&lt;T&gt;</code> con un cast:</strong>
+            <code>function f&lt;T&gt;()</code> declara un parámetro de tipo;
+            <code>value as T</code> es una aserción. Son mecanismos distintos.
+          </li>
+          <li>
+            <strong>Constraint demasiado amplio:</strong> <code>T extends object</code>
+            no permite acceder a ninguna propiedad concreta. Define una interfaz mínima
+            con lo que realmente necesitas.
+          </li>
+        </ul>
+
+        <h4>🎤 Preguntas de entrevista</h4>
+        <ul>
+          <li>
+            <strong>¿Qué diferencia hay entre generics y <code>any</code>?</strong>
+            <em>R:</em> <code>any</code> desactiva el chequeo de tipos;
+            un generic preserva la relación entre entrada y salida
+            (<code>identity&lt;T&gt;(x: T): T</code> devuelve el mismo tipo que recibe).
+          </li>
+          <li>
+            <strong>¿Para qué sirve <code>K extends keyof T</code>?</strong>
+            <em>R:</em> Restringe <code>K</code> a las claves de <code>T</code>,
+            permitiendo funciones type-safe de acceso a propiedades donde el retorno
+            es <code>T[K]</code> (indexed access type).
+          </li>
+          <li>
+            <strong>¿Cuándo usarías un default en un generic?</strong>
+            <em>R:</em> Cuando hay un tipo habitual y quieres evitar que el consumidor
+            lo escriba siempre: <code>Cache&lt;T = string&gt;</code>. Similar a los
+            parámetros por defecto en funciones.
+          </li>
+        </ul>
+
         <div class="code-ref">
           📂 Implementación en el proyecto:
           <ul>
@@ -123,6 +220,103 @@ function makeSound(animal: Cat | Dog): void &#123;
     animal.bark(); // TS sabe que es Dog
   &#125;
 &#125;</code></pre>
+
+        <h4>Assertion functions</h4>
+        <p>
+          Una assertion function usa <code>asserts</code> en la firma: si la función
+          retorna sin lanzar excepción, TypeScript asume que la condición es cierta
+          para el resto del scope. Es ideal para validar precondiciones al inicio de
+          una función.
+        </p>
+        <pre><code>// asserts value is T — narrowing por excepción
+function assertIsProduct(value: unknown): asserts value is Product &#123;
+  if (!isProduct(value)) &#123;
+    throw new Error('El valor no es un Product válido');
+  &#125;
+&#125;
+
+// asserts condition — versión genérica (como Node assert)
+function assert(condition: unknown, msg?: string): asserts condition &#123;
+  if (!condition) throw new Error(msg ?? 'Assertion failed');
+&#125;
+
+function checkout(data: unknown, user: User | null): void &#123;
+  assertIsProduct(data);   // a partir de aquí data: Product
+  assert(user, 'Se requiere sesión'); // user: User (sin null)
+
+  console.log(\`$&#123;user.name&#125; compra $&#123;data.name&#125;\`);
+&#125;</code></pre>
+
+        <h4>✅ Mejores prácticas</h4>
+        <ul>
+          <li>
+            <strong>Valida en los bordes de la app:</strong> respuestas HTTP,
+            <code>JSON.parse</code>, <code>localStorage</code>. Tipa esas entradas como
+            <code>unknown</code> y pásalas por un guard antes de usarlas.
+          </li>
+          <li>
+            <strong>Un predicado <code>is</code> debe verificar de verdad:</strong>
+            el compilador confía ciegamente en tu implementación. Si el cuerpo
+            devuelve <code>true</code> sin comprobar nada, has creado un cast
+            disfrazado.
+          </li>
+          <li>
+            <strong>Prefiere <code>typeof</code>/<code>in</code> inline</strong> para
+            casos simples; reserva los predicados user-defined para validaciones que
+            se repiten.
+          </li>
+        </ul>
+
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li>
+            <strong><code>typeof null === 'object'</code>:</strong> siempre añade
+            <code>value !== null</code> al comprobar objetos, o el guard aceptará
+            <code>null</code>.
+          </li>
+          <li>
+            <strong><code>typeof</code> solo distingue primitivos:</strong>
+            <code>typeof x === 'object'</code> no diferencia entre
+            <code>Product</code> y <code>User</code>; para eso necesitas
+            <code>in</code>, un discriminante o un predicado.
+          </li>
+          <li>
+            <strong><code>instanceof</code> no funciona con datos deserializados:</strong>
+            un objeto de <code>JSON.parse</code> nunca es <code>instanceof</code> de tu
+            clase porque no pasó por el constructor. Usa guards estructurales.
+          </li>
+          <li>
+            <strong>Assertion functions con arrow functions:</strong> TypeScript exige
+            una anotación de tipo explícita en la variable
+            (<code>const assert: (c: unknown) =&gt; asserts c = ...</code>) o el
+            <code>asserts</code> no se aplica.
+          </li>
+        </ul>
+
+        <h4>🎤 Preguntas de entrevista</h4>
+        <ul>
+          <li>
+            <strong>¿Qué es un user-defined type guard?</strong>
+            <em>R:</em> Una función cuyo retorno se anota como
+            <code>value is Tipo</code>. Si devuelve <code>true</code>, el compilador
+            estrecha el tipo en la rama correspondiente.
+          </li>
+          <li>
+            <strong>¿Diferencia entre <code>value is T</code> y
+            <code>asserts value is T</code>?</strong>
+            <em>R:</em> El primero estrecha dentro del <code>if</code> según el
+            booleano devuelto; el segundo estrecha todo el código posterior a la
+            llamada, porque lanzar excepción es la única salida negativa.
+          </li>
+          <li>
+            <strong>¿Por qué <code>instanceof</code> puede fallar entre iframes o
+            realms?</strong>
+            <em>R:</em> Cada realm tiene sus propios constructores globales; un
+            <code>Array</code> creado en otro iframe no es <code>instanceof Array</code>
+            del actual. Por eso existe <code>Array.isArray</code>.
+          </li>
+        </ul>
+
         <div class="code-ref">
           📂 <code>features/typescript-lab/ts-playground.ts</code> — Type Guards con is, instanceof, in operator
         </div>
@@ -134,7 +328,9 @@ function makeSound(animal: Cat | Dog): void &#123;
           Las discriminated unions usan un campo literal común (discriminante) para
           que TypeScript pueda estrechar el tipo en cada rama de un
           <code>switch</code> o <code>if</code>. Es el patrón ideal para modelar
-          estados de una aplicación.
+          estados de una aplicación: cada estado declara <em>solo</em> los datos que
+          existen en él, haciendo imposibles los estados inválidos
+          (<em>make illegal states unrepresentable</em>).
         </p>
         <pre><code>type AsyncState&lt;T&gt; =
   | &#123; status: 'idle' &#125;
@@ -186,6 +382,82 @@ function reducer(state: string[], action: Action): string[] &#123;
       return [];
   &#125;
 &#125;</code></pre>
+
+        <h4>Patrón state machine</h4>
+        <p>
+          Comparado con la alternativa de flags booleanos
+          (<code>isLoading</code>, <code>hasError</code>, <code>data?</code>), la
+          union discriminada elimina combinaciones absurdas como
+          <code>isLoading &amp;&amp; hasError</code>. El compilador se convierte en la
+          documentación de la máquina de estados: si añades un estado nuevo, el
+          <code>assertNever</code> del <code>default</code> hará fallar la compilación
+          en cada <code>switch</code> que falte por actualizar.
+        </p>
+
+        <h4>✅ Mejores prácticas</h4>
+        <ul>
+          <li>
+            <strong>Discriminante literal y consistente:</strong> usa siempre el mismo
+            nombre (<code>status</code>, <code>type</code>, <code>kind</code>) con
+            valores string literales, nunca booleanos ni tipos amplios.
+          </li>
+          <li>
+            <strong>Exhaustive check en cada consumidor:</strong> el
+            <code>default: assertNever(state)</code> convierte "olvidé un caso" en un
+            error de compilación en vez de un bug en producción.
+          </li>
+          <li>
+            <strong>Modela con la union, no con opcionales:</strong>
+            <code>data?: T; error?: string</code> permite 4 combinaciones, de las que
+            2 son inválidas. La union solo permite las válidas.
+          </li>
+        </ul>
+
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li>
+            <strong>Discriminante tipado como <code>string</code>:</strong> si declaras
+            <code>status: string</code> en vez del literal <code>'loading'</code>, el
+            narrowing no funciona. Cuidado al construir objetos sin anotar el tipo
+            (usa <code>satisfies</code> o <code>as const</code>).
+          </li>
+          <li>
+            <strong>Desestructurar antes del switch:</strong>
+            <code>const &#123; status, data &#125; = state</code> rompe la relación
+            entre variables (en versiones antiguas de TS) y suele fallar porque
+            <code>data</code> no existe en todas las ramas. Estrecha primero, luego
+            accede.
+          </li>
+          <li>
+            <strong>Switch sin <code>never</code> check y sin
+            <code>noImplicitReturns</code>:</strong> un caso olvidado devuelve
+            <code>undefined</code> silenciosamente.
+          </li>
+        </ul>
+
+        <h4>🎤 Preguntas de entrevista</h4>
+        <ul>
+          <li>
+            <strong>¿Qué necesita una union para ser "discriminada"?</strong>
+            <em>R:</em> Que todos los miembros compartan una propiedad con un tipo
+            literal único por miembro. TypeScript usa esa propiedad para estrechar.
+          </li>
+          <li>
+            <strong>¿Cómo garantizas exhaustividad en un switch?</strong>
+            <em>R:</em> Asignando el valor a <code>never</code> en el
+            <code>default</code> (función <code>assertNever</code>). Si queda algún
+            miembro sin manejar, no es asignable a <code>never</code> y falla la
+            compilación.
+          </li>
+          <li>
+            <strong>¿Dónde se usa este patrón en Angular/NgRx?</strong>
+            <em>R:</em> Las actions de NgRx son una discriminated union por
+            <code>type</code>; los estados de carga (<code>AsyncState</code>) y los
+            eventos de <code>HttpClient</code> (<code>HttpEventType</code>) siguen la
+            misma idea.
+          </li>
+        </ul>
+
         <div class="code-ref">
           📂 Implementación en el proyecto:
           <ul>
@@ -246,8 +518,1334 @@ type Created = ReturnType&lt;typeof createProduct&gt;;
 // Combinaciones avanzadas
 type ProductPreview = Readonly&lt;Pick&lt;Product, 'name' | 'price'&gt;&gt;;
 type ProductDraft = Partial&lt;Omit&lt;Product, 'id'&gt;&gt; &amp; &#123; id?: never &#125;;</code></pre>
+
+        <h4>Más utility types: NonNullable, Parameters, Awaited, Readonly</h4>
+        <pre><code>// NonNullable — quita null y undefined de un tipo
+type MaybeUser = User | null | undefined;
+type DefiniteUser = NonNullable&lt;MaybeUser&gt;; // User
+
+// Parameters — tupla con los tipos de los argumentos
+function updatePrice(id: string, price: number, notify?: boolean) &#123; /* ... */ &#125;
+type UpdateArgs = Parameters&lt;typeof updatePrice&gt;;
+// [id: string, price: number, notify?: boolean]
+
+// Útil para wrappers que reenvían argumentos:
+function withLogging(...args: Parameters&lt;typeof updatePrice&gt;) &#123;
+  console.log('updatePrice', args);
+  return updatePrice(...args);
+&#125;
+
+// Awaited — desenvuelve promesas (recursivo)
+type Data = Awaited&lt;Promise&lt;Product[]&gt;&gt;;          // Product[]
+type Nested = Awaited&lt;Promise&lt;Promise&lt;number&gt;&gt;&gt;; // number
+type FromFn = Awaited&lt;ReturnType&lt;typeof fetchProducts&gt;&gt;;
+
+// Readonly — inmutabilidad superficial en compile-time
+type FrozenProduct = Readonly&lt;Product&gt;;
+const p: FrozenProduct = &#123; id: '1', name: 'A', price: 10, category: 'x' &#125;;
+// p.price = 20; // ❌ error: price es readonly</code></pre>
+
+        <h4>¿Cuándo usar cada uno?</h4>
+        <ul>
+          <li><strong>Partial</strong> — payloads de update (PATCH) y opciones de configuración con defaults.</li>
+          <li><strong>Required</strong> — normalizar una config después de aplicar defaults.</li>
+          <li><strong>Pick / Omit</strong> — DTOs derivados del modelo: formularios de creación (<code>Omit&lt;T, 'id'&gt;</code>), vistas resumidas (<code>Pick</code>).</li>
+          <li><strong>Record</strong> — diccionarios indexados y mapas de configuración por clave conocida (<code>Record&lt;Status, string&gt;</code>).</li>
+          <li><strong>Exclude / Extract</strong> — filtrar uniones (frecuente sobre <code>keyof T</code>).</li>
+          <li><strong>NonNullable</strong> — resultados de <code>find</code>/APIs tras validar que no son null.</li>
+          <li><strong>ReturnType / Parameters / Awaited</strong> — derivar tipos de funciones existentes sin exportar interfaces extra (wrappers, mocks de tests, servicios HTTP).</li>
+        </ul>
+
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li>
+            <strong><code>Partial</code> es superficial:</strong>
+            <code>Partial&lt;Order&gt;</code> hace opcional <code>customer</code>, pero si
+            está presente debe estar completo. Para anidados necesitas un
+            <code>DeepPartial</code> propio (mapped type recursivo).
+          </li>
+          <li>
+            <strong><code>Omit</code> no valida las claves:</strong>
+            <code>Omit&lt;Product, 'pricee'&gt;</code> (typo) compila sin aviso porque usa
+            <code>Exclude&lt;keyof T, K&gt;</code> sin constraint. <code>Pick</code> sí
+            falla con claves inexistentes.
+          </li>
+          <li>
+            <strong><code>Record&lt;string, T&gt;</code> promete demasiado:</strong> el
+            acceso <code>dict['loQueSea']</code> se tipa como <code>T</code> aunque la
+            clave no exista. Activa <code>noUncheckedIndexedAccess</code> o usa
+            <code>Map</code>.
+          </li>
+          <li>
+            <strong><code>Readonly</code> solo existe en compile-time:</strong> no
+            congela el objeto en runtime; para eso está <code>Object.freeze</code>.
+          </li>
+        </ul>
+
+        <h4>🎤 Preguntas de entrevista</h4>
+        <ul>
+          <li>
+            <strong>¿Cómo se implementa <code>Partial&lt;T&gt;</code> internamente?</strong>
+            <em>R:</em> Es un mapped type:
+            <code>&#123; [K in keyof T]?: T[K] &#125;</code>. Casi todos los utility
+            types son mapped types o conditional types de una línea.
+          </li>
+          <li>
+            <strong>¿Diferencia entre <code>Omit</code> y <code>Exclude</code>?</strong>
+            <em>R:</em> <code>Exclude</code> opera sobre uniones
+            (quita miembros); <code>Omit</code> opera sobre objetos (quita
+            propiedades) y de hecho se define como
+            <code>Pick&lt;T, Exclude&lt;keyof T, K&gt;&gt;</code>.
+          </li>
+          <li>
+            <strong>¿Por qué <code>Awaited</code> y no <code>ReturnType</code> para una
+            función async?</strong>
+            <em>R:</em> <code>ReturnType</code> de una función async es
+            <code>Promise&lt;T&gt;</code>; <code>Awaited</code> desenvuelve la promesa
+            (recursivamente) para llegar a <code>T</code>.
+          </li>
+        </ul>
+
         <div class="code-ref">
           📂 <code>features/typescript-lab/ts-playground.ts</code> — Partial, Pick, Omit, Record ejemplos
+        </div>
+      </div>
+
+      <div class="card" id="5-sistema-de-tipos-estructural">
+        <h3>🔷 5. Sistema de Tipos Estructural</h3>
+        <p>
+          TypeScript usa <strong>structural typing</strong> ("duck typing"): dos tipos
+          son compatibles si tienen la misma forma, sin importar su nombre ni si se
+          declararon con <code>implements</code>. Esto contrasta con lenguajes
+          nominales como Java o C#, donde la compatibilidad depende de la declaración
+          explícita.
+        </p>
+        <pre><code>interface Point &#123; x: number; y: number; &#125;
+
+class Coordinate &#123;
+  constructor(public x: number, public y: number) &#123;&#125;
+&#125;
+
+// ✅ Compatible: Coordinate tiene la forma de Point
+const p: Point = new Coordinate(1, 2);
+
+// ✅ Un objeto con MÁS propiedades también es asignable...
+const p3d = &#123; x: 1, y: 2, z: 3 &#125;;
+const p2: Point = p3d; // OK (asignación desde variable)
+
+// ❌ ...pero los literales frescos sufren "excess property check"
+// const p3: Point = &#123; x: 1, y: 2, z: 3 &#125;;
+// Error: 'z' no existe en Point
+
+// Consecuencia: "branded types" para simular tipos nominales
+type UserId = string &amp; &#123; readonly __brand: 'UserId' &#125;;
+type OrderId = string &amp; &#123; readonly __brand: 'OrderId' &#125;;
+
+function getUser(id: UserId) &#123; /* ... */ &#125;
+
+const orderId = 'ord-1' as OrderId;
+// getUser(orderId); // ❌ error: los brands no coinciden
+getUser('u-1' as UserId); // ✅</code></pre>
+
+        <h4>✅ Mejores prácticas</h4>
+        <ul>
+          <li>
+            <strong>Aprovecha la compatibilidad estructural</strong> para tests y
+            mocks: cualquier objeto con la forma correcta sirve, sin herencia ni
+            frameworks de mocking.
+          </li>
+          <li>
+            <strong>Usa branded types</strong> cuando dos conceptos comparten
+            primitivo (ids, monedas, unidades) y confundirlos sería un bug grave.
+          </li>
+          <li>
+            <strong>Interfaces mínimas en parámetros:</strong> pide solo la forma que
+            usas (<code>&#123; id: string &#125;</code> en vez de todo
+            <code>Product</code>); cualquier superset será asignable.
+          </li>
+        </ul>
+
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li>
+            <strong>Asumir tipado nominal:</strong> dos interfaces con la misma forma
+            son intercambiables aunque semánticamente sean distintas
+            (<code>Euros</code> vs <code>Dolares</code> como <code>number</code>).
+          </li>
+          <li>
+            <strong>Confundir excess property check con incompatibilidad:</strong>
+            solo aplica a literales de objeto "frescos" asignados directamente; la
+            misma forma pasada por una variable intermedia compila.
+          </li>
+          <li>
+            <strong>Interfaces vacías:</strong> <code>interface Marker &#123;&#125;</code>
+            es compatible con casi todo (estructuralmente no exige nada), por lo que
+            no sirve como marcador.
+          </li>
+        </ul>
+
+        <h4>🎤 Preguntas de entrevista</h4>
+        <ul>
+          <li>
+            <strong>¿Qué significa que TypeScript sea estructural?</strong>
+            <em>R:</em> La compatibilidad se decide por la forma (miembros y tipos),
+            no por el nombre del tipo ni por declaraciones de herencia.
+          </li>
+          <li>
+            <strong>¿Qué es el excess property check?</strong>
+            <em>R:</em> Una comprobación extra que aplica solo a object literals
+            asignados directamente a un tipo: propiedades desconocidas producen
+            error, para cazar typos.
+          </li>
+          <li>
+            <strong>¿Cómo simulas tipado nominal?</strong>
+            <em>R:</em> Con branded/opaque types: intersección con una propiedad
+            fantasma (<code>&amp; &#123; __brand: 'X' &#125;</code>) que no existe en
+            runtime pero diferencia los tipos en compile-time.
+          </li>
+        </ul>
+      </div>
+
+      <div class="card" id="6-mapped-types">
+        <h3>🔷 6. Mapped Types</h3>
+        <p>
+          Un mapped type itera sobre las claves de un tipo
+          (<code>[K in keyof T]</code>) y produce un tipo nuevo transformando cada
+          propiedad. Con los modificadores <code>+/-</code> se añaden o quitan
+          <code>readonly</code> y <code>?</code>, y con <code>as</code> se renombran
+          claves (key remapping).
+        </p>
+        <pre><code>interface Product &#123;
+  id: string;
+  name: string;
+  price: number;
+&#125;
+
+// keyof — union de claves
+type ProductKeys = keyof Product; // 'id' | 'name' | 'price'
+
+// Mapped type básico (así se implementa Readonly)
+type MyReadonly&lt;T&gt; = &#123;
+  readonly [K in keyof T]: T[K];
+&#125;;
+
+// Modificadores -readonly y -? (quitar)
+type Mutable&lt;T&gt; = &#123;
+  -readonly [K in keyof T]: T[K];
+&#125;;
+type Concrete&lt;T&gt; = &#123;
+  [K in keyof T]-?: T[K]; // así funciona Required
+&#125;;
+
+// Transformar el tipo de cada valor
+type Nullable&lt;T&gt; = &#123;
+  [K in keyof T]: T[K] | null;
+&#125;;
+type ProductForm = Nullable&lt;Product&gt;;
+// &#123; id: string | null; name: string | null; price: number | null &#125;
+
+// Key remapping con 'as' + template literals
+type Getters&lt;T&gt; = &#123;
+  [K in keyof T as \`get$&#123;Capitalize&lt;string &amp; K&gt;&#125;\`]: () =&gt; T[K];
+&#125;;
+type ProductGetters = Getters&lt;Product&gt;;
+// &#123; getId: () =&gt; string; getName: () =&gt; string; getPrice: () =&gt; number &#125;
+
+// Filtrar propiedades: remapear a never las elimina
+type OnlyStrings&lt;T&gt; = &#123;
+  [K in keyof T as T[K] extends string ? K : never]: T[K];
+&#125;;
+type ProductStrings = OnlyStrings&lt;Product&gt;;
+// &#123; id: string; name: string &#125;</code></pre>
+
+        <h4>✅ Mejores prácticas</h4>
+        <ul>
+          <li>
+            <strong>Deriva, no dupliques:</strong> si un tipo "form" o "DTO" es una
+            transformación mecánica del modelo, exprésalo como mapped type para que
+            se actualice solo al cambiar el modelo.
+          </li>
+          <li>
+            <strong>Combínalos con <code>keyof</code> genérico:</strong>
+            <code>K in keyof T</code> mantiene la relación clave→valor
+            (<code>T[K]</code>), a diferencia de <code>Record</code>, que aplana todo
+            al mismo tipo.
+          </li>
+          <li>
+            <strong>Documenta los mapped types complejos</strong> con un comentario
+            que muestre el resultado para un tipo de ejemplo, como en los snippets de
+            arriba.
+          </li>
+        </ul>
+
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li>
+            <strong>Olvidar <code>string &amp; K</code> en template literals:</strong>
+            <code>keyof T</code> incluye <code>symbol</code>, que no es interpolable;
+            hay que intersectar con <code>string</code>.
+          </li>
+          <li>
+            <strong>Usar mapped types sobre uniones esperando iterar miembros:</strong>
+            <code>[K in keyof (A | B)]</code> solo ve las claves comunes. Para
+            distribuir sobre una unión se usan conditional types.
+          </li>
+          <li>
+            <strong>Confundir <code>in</code> (mapped type) con el operador
+            runtime <code>in</code>:</strong> mismo keyword, contextos distintos
+            (tipos vs expresiones).
+          </li>
+        </ul>
+
+        <h4>🎤 Preguntas de entrevista</h4>
+        <ul>
+          <li>
+            <strong>¿Qué hace <code>keyof</code>?</strong>
+            <em>R:</em> Produce la unión de las claves de un tipo como literales:
+            <code>keyof Product = 'id' | 'name' | 'price'</code>. Es la base de
+            mapped types y de funciones type-safe de acceso a propiedades.
+          </li>
+          <li>
+            <strong>¿Cómo eliminarías una propiedad con key remapping?</strong>
+            <em>R:</em> Remapeándola a <code>never</code>:
+            <code>[K in keyof T as K extends 'secret' ? never : K]</code>.
+          </li>
+          <li>
+            <strong>¿Qué significan <code>-?</code> y <code>-readonly</code>?</strong>
+            <em>R:</em> Quitan el modificador correspondiente al mapear: así están
+            implementados <code>Required</code> (quita <code>?</code>) y utilidades
+            tipo <code>Mutable</code> (quita <code>readonly</code>).
+          </li>
+        </ul>
+
+        <div class="code-ref">
+          📂 <code>features/typescript-lab/ts-exercises.ts</code> — Ejercicios con keyof y tipos derivados
+        </div>
+      </div>
+
+      <div class="card" id="7-conditional-types-e-infer">
+        <h3>🔷 7. Conditional Types e infer</h3>
+        <p>
+          Un conditional type elige entre dos tipos con la sintaxis
+          <code>T extends U ? X : Y</code>. Con <code>infer</code> se "captura" una
+          parte del tipo comparado (el retorno de una función, el elemento de un
+          array, el payload de una promesa). Además, sobre uniones los conditional
+          types son <strong>distributivos</strong>: se evalúan miembro a miembro.
+        </p>
+        <pre><code>// Conditional básico
+type IsString&lt;T&gt; = T extends string ? true : false;
+type A = IsString&lt;'hola'&gt;; // true
+type B = IsString&lt;42&gt;;     // false
+
+// infer — capturar tipos internos
+type ElementOf&lt;T&gt; = T extends (infer E)[] ? E : never;
+type Num = ElementOf&lt;number[]&gt;; // number
+
+type MyReturnType&lt;T&gt; =
+  T extends (...args: any[]) =&gt; infer R ? R : never;
+
+type UnwrapPromise&lt;T&gt; = T extends Promise&lt;infer V&gt; ? V : T;
+type V = UnwrapPromise&lt;Promise&lt;Product&gt;&gt;; // Product
+type W = UnwrapPromise&lt;string&gt;;            // string (rama else)
+
+// Distributividad: se aplica a cada miembro de la union
+type ToArray&lt;T&gt; = T extends any ? T[] : never;
+type Arrays = ToArray&lt;string | number&gt;;
+// string[] | number[]  (¡no (string | number)[]!)
+
+// Así funciona Exclude:
+type MyExclude&lt;T, U&gt; = T extends U ? never : T;
+type SinId = MyExclude&lt;'id' | 'name' | 'price', 'id'&gt;;
+// 'name' | 'price' — never desaparece de las uniones
+
+// Desactivar la distribución envolviendo en tupla
+type ToArrayNonDist&lt;T&gt; = [T] extends [any] ? T[] : never;
+type OneArray = ToArrayNonDist&lt;string | number&gt;;
+// (string | number)[]</code></pre>
+
+        <h4>✅ Mejores prácticas</h4>
+        <ul>
+          <li>
+            <strong>Empieza por los utility types integrados</strong>
+            (<code>ReturnType</code>, <code>Awaited</code>, <code>Exclude</code>...):
+            casi todos son conditional types de una línea; escribe los tuyos solo si
+            no existe uno.
+          </li>
+          <li>
+            <strong>Devuelve <code>never</code> en la rama imposible:</strong> en
+            uniones, <code>never</code> se absorbe, lo que convierte el conditional
+            en un filtro.
+          </li>
+          <li>
+            <strong>Nombra los <code>infer</code>:</strong> <code>infer TElement</code>
+            se lee mejor que <code>infer E</code> en tipos largos.
+          </li>
+        </ul>
+
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li>
+            <strong>Olvidar la distributividad:</strong> con un "naked type parameter"
+            a la izquierda de <code>extends</code>, la unión se procesa miembro a
+            miembro. Si no lo quieres, envuelve: <code>[T] extends [U]</code>.
+          </li>
+          <li>
+            <strong><code>never</code> como entrada:</strong> un conditional
+            distributivo sobre <code>never</code> devuelve <code>never</code>
+            directamente (unión vacía), sin evaluar ninguna rama. Sorprende en tipos
+            recursivos.
+          </li>
+          <li>
+            <strong>Usar <code>infer</code> fuera de un conditional:</strong> solo es
+            válido dentro de la cláusula <code>extends</code> de un conditional type.
+          </li>
+        </ul>
+
+        <h4>🎤 Preguntas de entrevista</h4>
+        <ul>
+          <li>
+            <strong>¿Qué es <code>infer</code>?</strong>
+            <em>R:</em> Un keyword que declara una variable de tipo dentro del
+            patrón de un conditional type, capturando la parte que encaje:
+            <code>T extends Promise&lt;infer V&gt; ? V : never</code>.
+          </li>
+          <li>
+            <strong>¿Qué es un conditional type distributivo?</strong>
+            <em>R:</em> Cuando el operando izquierdo es un parámetro de tipo
+            desnudo, el conditional se aplica a cada miembro de la unión y los
+            resultados se re-unen. Es la base de <code>Exclude</code>/<code>Extract</code>.
+          </li>
+          <li>
+            <strong>Implementa <code>Extract</code>.</strong>
+            <em>R:</em> <code>type Extract&lt;T, U&gt; = T extends U ? T : never;</code>
+            — lo contrario de <code>Exclude</code>.
+          </li>
+        </ul>
+      </div>
+
+      <div class="card" id="8-template-literal-types">
+        <h3>🔷 8. Template Literal Types</h3>
+        <p>
+          Los template literal types construyen tipos string combinando literales y
+          uniones, con la misma sintaxis que los template strings. Al combinar
+          uniones se genera el <strong>producto cartesiano</strong> de todas las
+          combinaciones. Junto con <code>Uppercase</code>, <code>Lowercase</code>,
+          <code>Capitalize</code> y <code>Uncapitalize</code> permiten tipar
+          convenciones de nombres.
+        </p>
+        <pre><code>type Size = 'sm' | 'md' | 'lg';
+type Variant = 'primary' | 'danger';
+
+// Producto cartesiano: 6 combinaciones
+type ButtonClass = \`btn-$&#123;Variant&#125;-$&#123;Size&#125;\`;
+// 'btn-primary-sm' | 'btn-primary-md' | ... | 'btn-danger-lg'
+
+// Tipar rutas de API
+type Entity = 'products' | 'users';
+type ApiRoute = \`/api/$&#123;Entity&#125;\` | \`/api/$&#123;Entity&#125;/$&#123;string&#125;\`;
+
+const ok: ApiRoute = '/api/products/42'; // ✅
+// const bad: ApiRoute = '/api/orders';  // ❌
+
+// Eventos tipados a partir de propiedades
+type ChangeEvents&lt;T&gt; = &#123;
+  [K in keyof T as \`$&#123;string &amp; K&#125;Changed\`]: (value: T[K]) =&gt; void;
+&#125;;
+type ProductEvents = ChangeEvents&lt;&#123; name: string; price: number &#125;&gt;;
+// &#123; nameChanged: (v: string) =&gt; void; priceChanged: (v: number) =&gt; void &#125;
+
+// Parsear strings con infer + template literals
+type RouteParam&lt;T&gt; =
+  T extends \`$&#123;string&#125;:$&#123;infer P&#125;\` ? P : never;
+type Param = RouteParam&lt;'/products/:productId'&gt;; // 'productId'
+
+// Intrinsics de manipulación
+type Method = 'get' | 'post';
+type HandlerName = \`on$&#123;Capitalize&lt;Method&gt;&#125;\`; // 'onGet' | 'onPost'</code></pre>
+
+        <h4>✅ Mejores prácticas</h4>
+        <ul>
+          <li>
+            <strong>Úsalos para contratos de strings estructurados:</strong> rutas,
+            claves de i18n, nombres de eventos, clases CSS con convención. El
+            autocompletado y la validación gratis compensan la complejidad.
+          </li>
+          <li>
+            <strong><code>$&#123;string&#125;</code> como comodín:</strong> permite
+            "cualquier string aquí" dentro de un patrón, evitando enumerar infinitos
+            valores.
+          </li>
+          <li>
+            <strong>Vigila el tamaño de las combinaciones:</strong> uniones grandes
+            multiplicadas explotan (límites del compilador y lentitud del editor).
+          </li>
+        </ul>
+
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li>
+            <strong>Esperar validación en runtime:</strong> los template literal
+            types solo restringen valores conocidos en compile-time; un string que
+            llega de una API sigue necesitando validación.
+          </li>
+          <li>
+            <strong>Modelar gramáticas complejas:</strong> parsear URLs completas o
+            SQL con tipos recursivos es un ejercicio interesante pero suele ser
+            inmantenible en producción.
+          </li>
+        </ul>
+
+        <h4>🎤 Preguntas de entrevista</h4>
+        <ul>
+          <li>
+            <strong>¿Qué produce
+            <code>\`$&#123;A&#125;-$&#123;B&#125;\`</code> si A y B son uniones?</strong>
+            <em>R:</em> La unión de todas las combinaciones (producto cartesiano).
+          </li>
+          <li>
+            <strong>¿Cómo extraerías el parámetro de una ruta tipo
+            <code>'/user/:id'</code>?</strong>
+            <em>R:</em> Con un conditional type que combine template literal e
+            <code>infer</code>:
+            <code>T extends \`$&#123;string&#125;:$&#123;infer P&#125;\` ? P : never</code>.
+          </li>
+        </ul>
+      </div>
+
+      <div class="card" id="9-unknown-vs-any-vs-never">
+        <h3>🔷 9. unknown vs any vs never</h3>
+        <p>
+          Tres tipos especiales que marcan los extremos del sistema:
+          <code>any</code> desactiva el chequeo (todo vale, en ambas direcciones),
+          <code>unknown</code> es el "top type" seguro (todo es asignable a él, pero
+          él no es asignable a nada sin narrowing) y <code>never</code> es el
+          "bottom type": no tiene valores posibles y representa código inalcanzable.
+        </p>
+        <pre><code>// any — contagioso y peligroso
+let a: any = JSON.parse('&#123;"x":1&#125;');
+a.foo.bar.baz;        // compila... y explota en runtime
+const n: number = a;  // compila sin queja
+
+// unknown — obliga a validar antes de usar
+let u: unknown = JSON.parse('&#123;"x":1&#125;');
+// u.x;               // ❌ error: primero hay que estrechar
+if (typeof u === 'object' &amp;&amp; u !== null &amp;&amp; 'x' in u) &#123;
+  console.log((u as &#123; x: number &#125;).x); // ✅ tras validar
+&#125;
+
+// never — funciones que no retornan y ramas imposibles
+function fail(msg: string): never &#123;
+  throw new Error(msg);
+&#125;
+
+type Status = 'on' | 'off';
+function toggle(s: Status) &#123;
+  if (s === 'on') return 'off';
+  if (s === 'off') return 'on';
+  const imposible: never = s; // ✅ s ya no tiene miembros posibles
+  return imposible;
+&#125;
+
+// never se absorbe en uniones y anula intersecciones
+type U = string | never;  // string
+type I = string &amp; never;  // never
+
+// Firma segura para errores de catch (TS 4.4+: useUnknownInCatchVariables)
+try &#123;
+  riskyOperation();
+&#125; catch (err: unknown) &#123;
+  if (err instanceof Error) console.error(err.message);
+&#125;</code></pre>
+
+        <h4>✅ Mejores prácticas</h4>
+        <ul>
+          <li>
+            <strong><code>unknown</code> en los bordes:</strong> APIs externas,
+            <code>JSON.parse</code>, parámetros de librerías genéricas y variables de
+            <code>catch</code>. Obliga a validar exactamente una vez.
+          </li>
+          <li>
+            <strong><code>never</code> como herramienta de diseño:</strong>
+            exhaustive checks, prohibir propiedades
+            (<code>&#123; id?: never &#125;</code>) y filtrar en mapped/conditional
+            types.
+          </li>
+          <li>
+            <strong><code>any</code> solo como último recurso documentado</strong>
+            (migraciones, tipos de librerías rotos), idealmente encapsulado en una
+            función pequeña con firma bien tipada.
+          </li>
+        </ul>
+
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li>
+            <strong><code>any</code> se propaga:</strong> una expresión
+            <code>any</code> convierte en <code>any</code> casi todo lo que toca,
+            desactivando el chequeo silenciosamente aguas abajo.
+          </li>
+          <li>
+            <strong>Doble cast <code>as unknown as T</code>:</strong> es un
+            <code>any</code> disfrazado; si lo necesitas, deja un comentario del
+            porqué o escribe un type guard.
+          </li>
+          <li>
+            <strong>Confundir <code>never</code> con <code>void</code>:</strong>
+            <code>void</code> es "retorna sin valor útil"; <code>never</code> es
+            "no retorna jamás" (lanza o bucle infinito).
+          </li>
+        </ul>
+
+        <h4>🎤 Preguntas de entrevista</h4>
+        <ul>
+          <li>
+            <strong>¿Por qué <code>unknown</code> es más seguro que <code>any</code>?</strong>
+            <em>R:</em> Ambos aceptan cualquier valor, pero <code>unknown</code> no
+            permite ninguna operación hasta estrecharlo; <code>any</code> permite
+            todas sin comprobar nada.
+          </li>
+          <li>
+            <strong>¿Cuándo aparece <code>never</code> por inferencia?</strong>
+            <em>R:</em> En ramas donde el narrowing agotó todos los miembros de una
+            unión, en <code>Exclude</code> total, y como retorno de funciones que
+            siempre lanzan.
+          </li>
+          <li>
+            <strong>¿Qué es un top type y un bottom type?</strong>
+            <em>R:</em> Top (<code>unknown</code>): supertipo de todos, todo es
+            asignable a él. Bottom (<code>never</code>): subtipo de todos, asignable
+            a cualquier cosa, pero nada es asignable a él.
+          </li>
+        </ul>
+      </div>
+
+      <div class="card" id="10-type-narrowing-y-control-flow-analysis">
+        <h3>🔷 10. Type Narrowing y Control Flow Analysis</h3>
+        <p>
+          TypeScript re-analiza el tipo de cada variable <em>en cada punto del
+          código</em> siguiendo el flujo de control: <code>if</code>,
+          <code>return</code> tempranos, <code>throw</code>, asignaciones,
+          comparaciones de igualdad y truthiness. Entender este análisis explica por
+          qué a veces "TS ya sabe" el tipo y por qué a veces lo "olvida".
+        </p>
+        <pre><code>function format(value: string | number | null) &#123;
+  if (value === null) return '—';   // elimina null
+  // value: string | number
+
+  if (typeof value === 'number') &#123;
+    return value.toFixed(2);        // value: number
+  &#125;
+  return value.toUpperCase();       // value: string
+&#125;
+
+// Narrowing por igualdad entre variables
+function pick(a: string | number, b: string | boolean) &#123;
+  if (a === b) &#123;
+    // Ambos solo pueden ser el tipo común: string
+    a.toUpperCase();
+    b.toUpperCase();
+  &#125;
+&#125;
+
+// Truthiness: cuidado con '' y 0
+function greet(name?: string) &#123;
+  if (name) &#123;
+    return \`Hola $&#123;name&#125;\`; // excluye undefined... y también ''
+  &#125;
+  return 'Hola anónimo';
+&#125;
+
+// Asignación re-estrecha el tipo declarado
+let x: string | number = 'hola';
+x.toUpperCase(); // x: string (por la asignación)
+x = 42;
+x.toFixed();     // x: number
+
+// Límite clásico: callbacks pierden el narrowing
+function process(id: string | null) &#123;
+  if (id !== null) &#123;
+    [1, 2, 3].forEach(() =&gt; &#123;
+      // id vuelve a ser string | null dentro del callback (si id es mutable)
+      // porque TS no sabe cuándo se ejecutará
+    &#125;);
+  &#125;
+&#125;
+// Solución: const local → const safeId = id;</code></pre>
+
+        <h4>✅ Mejores prácticas</h4>
+        <ul>
+          <li>
+            <strong>Early returns:</strong> descartar casos inválidos al principio
+            (<code>if (!user) return;</code>) deja el resto de la función con tipos
+            limpios y sin anidamiento.
+          </li>
+          <li>
+            <strong>Prefiere <code>const</code>:</strong> el narrowing sobre
+            <code>const</code> se conserva dentro de closures; sobre
+            <code>let</code> se descarta.
+          </li>
+          <li>
+            <strong>Compara con explícitos <code>!== null</code> /
+            <code>!== undefined</code></strong> cuando <code>0</code>, <code>''</code>
+            o <code>false</code> sean valores válidos.
+          </li>
+        </ul>
+
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li>
+            <strong>Narrowing perdido en callbacks:</strong> TS invalida el
+            estrechamiento de variables mutables dentro de funciones anidadas.
+            Copia a una <code>const</code> local antes del callback.
+          </li>
+          <li>
+            <strong>Narrowing sobre propiedades:</strong>
+            <code>if (obj.prop)</code> estrecha <code>obj.prop</code>, pero cualquier
+            llamada a función intermedia puede invalidarlo (la función podría mutar
+            el objeto). Extrae la propiedad a una variable local.
+          </li>
+          <li>
+            <strong>Abusar de <code>!</code> (non-null assertion):</strong>
+            <code>user!.name</code> silencia al compilador sin comprobar nada; si te
+            equivocas, es un <code>TypeError</code> en runtime.
+          </li>
+        </ul>
+
+        <h4>🎤 Preguntas de entrevista</h4>
+        <ul>
+          <li>
+            <strong>¿Qué mecanismos de narrowing conoce TypeScript?</strong>
+            <em>R:</em> <code>typeof</code>, <code>instanceof</code>, <code>in</code>,
+            comparaciones de igualdad, truthiness, discriminantes literales,
+            predicados <code>is</code>, <code>asserts</code> y asignaciones.
+          </li>
+          <li>
+            <strong>¿Por qué se pierde el narrowing dentro de un callback?</strong>
+            <em>R:</em> El compilador no puede garantizar cuándo se ejecuta el
+            callback ni que la variable mutable no haya cambiado entre medias, así
+            que revierte al tipo declarado.
+          </li>
+          <li>
+            <strong>¿Qué diferencia hay entre <code>?.</code> y <code>!</code>?</strong>
+            <em>R:</em> <code>?.</code> comprueba en runtime y produce
+            <code>undefined</code> si falta; <code>!</code> solo afirma al compilador
+            que no es null, sin ninguna comprobación real.
+          </li>
+        </ul>
+      </div>
+
+      <div class="card" id="11-satisfies-operator">
+        <h3>🔷 11. satisfies Operator</h3>
+        <p>
+          <code>satisfies</code> (TS 4.9+) valida que una expresión cumple un tipo
+          <strong>sin ensancharla a ese tipo</strong>: el valor conserva su tipo
+          inferido más específico. Resuelve el dilema clásico entre "anotar el tipo"
+          (pierdes literales) y "no anotar" (pierdes validación).
+        </p>
+        <pre><code>type Theme = Record&lt;string, string | number[]&gt;;
+
+// ❌ Con anotación: valida, pero pierde los tipos específicos
+const theme1: Theme = &#123;
+  primary: '#1976d2',
+  spacing: [4, 8, 16],
+&#125;;
+// theme1.primary → string | number[] ... hay que estrechar 😕
+
+// ❌ Sin anotación: tipos específicos, pero sin validación
+const theme2 = &#123;
+  primary: '#1976d2',
+  spacng: [4, 8, 16],   // typo sin detectar
+&#125;;
+
+// ✅ satisfies: valida contra Theme Y conserva la inferencia
+const theme = &#123;
+  primary: '#1976d2',
+  spacing: [4, 8, 16],
+&#125; satisfies Theme;
+
+theme.primary.toUpperCase(); // ✅ TS sabe que es string
+theme.spacing.map((n) =&gt; n); // ✅ TS sabe que es number[]
+// theme.spacng ...           // ❌ typo detectado por Theme
+
+// Caso típico Angular: configuración de rutas
+const routes = [
+  &#123; path: '', component: HomeComponent &#125;,
+  &#123; path: 'products', component: ProductsComponent &#125;,
+] satisfies Routes;
+
+// Con as const para máxima precisión
+const config = &#123;
+  env: 'production',
+  retries: 3,
+&#125; as const satisfies &#123; env: string; retries: number &#125;;
+// config.env: 'production' (literal), validado contra el contrato</code></pre>
+
+        <h4>✅ Mejores prácticas</h4>
+        <ul>
+          <li>
+            <strong>Objetos de configuración:</strong> temas, mapas de rutas,
+            diccionarios de handlers... cualquier literal grande que deba cumplir un
+            contrato pero cuyo detalle quieras conservar.
+          </li>
+          <li>
+            <strong><code>as const satisfies T</code>:</strong> combinación potente —
+            literales inmutables validados contra un contrato.
+          </li>
+          <li>
+            <strong>Prefiérelo sobre <code>as</code>:</strong> <code>satisfies</code>
+            comprueba de verdad (falla si no encaja); <code>as</code> fuerza y puede
+            mentir.
+          </li>
+        </ul>
+
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li>
+            <strong>Confundirlo con una anotación:</strong>
+            <code>const x: T = ...</code> cambia el tipo de <code>x</code> a
+            <code>T</code>; <code>satisfies</code> no cambia el tipo, solo valida.
+          </li>
+          <li>
+            <strong>Usarlo donde hace falta el tipo amplio:</strong> si una variable
+            debe poder reasignarse a otros valores del contrato, necesitas la
+            anotación, no <code>satisfies</code>.
+          </li>
+        </ul>
+
+        <h4>🎤 Preguntas de entrevista</h4>
+        <ul>
+          <li>
+            <strong>¿Qué aporta <code>satisfies</code> frente a la anotación de
+            tipo?</strong>
+            <em>R:</em> Ambos validan, pero la anotación ensancha el valor al tipo
+            anotado; <code>satisfies</code> conserva el tipo inferido (más estrecho),
+            manteniendo literales y claves concretas.
+          </li>
+          <li>
+            <strong>¿Diferencia entre <code>satisfies</code> y <code>as</code>?</strong>
+            <em>R:</em> <code>as</code> es una aserción (puede ocultar errores);
+            <code>satisfies</code> es una comprobación real que falla en compile-time
+            si el valor no cumple el tipo.
+          </li>
+        </ul>
+      </div>
+
+      <div class="card" id="12-const-assertions-as-const">
+        <h3>🔷 12. Const Assertions (as const)</h3>
+        <p>
+          <code>as const</code> le pide al compilador la inferencia más literal
+          posible: strings y números quedan como tipos literales, los objetos se
+          vuelven <code>readonly</code> y los arrays se convierten en tuplas
+          <code>readonly</code>. Es la forma idiomática de declarar constantes de las
+          que luego se <em>derivan</em> tipos.
+        </p>
+        <pre><code>// Sin as const: TS ensancha a tipos generales
+const config1 = &#123; env: 'prod', port: 3000 &#125;;
+// &#123; env: string; port: number &#125;
+
+// Con as const: literales + readonly
+const config = &#123; env: 'prod', port: 3000 &#125; as const;
+// &#123; readonly env: 'prod'; readonly port: 3000 &#125;
+
+// Patrón estrella: derivar una union de un array
+const STATUSES = ['idle', 'loading', 'success', 'error'] as const;
+type Status = typeof STATUSES[number];
+// 'idle' | 'loading' | 'success' | 'error'
+
+// Una sola fuente de verdad: el array sirve en runtime
+// (validaciones, &#64;for en templates) y el tipo se deriva gratis
+function isStatus(v: string): v is Status &#123;
+  return (STATUSES as readonly string[]).includes(v);
+&#125;
+
+// Objeto como enum: claves y valores tipados
+const HTTP_STATUS = &#123;
+  OK: 200,
+  NOT_FOUND: 404,
+  SERVER_ERROR: 500,
+&#125; as const;
+type HttpStatusCode = typeof HTTP_STATUS[keyof typeof HTTP_STATUS];
+// 200 | 404 | 500
+
+// Tuplas exactas para retornos múltiples
+function useCounter() &#123;
+  let count = 0;
+  const inc = () =&gt; count++;
+  return [count, inc] as const; // readonly [number, () =&gt; void]
+&#125;
+const [value, increment] = useCounter(); // tipos correctos por posición</code></pre>
+
+        <h4>✅ Mejores prácticas</h4>
+        <ul>
+          <li>
+            <strong>Array <code>as const</code> + <code>typeof arr[number]</code>:</strong>
+            una lista de valores con su union derivada, sin duplicar nada. Ideal
+            para opciones de selects, estados y catálogos pequeños.
+          </li>
+          <li>
+            <strong>Constantes de configuración:</strong> <code>as const</code>
+            documenta la inmutabilidad y habilita narrowing preciso donde se usen.
+          </li>
+          <li>
+            <strong>Combínalo con <code>satisfies</code></strong> cuando además haya
+            un contrato que cumplir.
+          </li>
+        </ul>
+
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li>
+            <strong>Readonly solo en compile-time:</strong> <code>as const</code> no
+            congela el objeto en runtime (<code>Object.freeze</code> sí).
+          </li>
+          <li>
+            <strong>Aplicarlo a valores dinámicos:</strong> solo tiene sentido sobre
+            literales; sobre una variable calculada no puede inferir literales.
+          </li>
+          <li>
+            <strong>Tuplas readonly vs arrays:</strong> una función que espera
+            <code>string[]</code> no acepta <code>readonly string[]</code>; ajusta las
+            firmas para aceptar <code>readonly</code> cuando no mutes.
+          </li>
+        </ul>
+
+        <h4>🎤 Preguntas de entrevista</h4>
+        <ul>
+          <li>
+            <strong>¿Qué hace exactamente <code>as const</code>?</strong>
+            <em>R:</em> Inferencia literal (no widening), propiedades
+            <code>readonly</code> y arrays como tuplas <code>readonly</code>,
+            aplicado recursivamente.
+          </li>
+          <li>
+            <strong>¿Qué significa <code>typeof STATUSES[number]</code>?</strong>
+            <em>R:</em> Indexed access sobre el tipo del array con índice
+            <code>number</code>: la unión de los tipos de todos sus elementos.
+          </li>
+        </ul>
+      </div>
+
+      <div class="card" id="13-enums-vs-union-types">
+        <h3>🔷 13. Enums vs Union Types</h3>
+        <p>
+          Los <code>enum</code> de TypeScript generan código en runtime y tienen
+          semánticas sorprendentes; la comunidad (y la documentación oficial) tiende
+          a preferir <strong>uniones de literales</strong> u objetos
+          <code>as const</code>, que ofrecen la misma seguridad sin coste ni
+          sorpresas. De hecho, el flag <code>--erasableSyntaxOnly</code> (TS 5.8)
+          prohíbe los enums clásicos por no ser sintaxis borrable.
+        </p>
+        <pre><code>// ❌ enum numérico: inseguro y con reverse mapping
+enum Level &#123; Low, Medium, High &#125;
+const l: Level = 99 as Level;  // números arbitrarios cuelan (pre TS 5.0 sin cast)
+console.log(Level[0]);          // 'Low' — genera objeto doble en runtime
+
+// ⚠️ enum de strings: mejor, pero es nominal
+enum Status &#123; Active = 'active', Inactive = 'inactive' &#125;
+// acceptsStatus('active');    // ❌ hay que escribir Status.Active
+// no acepta el literal equivalente
+
+// ✅ Union de literales: cero runtime, estructural
+type OrderStatus = 'pending' | 'paid' | 'shipped';
+function setStatus(s: OrderStatus) &#123; /* ... */ &#125;
+setStatus('paid');              // ✅ literal directo, con autocompletado
+
+// ✅ Objeto as const cuando necesitas los valores en runtime
+const OrderStatus = &#123;
+  Pending: 'pending',
+  Paid: 'paid',
+  Shipped: 'shipped',
+&#125; as const;
+type OrderStatus = typeof OrderStatus[keyof typeof OrderStatus];
+// El type y el objeto pueden compartir nombre (declaration merging valor/tipo)
+
+Object.values(OrderStatus);     // iterable en runtime, como un enum
+setStatus(OrderStatus.Paid);    // estilo enum
+setStatus('shipped');           // o literal directo — ambos valen</code></pre>
+
+        <h4>✅ Mejores prácticas</h4>
+        <ul>
+          <li>
+            <strong>Por defecto, union de literales:</strong> gratis en runtime,
+            estructural, serializable tal cual (coincide con lo que envía el
+            backend).
+          </li>
+          <li>
+            <strong>Objeto <code>as const</code></strong> si además necesitas iterar
+            los valores o un namespace con autocompletado
+            (<code>OrderStatus.Paid</code>).
+          </li>
+          <li>
+            <strong>Si usas enums, que sean de strings:</strong> los numéricos
+            heredan los problemas de reverse mapping y valores fuera de rango.
+            Evita <code>const enum</code> en librerías (problemas con
+            <code>isolatedModules</code>).
+          </li>
+        </ul>
+
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li>
+            <strong>Comparar enums de strings con literales:</strong>
+            <code>status === 'active'</code> falla con enum nominal; con uniones
+            funciona de forma natural.
+          </li>
+          <li>
+            <strong>Enums en templates Angular:</strong> hay que exponer el enum como
+            propiedad del componente para usarlo en el HTML; con uniones se comparan
+            literales directamente.
+          </li>
+          <li>
+            <strong>Olvidar que los enums generan JS:</strong> aumentan el bundle y
+            no se tree-shakean bien si se usan parcialmente.
+          </li>
+        </ul>
+
+        <h4>🎤 Preguntas de entrevista</h4>
+        <ul>
+          <li>
+            <strong>¿Por qué se suelen preferir uniones sobre enums?</strong>
+            <em>R:</em> No generan código, son estructurales (aceptan el literal
+            directamente), serializan igual que se declaran y funcionan mejor con
+            narrowing y APIs externas.
+          </li>
+          <li>
+            <strong>¿Cuándo tiene sentido un enum?</strong>
+            <em>R:</em> Interoperabilidad con código existente que ya los usa, o
+            preferencia de equipo por el namespace <code>Enum.Member</code>; el
+            objeto <code>as const</code> cubre ese caso sin los inconvenientes.
+          </li>
+          <li>
+            <strong>¿Qué es el reverse mapping?</strong>
+            <em>R:</em> Los enums numéricos generan un objeto con mapeo doble
+            (<code>Level[0] === 'Low'</code> y <code>Level.Low === 0</code>); los de
+            strings no lo tienen.
+          </li>
+        </ul>
+      </div>
+
+      <div class="card" id="14-interfaces-vs-types-y-declaration-merging">
+        <h3>🔷 14. Interfaces vs Types y Declaration Merging</h3>
+        <p>
+          <code>interface</code> y <code>type</code> se solapan en el 90% de los
+          casos, pero difieren en puntos clave: las interfaces admiten
+          <strong>declaration merging</strong> (varias declaraciones con el mismo
+          nombre se fusionan) y <code>extends</code>; los type aliases pueden
+          nombrar <em>cualquier</em> tipo (uniones, tuplas, mapped, conditional,
+          primitivos) y no se fusionan.
+        </p>
+        <pre><code>// interface: extends + merging
+interface Animal &#123; name: string; &#125;
+interface Dog extends Animal &#123; bark(): void; &#125;
+
+// Declaration merging: ambas declaraciones se fusionan
+interface Window &#123; analytics: AnalyticsClient; &#125;
+// Ahora window.analytics está tipado globalmente
+// (así se "parchean" librerías y objetos globales)
+
+// type: puede nombrar lo que interface no puede
+type Id = string | number;                  // union
+type Pair = [x: number, y: number];        // tupla nombrada
+type Callback = (e: Event) =&gt; void;        // función (también con interface)
+type ReadonlyProduct = Readonly&lt;Product&gt;;  // mapped / utility
+type Key = \`item-$&#123;number&#125;\`;         // template literal
+
+// Ambos se combinan sin problema
+type WithTimestamps = &#123; createdAt: Date; updatedAt: Date &#125;;
+interface ProductEntity extends Animal &#123; &#125;   // interface extends interface
+type FullProduct = Product &amp; WithTimestamps; // intersección con type
+
+// ❌ type no se fusiona:
+// type User = &#123; a: 1 &#125;;
+// type User = &#123; b: 2 &#125;;  // Error: duplicate identifier
+
+// Módulo augmentation (merging aplicado a librerías)
+declare module '&#64;angular/core' &#123;
+  // añadir tipos a un módulo existente
+&#125;</code></pre>
+
+        <h4>✅ Mejores prácticas</h4>
+        <ul>
+          <li>
+            <strong>Elige uno como convención de equipo y sé consistente.</strong>
+            Una guía habitual: <code>interface</code> para formas de objetos públicos
+            y contratos extensibles; <code>type</code> para uniones, tuplas,
+            funciones y tipos derivados.
+          </li>
+          <li>
+            <strong>Usa merging deliberadamente:</strong> es la herramienta correcta
+            para aumentar tipos de terceros (<code>Window</code>, módulos de npm),
+            pero dentro de tu propio código resulta confuso — prefiere
+            <code>extends</code>.
+          </li>
+          <li>
+            <strong>Los errores de interfaces suelen ser más legibles</strong> (se
+            muestra el nombre, no la expansión completa), útil en APIs públicas.
+          </li>
+        </ul>
+
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li>
+            <strong>Merging accidental:</strong> dos <code>interface User</code> en el
+            mismo scope se fusionan en silencio; con <code>type</code> obtendrías un
+            error de duplicado. En archivos sin <code>import/export</code> (scripts
+            globales) esto sorprende especialmente.
+          </li>
+          <li>
+            <strong>Intentar "extender" una union con interface:</strong>
+            <code>interface X extends A | B</code> no es válido; las uniones solo se
+            manejan con <code>type</code>.
+          </li>
+          <li>
+            <strong>Augmentar un módulo sin importar nada de él:</strong> el
+            <code>declare module</code> se interpreta como declaración nueva en vez
+            de augmentation. Debe haber al menos un import del módulo.
+          </li>
+        </ul>
+
+        <h4>🎤 Preguntas de entrevista</h4>
+        <ul>
+          <li>
+            <strong>¿Diferencias entre interface y type?</strong>
+            <em>R:</em> Interface: merging, <code>extends</code>, solo formas de
+            objeto/función. Type: cualquier tipo (uniones, mapped, conditional),
+            sin merging. En rendimiento y capacidades básicas son equivalentes.
+          </li>
+          <li>
+            <strong>¿Qué es declaration merging y un uso real?</strong>
+            <em>R:</em> La fusión de múltiples declaraciones del mismo nombre.
+            Uso típico: augmentar <code>Window</code> o los tipos de una librería
+            (por ejemplo, añadir matchers custom a Jest/Vitest).
+          </li>
+        </ul>
+      </div>
+
+      <div class="card" id="15-strict-mode-y-tsconfig">
+        <h3>🔷 15. Strict Mode y tsconfig</h3>
+        <p>
+          <code>"strict": true</code> activa la familia de flags estrictos y es la
+          base de cualquier proyecto serio (Angular CLI lo activa por defecto). Cada
+          flag elimina una clase de bugs en compile-time. Conviene conocer qué hace
+          cada uno y qué flags extra valen la pena.
+        </p>
+        <pre><code>// tsconfig.json (extracto del proyecto)
+&#123;
+  "compilerOptions": &#123;
+    "strict": true,                    // activa todos los flags strict*
+    // Incluye, entre otros:
+    // strictNullChecks — null/undefined dejan de ser asignables a todo
+    // noImplicitAny — parámetros sin tipo inferible son error
+    // strictFunctionTypes — parámetros de funciones contravariantes
+    // strictPropertyInitialization — propiedades de clase inicializadas
+    // useUnknownInCatchVariables — catch (e: unknown)
+
+    "noImplicitReturns": true,         // toda rama debe retornar
+    "noImplicitOverride": true,        // override explícito al sobrescribir
+    "noUncheckedIndexedAccess": true,  // index signatures devuelven T | undefined
+    "noFallthroughCasesInSwitch": true
+  &#125;
+&#125;
+
+// strictNullChecks en acción
+function findProduct(id: string): Product | undefined &#123;
+  return products.find((p) =&gt; p.id === id);
+&#125;
+const prod = findProduct('1');
+// prod.name;              // ❌ posiblemente undefined
+if (prod) prod.name;       // ✅ narrowing
+prod?.name;                // ✅ optional chaining
+prod ?? DEFAULT_PRODUCT;   // ✅ nullish coalescing
+
+// noUncheckedIndexedAccess
+const dict: Record&lt;string, number&gt; = &#123; a: 1 &#125;;
+const v = dict['b'];       // v: number | undefined (¡honesto!)
+const arr = [1, 2, 3];
+const first = arr[0];      // number | undefined — obliga a comprobar</code></pre>
+
+        <h4>✅ Mejores prácticas</h4>
+        <ul>
+          <li>
+            <strong>Nunca desactives <code>strict</code> en proyectos nuevos.</strong>
+            En migraciones, actívalo flag a flag y usa
+            <code>// &#64;ts-expect-error</code> (que caduca: falla si el error
+            desaparece) en vez de <code>// &#64;ts-ignore</code>.
+          </li>
+          <li>
+            <strong>Añade <code>noUncheckedIndexedAccess</code>:</strong> no viene en
+            <code>strict</code> y es de los flags con mejor ratio coste/beneficio —
+            hace honesto el acceso por índice.
+          </li>
+          <li>
+            <strong>En Angular, activa también <code>strictTemplates</code></strong>
+            (en <code>angularCompilerOptions</code>): lleva el chequeo estricto a los
+            bindings de los templates.
+          </li>
+        </ul>
+
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li>
+            <strong>Silenciar <code>strictNullChecks</code> con <code>!</code>:</strong>
+            sembrar non-null assertions devuelve los <code>undefined is not an
+            object</code> que el flag venía a evitar.
+          </li>
+          <li>
+            <strong><code>strictPropertyInitialization</code> vs inyección:</strong>
+            en Angular clásico se resolvía con <code>!</code> en
+            <code>&#64;Input</code>; hoy el patrón preferido es
+            <code>inject()</code>, inicializadores o inputs con
+            <code>input.required&lt;T&gt;()</code>.
+          </li>
+          <li>
+            <strong>Creer que strict valida en runtime:</strong> los flags solo
+            afectan a la compilación; los datos externos siguen necesitando
+            validación (guards, zod, etc.).
+          </li>
+        </ul>
+
+        <h4>🎤 Preguntas de entrevista</h4>
+        <ul>
+          <li>
+            <strong>¿Qué hace <code>strictNullChecks</code>?</strong>
+            <em>R:</em> Saca <code>null</code> y <code>undefined</code> del dominio
+            de los demás tipos: hay que declararlos (<code>T | null</code>) y
+            estrecharlos antes de usar el valor. Elimina la mayor fuente de errores
+            de runtime en JS.
+          </li>
+          <li>
+            <strong>¿Qué aporta <code>noUncheckedIndexedAccess</code>?</strong>
+            <em>R:</em> El acceso por índice a arrays e index signatures pasa a
+            tiparse <code>T | undefined</code>, reflejando que la clave puede no
+            existir.
+          </li>
+          <li>
+            <strong>¿<code>&#64;ts-ignore</code> o <code>&#64;ts-expect-error</code>?</strong>
+            <em>R:</em> <code>&#64;ts-expect-error</code>: si el error subyacente se
+            arregla, la directiva pasa a ser un error, evitando supresiones zombis.
+          </li>
+        </ul>
+
+        <div class="code-ref">
+          📂 <code>tsconfig.json</code> — strict, noImplicitReturns, noImplicitOverride, strictTemplates
+        </div>
+      </div>
+
+      <div class="card" id="16-decoradores-en-angular">
+        <h3>🔷 16. Decoradores (contexto Angular)</h3>
+        <p>
+          Un decorador es una función que anota una clase o sus miembros añadiendo
+          metadata o comportamiento. Angular los usa como sistema de metadata:
+          <code>&#64;Component</code>, <code>&#64;Injectable</code>,
+          <code>&#64;Pipe</code>, <code>&#64;Directive</code>... El compilador (AOT)
+          lee esa metadata y genera el código de creación de vistas e inyección.
+          Nota: los decoradores "experimentales" de TypeScript
+          (<code>experimentalDecorators</code>) no son idénticos a los decoradores
+          estándar de TC39 (TS 5.0+); Angular usa su propio procesamiento en
+          compile-time.
+        </p>
+        <pre ngNonBindable><code ngNonBindable>// Decorador de clase: recibe el constructor
+function Logged&lt;T extends new (...args: any[]) =&gt; object&gt;(Base: T) &#123;
+  return class extends Base &#123;
+    constructor(...args: any[]) &#123;
+      super(...args);
+      console.log(\`Instancia de $&#123;Base.name&#125; creada\`);
+    &#125;
+  &#125;;
+&#125;
+
+&#64;Logged
+class CartService &#123; /* ... */ &#125;
+
+// En Angular: decoradores como metadata declarativa
+&#64;Component(&#123;
+  selector: 'app-price-tag',
+  template: \`&lt;span&gt;&#123;&#123; price | currency &#125;&#125;&lt;/span&gt;\`,
+&#125;)
+export class PriceTagComponent &#123;
+  &#64;Input(&#123; required: true &#125;) price!: number;
+  &#64;Output() selected = new EventEmitter&lt;void&gt;();
+
+  // Tendencia moderna: menos decoradores, más funciones tipadas
+  private readonly http = inject(HttpClient);      // vs constructor + &#64;Inject
+  quantity = input.required&lt;number&gt;();             // vs &#64;Input
+  changed = output&lt;number&gt;();                      // vs &#64;Output
+&#125;
+
+&#64;Injectable(&#123; providedIn: 'root' &#125;)
+export class ProductService &#123;
+  private readonly api = inject(ApiClient);
+&#125;</code></pre>
+
+        <h4>✅ Mejores prácticas</h4>
+        <ul>
+          <li>
+            <strong>En Angular moderno, prefiere las APIs funcionales:</strong>
+            <code>inject()</code>, <code>input()</code>, <code>output()</code>,
+            functional guards/interceptors. Tipan mejor (genéricos reales) y
+            reducen la dependencia de decoradores de miembro.
+          </li>
+          <li>
+            <strong>Los decoradores de clase de Angular no se negocian:</strong>
+            <code>&#64;Component</code>, <code>&#64;Injectable</code> y compañía son
+            el contrato con el compilador AOT; mantenlos con metadata estática y
+            analizable (sin expresiones dinámicas).
+          </li>
+          <li>
+            <strong>No abuses de decoradores custom</strong> para lógica de negocio:
+            son difíciles de tipar y de testear; una función explícita suele ser más
+            clara.
+          </li>
+        </ul>
+
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li>
+            <strong>Confundir decoradores experimentales con los estándar:</strong>
+            firma y capacidades difieren (los TC39 usan objetos <code>context</code>).
+            Código escrito para uno puede no funcionar con el otro flag.
+          </li>
+          <li>
+            <strong>Olvidar <code>&#64;Injectable</code> en servicios con
+            dependencias:</strong> sin decorador no se emite la metadata de DI y la
+            inyección por constructor falla. Con <code>inject()</code> el problema
+            desaparece.
+          </li>
+          <li>
+            <strong>Lógica pesada dentro del decorador:</strong> se ejecuta al cargar
+            el módulo (import time), no al instanciar; puede penalizar el arranque y
+            dificultar el testing.
+          </li>
+        </ul>
+
+        <h4>🎤 Preguntas de entrevista</h4>
+        <ul>
+          <li>
+            <strong>¿Qué es un decorador y cómo los usa Angular?</strong>
+            <em>R:</em> Una función que anota clases/miembros. Angular los usa como
+            metadata declarativa que el compilador AOT transforma en código de
+            renderizado e inyección de dependencias.
+          </li>
+          <li>
+            <strong>¿Por qué Angular se mueve hacia <code>inject()</code> e
+            <code>input()</code>?</strong>
+            <em>R:</em> Mejor inferencia de tipos, composición en funciones
+            reutilizables (fuera del constructor), menos dependencia de metadata de
+            parámetros y preparación para los decoradores estándar.
+          </li>
+          <li>
+            <strong>¿Cuándo se ejecuta un decorador?</strong>
+            <em>R:</em> Una vez, cuando se evalúa la declaración de la clase (al
+            importar el módulo), no en cada instanciación.
+          </li>
+        </ul>
+
+        <div class="code-ref">
+          📂 Implementación en el proyecto:
+          <ul>
+            <li><code>features/typescript-lab/ts-learn.ts</code> — &#64;Component con imports standalone</li>
+            <li><code>shared/directives/auto-glossary.directive.ts</code> — &#64;Directive con inject()</li>
+          </ul>
         </div>
       </div>
     </div>

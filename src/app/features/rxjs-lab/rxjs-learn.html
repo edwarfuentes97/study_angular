@@ -53,8 +53,149 @@ const obs$ = new Observable(subscriber => {{ '{' }}
   subscriber.next(3);
   subscriber.complete();
 {{ '}' }});</code></pre>
+
+        <h4>Conversión entre Promise y Observable</h4>
+        <pre><code class="language-typescript">import &#123; firstValueFrom, lastValueFrom, defer &#125; from 'rxjs';
+
+// Observable → Promise (moderno; reemplaza al deprecado .toPromise())
+const user = await firstValueFrom(this.http.get&lt;User&gt;('/api/me'));
+
+// Promise → Observable de forma LAZY (se ejecuta al suscribirse)
+const data$ = defer(() =&gt; fetch('/api/data').then(r =&gt; r.json()));
+// ⚠️ from(promise) NO es lazy: la Promise ya está en ejecución</code></pre>
+
+        <h4>⚠️ Errores comunes</h4>
+        <ul class="pitfalls">
+          <li>Usar <code>from(promise)</code> creyendo que es lazy — la Promise se ejecutó al crearse. Usa <code>defer(() =&gt; promesa())</code> para diferir la ejecución.</li>
+          <li>Hacer <code>await firstValueFrom(stream$)</code> sobre un stream que quizá nunca emite (p. ej. un <code>Subject</code>) — el <code>await</code> se queda colgado. Añade <code>timeout()</code> o valor por defecto.</li>
+          <li>Suscribirse varias veces a un cold Observable sin darse cuenta: cada <code>subscribe()</code> repite el trabajo (p. ej. otra petición HTTP).</li>
+        </ul>
+
+        <h4>🎤 Preguntas de entrevista</h4>
+        <div class="interview">
+          <p><strong>P:</strong> ¿Tres diferencias clave entre Promise y Observable?<br>
+          <strong>R:</strong> Lazy vs eager, múltiples valores en el tiempo vs uno solo, y cancelable con <code>unsubscribe()</code> vs no cancelable.</p>
+          <p><strong>P:</strong> ¿Cómo cancelas una petición HTTP en Angular?<br>
+          <strong>R:</strong> <code>HttpClient</code> devuelve Observables: al desuscribirse (manual, vía <code>switchMap</code>, o al destruirse un <code>async</code> pipe) la petición XHR se aborta de verdad.</p>
+        </div>
         <div class="code-ref">
           📂 <code>features/rxjs-lab/observable-types.ts</code> — Demostración interactiva de Observable, Subject, BehaviorSubject
+        </div>
+      </div>
+
+      <div class="card" id="marble-diagrams">
+        <h3>📈 Marble Diagrams</h3>
+        <p>
+          Los marble diagrams son la <strong>notación estándar</strong> para describir streams en el tiempo.
+          Dominarlos permite leer la documentación oficial, razonar sobre operadores y comunicar comportamiento
+          asíncrono en entrevistas y code reviews.
+        </p>
+        <pre><code class="language-text">Leyenda:
+  --a--b--c--&gt;   el tiempo avanza a la derecha; a, b, c son emisiones (next)
+  |              complete — el stream terminó con éxito
+  #              error — el stream terminó con fallo
+  (ab|)          emisiones síncronas agrupadas: emite a, b y completa a la vez
+
+Ejemplo — map(x =&gt; x * 10):
+  Source:  --1----2----3--|
+  Output:  -10---20---30--|
+
+Ejemplo — debounceTime(30):
+  Source:  --a-b-c------d----|
+  Output:  ---------c------d-|</code></pre>
+        <p>Esta notación es <strong>ejecutable</strong> en tests con <code>TestScheduler</code> (marble testing), con tiempo virtual:</p>
+        <pre><code class="language-typescript">import &#123; TestScheduler &#125; from 'rxjs/testing';
+
+const scheduler = new TestScheduler((actual, expected) =&gt; &#123;
+  expect(actual).toEqual(expected);
+&#125;);
+
+scheduler.run((&#123; cold, expectObservable &#125;) =&gt; &#123;
+  const source$ = cold('--a--b--c--|', &#123; a: 1, b: 2, c: 3 &#125;);
+  const result$ = source$.pipe(map(x =&gt; x * 10));
+  expectObservable(result$).toBe('--x--y--z--|', &#123; x: 10, y: 20, z: 30 &#125;);
+&#125;);</code></pre>
+        <h4>⚠️ Errores comunes</h4>
+        <ul class="pitfalls">
+          <li>Confundir <code>|</code> (complete) con <code>#</code> (error): <code>catchError</code> solo reacciona ante <code>#</code>, no ante un complete "vacío".</li>
+          <li>Olvidar que en marble testing el tiempo es <strong>virtual</strong>: <code>debounceTime(300)</code> se simula instantáneamente, no espera 300 ms reales.</li>
+        </ul>
+        <h4>🎤 Preguntas de entrevista</h4>
+        <div class="interview">
+          <p><strong>P:</strong> ¿Qué significa <code>--a--(bc)--|</code>?<br>
+          <strong>R:</strong> Emite <code>a</code>, luego <code>b</code> y <code>c</code> en el mismo instante, y después completa.</p>
+          <p><strong>P:</strong> ¿Por qué marble testing y no <code>setTimeout</code> en los tests?<br>
+          <strong>R:</strong> TestScheduler usa tiempo virtual: tests deterministas e instantáneos, sin flakiness ni esperas reales.</p>
+        </div>
+      </div>
+
+      <div class="card" id="cold-vs-hot-observables">
+        <h3>🌡️ Cold vs Hot Observables</h3>
+        <p>
+          Un Observable <strong>cold</strong> crea su productor de datos <em>dentro</em> de cada suscripción:
+          cada <code>subscribe()</code> arranca una ejecución nueva e independiente (<strong>unicast</strong>).
+          Un Observable <strong>hot</strong> comparte un productor que vive <em>fuera</em>: los suscriptores se
+          conectan a una emisión en curso y se pierden lo anterior (<strong>multicast</strong>).
+        </p>
+        <table class="compare-table">
+          <thead>
+            <tr>
+              <th>Aspecto</th>
+              <th>Cold ❄️</th>
+              <th>Hot 🔥</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Productor</td>
+              <td>Se crea al suscribirse</td>
+              <td>Existe independientemente</td>
+            </tr>
+            <tr>
+              <td>Suscriptores</td>
+              <td>Cada uno su propia ejecución (unicast)</td>
+              <td>Comparten las emisiones (multicast)</td>
+            </tr>
+            <tr>
+              <td>Late subscriber</td>
+              <td>Recibe todo desde el inicio</td>
+              <td>Se pierde lo ya emitido</td>
+            </tr>
+            <tr>
+              <td>Ejemplos</td>
+              <td><code>HttpClient</code>, <code>of</code>, <code>timer</code>, <code>interval</code></td>
+              <td><code>Subject</code>, <code>fromEvent</code>, WebSocket, router events</td>
+            </tr>
+          </tbody>
+        </table>
+        <pre><code class="language-typescript">// COLD: cada suscripción genera SU PROPIO valor
+const cold$ = new Observable&lt;number&gt;(sub =&gt; sub.next(Math.random()));
+cold$.subscribe(v =&gt; console.log('A:', v)); // A: 0.183
+cold$.subscribe(v =&gt; console.log('B:', v)); // B: 0.771 (¡distinto!)
+
+// HOT: el productor está fuera; todos ven lo mismo
+const subject$ = new Subject&lt;number&gt;();
+subject$.subscribe(v =&gt; console.log('A:', v));
+subject$.subscribe(v =&gt; console.log('B:', v));
+subject$.next(Math.random()); // A y B reciben el MISMO valor
+
+// Cold → Hot: multicasting
+const shared$ = this.http.get&lt;Data&gt;('/api/data').pipe(shareReplay(1));</code></pre>
+        <h4>⚠️ Errores comunes</h4>
+        <ul class="pitfalls">
+          <li>Suscribirse dos veces al mismo <code>HttpClient.get()</code> (p. ej. un <code>tap</code> de logging y un <code>async</code> pipe) → 2 peticiones HTTP reales.</li>
+          <li>Suscribirse tarde a un hot Observable esperando recibir el "estado actual" — para eso existe <code>BehaviorSubject</code> o <code>shareReplay(1)</code>.</li>
+          <li>Creer que un <code>Subject</code> guarda valores: sin replay, todo lo emitido antes de suscribirse se pierde.</li>
+        </ul>
+        <h4>🎤 Preguntas de entrevista</h4>
+        <div class="interview">
+          <p><strong>P:</strong> ¿<code>HttpClient</code> devuelve un Observable cold o hot?<br>
+          <strong>R:</strong> Cold: cada suscripción dispara una petición nueva; por eso se cachea con <code>shareReplay</code>.</p>
+          <p><strong>P:</strong> ¿Cómo conviertes un cold Observable en hot?<br>
+          <strong>R:</strong> Con multicasting: <code>share()</code>, <code>shareReplay()</code> o canalizándolo por un <code>Subject</code>.</p>
+        </div>
+        <div class="code-ref">
+          📂 <code>features/rxjs-lab/observable-types.ts</code> — Subjects (hot) con suscriptores tardíos en vivo
         </div>
       </div>
 
@@ -108,6 +249,48 @@ messages$.next('msg4');
 
 // Late subscriber recibe: msg2, msg3, msg4
 messages$.subscribe(m => console.log(m));</code></pre>
+
+        <h4>Caso real: servicio de autenticación con BehaviorSubject</h4>
+        <pre><code class="language-typescript">&#64;Injectable(&#123; providedIn: 'root' &#125;)
+export class AuthService &#123;
+  // Estado privado mutable, API pública de SOLO lectura
+  private readonly userSubject = new BehaviorSubject&lt;User | null&gt;(null);
+  readonly user$ = this.userSubject.asObservable();
+  readonly isLoggedIn$ = this.user$.pipe(map(u =&gt; u !== null));
+
+  login(credentials: Credentials) &#123;
+    return this.http.post&lt;User&gt;('/api/login', credentials).pipe(
+      tap(user =&gt; this.userSubject.next(user))
+    );
+  &#125;
+
+  logout() &#123;
+    this.userSubject.next(null);
+  &#125;
+&#125;</code></pre>
+        <h4>Casos de uso reales por tipo</h4>
+        <ul>
+          <li><strong>Subject</strong> — event bus entre componentes hermanos, notificaciones toast, envío de mensajes por WebSocket.</li>
+          <li><strong>BehaviorSubject</strong> — estado con "valor actual": usuario logueado, tema, filtros de tabla, carrito. Es la base de los <em>state services</em> y permite lectura síncrona con <code>.value</code>.</li>
+          <li><strong>ReplaySubject(n)</strong> — historial: últimos N mensajes de chat, últimos eventos de navegación para un "volver atrás" inteligente.</li>
+          <li><strong>AsyncSubject</strong> — solo el resultado final de un proceso largo; raro en la práctica (una petición de <code>HttpClient</code> ya se comporta parecido).</li>
+        </ul>
+        <h4>⚠️ Errores comunes</h4>
+        <ul class="pitfalls">
+          <li>Exponer el <code>Subject</code> directamente: cualquier consumidor puede hacer <code>next()</code>. Expón <code>asObservable()</code> y métodos de mutación controlados.</li>
+          <li>Abusar de <code>.value</code> del <code>BehaviorSubject</code> en vez de componer streams — rompe la reactividad y esconde dependencias.</li>
+          <li>Olvidar que un Subject tras <code>complete()</code> o <code>error()</code> queda <strong>muerto</strong>: nunca vuelve a emitir, aunque llames <code>next()</code>.</li>
+          <li>Crear un Subject donde bastaba un Observable derivado (<code>map</code>, <code>combineLatest</code>) — estado duplicado que acaba desincronizado.</li>
+        </ul>
+        <h4>🎤 Preguntas de entrevista</h4>
+        <div class="interview">
+          <p><strong>P:</strong> ¿Diferencia entre Subject y BehaviorSubject?<br>
+          <strong>R:</strong> BehaviorSubject exige valor inicial, recuerda el último valor y lo entrega de inmediato a nuevos suscriptores; Subject no recuerda nada.</p>
+          <p><strong>P:</strong> ¿<code>ReplaySubject(1)</code> es lo mismo que <code>BehaviorSubject</code>?<br>
+          <strong>R:</strong> Parecido, pero no: ReplaySubject no requiere valor inicial, no expone <code>.value</code> síncrono y sigue re-emitiendo su buffer incluso después de <code>complete()</code>.</p>
+          <p><strong>P:</strong> ¿En qué sentido un Subject es a la vez Observable y Observer?<br>
+          <strong>R:</strong> Implementa ambas interfaces: puedes suscribirte a él (Observable) y puedes empujarle valores con <code>next/error/complete</code> (Observer), lo que lo hace ideal como puente multicast.</p>
+        </div>
         <div class="code-ref">
           📂 <code>features/rxjs-lab/observable-types.ts</code> — Subject, BehaviorSubject, ReplaySubject, AsyncSubject en acción
         </div>
@@ -158,6 +341,28 @@ searchInput$.pipe(
 loginClick$.pipe(
   exhaustMap(() => this.auth.login(credentials))
 ).subscribe(user => this.router.navigate(['/home']));</code></pre>
+
+        <h4>🧠 Regla mental para elegir</h4>
+        <ul>
+          <li><strong>switchMap</strong> → "solo me importa lo último": búsquedas, autocomplete, parámetros de ruta. <em>Ideal para lecturas.</em></li>
+          <li><strong>concatMap</strong> → "el orden importa": guardar cambios, colas de escritura. <em>Ideal para escrituras secuenciales.</em></li>
+          <li><strong>mergeMap</strong> → "todo en paralelo, el orden no importa": subir varios archivos, borrados en lote.</li>
+          <li><strong>exhaustMap</strong> → "ignora hasta que termine lo actual": login, submit — evita el doble envío.</li>
+        </ul>
+        <h4>⚠️ Errores comunes</h4>
+        <ul class="pitfalls">
+          <li>Usar <code>switchMap</code> para escrituras (POST/PUT/DELETE): si llega otro valor, la petición en vuelo se cancela en el cliente pero <strong>puede haber llegado al servidor</strong> — estado inconsistente. Usa <code>concatMap</code> o <code>exhaustMap</code>.</li>
+          <li><code>mergeMap</code> sin límite de concurrencia sobre listas grandes → cientos de peticiones simultáneas. Usa el segundo argumento: <code>mergeMap(fn, 4)</code>.</li>
+          <li><code>concatMap</code> con un inner que nunca completa (p. ej. un Subject) → la cola se congela para siempre.</li>
+          <li>Anidar <code>subscribe()</code> dentro de <code>subscribe()</code> en vez de aplanar — pierdes cancelación, composición y control de errores.</li>
+        </ul>
+        <h4>🎤 Preguntas de entrevista</h4>
+        <div class="interview">
+          <p><strong>P:</strong> ¿Qué operador usarías en un typeahead y por qué?<br>
+          <strong>R:</strong> <code>switchMap</code>: cancela la petición anterior y evita la race condition en la que una respuesta lenta y obsoleta pisa a la más reciente.</p>
+          <p><strong>P:</strong> ¿Diferencia entre <code>exhaustMap</code> y <code>throttleTime</code> para evitar doble click?<br>
+          <strong>R:</strong> <code>throttleTime</code> ignora por un tiempo fijo; <code>exhaustMap</code> ignora mientras la operación interna siga activa — se adapta a la duración real del trabajo.</p>
+        </div>
         <div class="code-ref">
           📂 Implementación en el proyecto:
           <ul>
@@ -226,6 +431,23 @@ destroyRef.onDestroy(() => sub.unsubscribe());
 // 4. toSignal() — Angular signals, se limpia solo
 const count = toSignal(interval(1000), {{ '{' }} initialValue: 0 {{ '}' }});</code></pre>
         <p><strong>Regla:</strong> Si no usas <code>async</code> pipe, <code>toSignal()</code>, o <code>takeUntilDestroyed()</code>, necesitas cancelar manualmente.</p>
+        <h4>⚠️ Errores comunes</h4>
+        <ul class="pitfalls">
+          <li>Creer que <code>HttpClient</code> "no necesita cleanup": completa solo, sí, pero si el componente se destruye antes de la respuesta el callback aún se ejecuta sobre un componente muerto.</li>
+          <li>Llamar <code>takeUntilDestroyed()</code> sin argumento fuera del injection context (dentro de <code>ngOnInit</code> o de un handler) → error en runtime. Pásale un <code>DestroyRef</code> inyectado.</li>
+          <li>Con el patrón clásico: olvidar el <code>destroy$.next()</code> en <code>ngOnDestroy</code>, o poner <code>takeUntil</code> antes del último operador del pipe.</li>
+          <li><code>fromEvent(window, 'scroll')</code> sin cleanup: el listener retiene el componente entero en su closure — uno de los leaks más grandes y silenciosos.</li>
+          <li>Guardar suscripciones en variables sueltas "para luego" y nunca llamar <code>unsubscribe()</code>; si lo haces manual, usa un <code>Subscription</code> contenedor con <code>.add()</code>.</li>
+        </ul>
+        <h4>🎤 Preguntas de entrevista</h4>
+        <div class="interview">
+          <p><strong>P:</strong> ¿Qué suscripciones necesitan unsubscribe manual?<br>
+          <strong>R:</strong> Las de fuentes que no completan (interval, fromEvent, Subjects, store) suscritas en TypeScript sin <code>async</code> pipe, <code>toSignal</code> ni <code>takeUntilDestroyed</code>.</p>
+          <p><strong>P:</strong> ¿Cómo detectarías un memory leak de RxJS en producción?<br>
+          <strong>R:</strong> Síntomas: logs o peticiones que continúan tras destruir el componente, memoria creciente al navegar ida y vuelta. Diagnóstico: heap snapshots en DevTools buscando componentes retenidos por closures de suscripciones.</p>
+          <p><strong>P:</strong> ¿Ventaja de <code>takeUntilDestroyed</code> sobre el patrón <code>destroy$</code>?<br>
+          <strong>R:</strong> Elimina el boilerplate (Subject + ngOnDestroy) y los olvidos: se engancha a <code>DestroyRef</code>, así el cleanup queda garantizado por el framework.</p>
+        </div>
         <div class="code-ref">
           📂 <code>features/rxjs-lab/memory-leaks.ts</code> — Demostración de leak + 3 patrones de solución (takeUntil, DestroyRef, async pipe)
         </div>
@@ -406,6 +628,17 @@ newItem$.pipe(
   scan((items, item) =&gt; [...items, item], [] as Item[])
 ).subscribe(allItems =&gt; this.items = allItems);</code></pre>
 
+        <h4>scan vs reduce</h4>
+        <p>
+          <code>reduce</code> acumula igual que <code>scan</code>, pero <strong>solo emite el resultado final cuando la
+          fuente completa</strong>. Con streams infinitos (clicks, WebSocket, Subjects) <code>reduce</code> no emite jamás — usa <code>scan</code>.
+        </p>
+        <pre><code class="language-typescript">of(1, 2, 3, 4).pipe(scan((acc, n) =&gt; acc + n, 0));
+// Emite: 1, 3, 6, 10 (cada paso intermedio)
+
+of(1, 2, 3, 4).pipe(reduce((acc, n) =&gt; acc + n, 0));
+// Emite: 10 (solo al completar la fuente)</code></pre>
+
         <h4>7. Tabla de decisión: ¿Cuál usar?</h4>
         <table class="compare-table">
           <thead>
@@ -443,6 +676,22 @@ newItem$.pipe(
             </tr>
           </tbody>
         </table>
+        <h4>⚠️ Errores comunes</h4>
+        <ul class="pitfalls">
+          <li>Devolver un valor plano dentro de <code>switchMap</code> — el callback debe retornar un <code>Observable</code>, <code>Promise</code> o iterable.</li>
+          <li>Poner <code>catchError</code> fuera del inner Observable: el primer error mata el stream principal y, p. ej., el typeahead deja de responder para siempre.</li>
+          <li>Mutar el acumulador en <code>scan</code> — retorna siempre un objeto/array nuevo para no romper <code>distinctUntilChanged</code> ni change detection OnPush.</li>
+          <li>Usar <code>reduce</code> sobre un stream que nunca completa: no verás ninguna emisión.</li>
+        </ul>
+        <h4>🎤 Preguntas de entrevista</h4>
+        <div class="interview">
+          <p><strong>P:</strong> ¿Diferencia entre <code>map</code> y <code>switchMap</code>?<br>
+          <strong>R:</strong> <code>map</code> transforma cada valor 1:1 de forma síncrona; <code>switchMap</code> proyecta cada valor a un Observable interno, se suscribe a él y cancela el anterior.</p>
+          <p><strong>P:</strong> ¿Qué pasa si usas <code>mergeMap</code> en un buscador?<br>
+          <strong>R:</strong> Las respuestas pueden llegar desordenadas y una búsqueda vieja puede sobrescribir a la última — la race condition clásica que <code>switchMap</code> evita cancelando.</p>
+          <p><strong>P:</strong> ¿Cómo implementarías un contador de "no leídos" con RxJS?<br>
+          <strong>R:</strong> <code>notifications$.pipe(scan(acc =&gt; acc + 1, 0))</code>, reseteando con un <code>merge</code> de eventos de lectura que emitan un valor de reset.</p>
+        </div>
         <div class="code-ref">
           📂 Implementación en el proyecto:
           <ul>
@@ -557,6 +806,24 @@ users$.pipe(
 formValue$.pipe(
   skip(1)  // ignora el valor inicial del formulario
 ).subscribe(val =&gt; this.markDirty());</code></pre>
+
+        <h4>⚠️ Errores comunes</h4>
+        <ul class="pitfalls">
+          <li>Poner <code>debounceTime</code> DESPUÉS de <code>switchMap</code>: debe ir antes para frenar las peticiones, no para retrasar las respuestas.</li>
+          <li><code>distinctUntilChanged()</code> con objetos compara por <strong>referencia</strong> — pasa un comparador custom o compara claves primitivas.</li>
+          <li><code>first()</code> sobre un stream que completa sin emitir lanza <code>EmptyError</code>; usa <code>take(1)</code> si el silencio es un caso válido.</li>
+          <li>Colocar <code>takeUntil(destroy$)</code> antes de un <code>switchMap</code> o <code>shareReplay</code>: la suscripción interna puede sobrevivir. Regla: <strong><code>takeUntil</code> siempre al final del pipe</strong>.</li>
+          <li>Usar <code>debounceTime</code> donde tocaba <code>throttleTime</code> en scroll: con eventos continuos, debounce no emite nada hasta que el usuario para.</li>
+        </ul>
+        <h4>🎤 Preguntas de entrevista</h4>
+        <div class="interview">
+          <p><strong>P:</strong> ¿<code>debounceTime</code> vs <code>throttleTime</code>?<br>
+          <strong>R:</strong> Debounce espera X ms de silencio y emite el último valor (inputs de búsqueda); throttle emite el primero y bloquea durante X ms (scroll, resize, clicks repetidos).</p>
+          <p><strong>P:</strong> ¿Por qué <code>takeUntil</code> debe ir al final del pipe?<br>
+          <strong>R:</strong> Los operadores posteriores crean nuevas suscripciones internas que el notifier ya no corta; ponerlo al final garantiza que toda la cadena se cierre.</p>
+          <p><strong>P:</strong> ¿<code>take(1)</code> vs <code>first()</code>?<br>
+          <strong>R:</strong> Ambos completan tras el primer valor, pero <code>first()</code> lanza <code>EmptyError</code> si la fuente completa sin emitir (y acepta predicado); <code>take(1)</code> completa en silencio.</p>
+        </div>
         <div class="code-ref">
           📂 Implementación en el proyecto:
           <ul>
@@ -639,6 +906,21 @@ zip(nombres$, apellidos$).pipe(
 // race — el primero en emitir gana, los otros se cancelan
 race(httpResponse$, timeout$).subscribe(result =&gt; handle(result));</code></pre>
 
+        <h4>5. startWith — Valor inicial inmediato</h4>
+        <p>
+          Emite un valor síncrono antes que los de la fuente. Imprescindible con <code>combineLatest</code>
+          (que exige que todas las fuentes hayan emitido) y para pintar estado inicial en el template sin esperar al primer evento.
+        </p>
+        <pre><code class="language-typescript">// Sin startWith, combineLatest no arranca hasta que
+// el usuario toque TODOS los filtros:
+combineLatest([
+  this.search$.pipe(startWith('')),
+  this.category$.pipe(startWith('all')),
+  this.sort$.pipe(startWith('name'))
+]).pipe(
+  switchMap(([term, cat, sort]) =&gt; this.api.getProducts(term, cat, sort))
+).subscribe(products =&gt; this.products = products);</code></pre>
+
         <h4>Tabla de decisión: ¿Cuál combinador usar?</h4>
         <table class="compare-table">
           <thead>
@@ -684,10 +966,138 @@ race(httpResponse$, timeout$).subscribe(result =&gt; handle(result));</code></pr
               <td><code>race</code></td>
               <td>Cancela los demás</td>
             </tr>
+            <tr>
+              <td>Valor inicial antes de la fuente</td>
+              <td><code>startWith</code></td>
+              <td>Emisión síncrona inmediata</td>
+            </tr>
           </tbody>
         </table>
+        <h4>⚠️ Errores comunes</h4>
+        <ul class="pitfalls">
+          <li><code>combineLatest</code> no emite hasta que TODAS las fuentes hayan emitido — añade <code>startWith</code> a las opcionales.</li>
+          <li><code>forkJoin</code> con fuentes que no completan (Subjects, selectores de store) → nunca emite. Aplica <code>take(1)</code> a cada una.</li>
+          <li>En <code>forkJoin</code>, si UNA fuente falla, todo el conjunto falla y pierdes las demás respuestas — captura por fuente: <code>catchError(() =&gt; of(null))</code>.</li>
+          <li>"Glitches" de <code>combineLatest</code>: si dos fuentes derivan del mismo origen, emite estados intermedios inconsistentes. Mitiga con <code>debounceTime(0)</code>.</li>
+          <li>Confundir <code>zip</code> con <code>combineLatest</code>: zip empareja estrictamente 1:1 y bufferiza — puede acumular memoria si una fuente emite mucho más rápido que la otra.</li>
+        </ul>
+        <h4>🎤 Preguntas de entrevista</h4>
+        <div class="interview">
+          <p><strong>P:</strong> ¿<code>combineLatest</code> vs <code>withLatestFrom</code>?<br>
+          <strong>R:</strong> En combineLatest cualquier fuente dispara una emisión; en withLatestFrom solo el source dispara y las demás aportan su último valor de forma pasiva.</p>
+          <p><strong>P:</strong> ¿Equivalentes RxJS de <code>Promise.all</code> y <code>Promise.race</code>?<br>
+          <strong>R:</strong> <code>forkJoin</code> y <code>race</code>. Y <code>combineLatest</code> no tiene equivalente en Promises: reacciona en el tiempo.</p>
+          <p><strong>P:</strong> ¿Por qué tu <code>forkJoin</code> "no emite nada"?<br>
+          <strong>R:</strong> Alguna fuente no completa (típicamente un Subject o un selector de store). forkJoin solo emite cuando todas completan.</p>
+        </div>
         <div class="code-ref">
           📂 <code>features/rxjs-lab/combining-operators.ts</code> — combineLatest, forkJoin, withLatestFrom, merge en acción
+        </div>
+      </div>
+
+      <div class="card" id="manejo-de-errores">
+        <h3>🛡️ Manejo de Errores</h3>
+        <p>
+          En RxJS un error es <strong>terminal</strong>: cierra la suscripción y ningún operador vuelve a ejecutarse
+          en ese stream. Por eso el manejo de errores no es un detalle estético — decide si tu stream sobrevive al primer fallo.
+        </p>
+
+        <h4>1. catchError — capturar y reemplazar</h4>
+        <p>Intercepta el error y debe retornar un <strong>Observable de reemplazo</strong> (o relanzar):</p>
+        <pre><code class="language-typescript">this.http.get&lt;Product[]&gt;('/api/products').pipe(
+  catchError(err =&gt; &#123;
+    if (err.status === 404) return of([]);   // valor por defecto
+    if (err.status === 401) return EMPTY;    // completar sin emitir
+    return throwError(() =&gt; err);            // relanzar hacia arriba
+  &#125;)
+)</code></pre>
+
+        <h4>2. EMPTY vs throwError vs of(fallback)</h4>
+        <table class="compare-table">
+          <thead>
+            <tr>
+              <th>Estrategia</th>
+              <th>Efecto</th>
+              <th>Cuándo</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>of(fallback)</code></td>
+              <td>Emite un valor por defecto y completa</td>
+              <td>La UI debe seguir funcionando (lista vacía, cache)</td>
+            </tr>
+            <tr>
+              <td><code>EMPTY</code></td>
+              <td>Completa sin emitir nada</td>
+              <td>Silenciar el error: no hay nada que mostrar</td>
+            </tr>
+            <tr>
+              <td><code>throwError(() =&gt; err)</code></td>
+              <td>Propaga el error aguas arriba</td>
+              <td>Que lo maneje un interceptor, un effect o un handler global</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h4>3. ¿DÓNDE poner catchError? — La pregunta clave</h4>
+        <pre><code class="language-typescript">// ❌ FUERA del switchMap: el primer error "completa" el stream
+// externo y el buscador deja de responder PARA SIEMPRE
+input$.pipe(
+  switchMap(term =&gt; this.api.search(term)),
+  catchError(() =&gt; of([]))
+)
+
+// ✅ DENTRO del switchMap: solo se reemplaza el inner fallido;
+// el stream externo sigue vivo para la siguiente búsqueda
+input$.pipe(
+  switchMap(term =&gt; this.api.search(term).pipe(
+    catchError(() =&gt; of([]))
+  ))
+)</code></pre>
+
+        <h4>4. retry con delay — backoff exponencial (RxJS 7.4+)</h4>
+        <p>La API moderna de <code>retry</code> con objeto de configuración reemplaza al deprecado <code>retryWhen</code>:</p>
+        <pre><code class="language-typescript">this.http.get&lt;Data&gt;('/api/data').pipe(
+  retry(&#123;
+    count: 3,
+    delay: (error, retryCount) =&gt; &#123;
+      // No reintentar errores de cliente (4xx)
+      if (error.status &gt;= 400 &amp;&amp; error.status &lt; 500) &#123;
+        return throwError(() =&gt; error);
+      &#125;
+      return timer(Math.pow(2, retryCount) * 1000); // 2s, 4s, 8s
+    &#125;
+  &#125;),
+  catchError(() =&gt; of(fallbackData))
+)</code></pre>
+
+        <h4>5. finalize — cleanup garantizado</h4>
+        <p>Se ejecuta al terminar el stream por <strong>cualquier</strong> vía: complete, error o unsubscribe. Es el <code>finally</code> de RxJS:</p>
+        <pre><code class="language-typescript">this.loading.set(true);
+this.api.load().pipe(
+  finalize(() =&gt; this.loading.set(false))  // spinner SIEMPRE se apaga
+).subscribe(data =&gt; this.data.set(data));</code></pre>
+
+        <h4>⚠️ Errores comunes</h4>
+        <ul class="pitfalls">
+          <li><code>catchError</code> fuera del flattening operator en streams de larga vida — el stream muere al primer fallo (ver punto 3).</li>
+          <li>Olvidar que <code>catchError</code> debe RETORNAR un Observable: retornar <code>undefined</code> produce un segundo error.</li>
+          <li><code>retry</code> sin filtrar el tipo de error: reintentar un 401 tres veces solo bloquea la cuenta más rápido.</li>
+          <li>Usar <code>retryWhen</code> en código nuevo — está deprecado; usa <code>retry(&#123; count, delay &#125;)</code>.</li>
+          <li>Apagar spinners en el <code>next</code> en vez de en <code>finalize</code>: si hay error, el spinner se queda girando.</li>
+        </ul>
+        <h4>🎤 Preguntas de entrevista</h4>
+        <div class="interview">
+          <p><strong>P:</strong> ¿Qué le pasa a un Observable después de emitir un error?<br>
+          <strong>R:</strong> Termina definitivamente: no habrá más next ni complete y la suscripción se cierra. Por eso los streams de UI deben aislar errores en el inner Observable.</p>
+          <p><strong>P:</strong> ¿<code>EMPTY</code> vs <code>NEVER</code> vs <code>throwError</code>?<br>
+          <strong>R:</strong> EMPTY completa de inmediato sin emitir; NEVER no emite ni completa jamás; throwError emite un error inmediatamente.</p>
+          <p><strong>P:</strong> ¿Por qué en un typeahead el <code>catchError</code> va dentro del <code>switchMap</code>?<br>
+          <strong>R:</strong> Para que el fallo de UNA petición no complete el stream externo del input: solo se sustituye el inner fallido y el buscador sigue funcionando.</p>
+        </div>
+        <div class="code-ref">
+          📂 <code>features/rxjs-lab/search-typeahead.ts</code> — catchError dentro de switchMap en una búsqueda real
         </div>
       </div>
 
@@ -756,6 +1166,23 @@ products$ = this.refresh$.pipe(
 invalidateCache() {{ '{' }}
   this.refresh$.next();  // trigger nueva petición HTTP
 {{ '}' }}</code></pre>
+
+        <h4>⚠️ Errores comunes</h4>
+        <ul class="pitfalls">
+          <li><code>shareReplay(1)</code> a secas equivale a <code>refCount: false</code>: sobre fuentes infinitas mantiene la suscripción viva para siempre → memory leak. Prefiere <code>shareReplay(&#123; bufferSize: 1, refCount: true &#125;)</code>.</li>
+          <li><code>shareReplay</code> cachea también el ERROR: los nuevos suscriptores reciben el error cacheado y nunca se reintenta. Maneja el error antes o re-crea el stream al invalidar.</li>
+          <li>Poner <code>shareReplay</code> en medio del pipe, antes de operadores por-suscriptor (<code>takeUntil</code>, <code>map</code> con estado): comparte lo que no debía compartirse. En servicios va al <strong>final</strong> del pipe.</li>
+          <li>Asumir que el <code>async</code> pipe evita peticiones duplicadas: cada <code>| async</code> es una suscripción independiente; sin multicasting, cada una dispara su HTTP.</li>
+        </ul>
+        <h4>🎤 Preguntas de entrevista</h4>
+        <div class="interview">
+          <p><strong>P:</strong> ¿<code>share</code> vs <code>shareReplay</code>?<br>
+          <strong>R:</strong> Ambos multicastan una fuente; shareReplay además re-emite los últimos N valores a suscriptores tardíos. Con share, quien llega tarde no recibe nada hasta la siguiente emisión.</p>
+          <p><strong>P:</strong> Tienes 3 <code>async</code> pipes sobre el mismo <code>products$</code> y ves 3 peticiones HTTP. ¿Solución?<br>
+          <strong>R:</strong> <code>shareReplay(&#123; bufferSize: 1, refCount: true &#125;)</code> en el servicio, o un único <code>&#64;if (products$ | async; as products)</code> en el template.</p>
+          <p><strong>P:</strong> ¿Qué hace exactamente <code>refCount: true</code>?<br>
+          <strong>R:</strong> Cuenta suscriptores activos: al llegar el primero conecta con la fuente y al irse el último se desuscribe de ella, evitando que quede viva sin consumidores.</p>
+        </div>
         <div class="code-ref">
           📂 Implementación en el proyecto:
           <ul>
@@ -862,6 +1289,19 @@ const data$ = this.trigger$.pipe(
             </tr>
           </tbody>
         </table>
+        <h4>⚠️ Errores comunes</h4>
+        <ul class="pitfalls">
+          <li>Polling con <code>interval</code> + <code>mergeMap</code>: si el servidor va lento, las peticiones se apilan. Usa <code>timer(0, n)</code> + <code>switchMap</code> (o <code>exhaustMap</code> si prefieres no cancelar).</li>
+          <li>Implementar el loading state con dos Subjects sueltos (<code>loading$</code>, <code>error$</code>) que se desincronizan — modela el estado como UN solo stream (patrón 4).</li>
+          <li>Reintentar con <code>retry</code> plano dentro de un polling: multiplica peticiones a un backend caído; combina backoff + límite.</li>
+        </ul>
+        <h4>🎤 Preguntas de entrevista</h4>
+        <div class="interview">
+          <p><strong>P:</strong> El usuario navega rápido entre /user/1 → /user/2 → /user/3 y a veces ve datos del usuario equivocado. ¿Causa y solución?<br>
+          <strong>R:</strong> Race condition: suscripciones anidadas o mergeMap dejan llegar respuestas viejas. Solución: <code>route.params</code> + <code>switchMap</code>, que cancela la petición anterior.</p>
+          <p><strong>P:</strong> ¿Cómo harías polling cada 5s que se pause al destruir el componente?<br>
+          <strong>R:</strong> <code>timer(0, 5000).pipe(switchMap(() =&gt; api.status()), takeUntilDestroyed())</code>, con <code>share()</code> si hay varios consumidores.</p>
+        </div>
         <div class="code-ref">
           📂 Implementación en el proyecto:
           <ul>

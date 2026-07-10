@@ -15,7 +15,7 @@ test.describe('Dashboard', () => {
   });
 
   test('[@smoke] should display topic cards for each study topic', async ({ dashboardPage }) => {
-    await expect(dashboardPage.topicCards).toHaveCount(10);
+    await expect(dashboardPage.topicCards).toHaveCount(11);
     await expect(dashboardPage.topicCards.first()).toBeVisible();
   });
 
@@ -30,6 +30,7 @@ test.describe('Dashboard', () => {
       'Testing',
       'Playwright E2E Testing',
       'Angular Fundamentals',
+      'Microfrontends',
       'Behavioral & System Design'
     ];
 

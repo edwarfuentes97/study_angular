@@ -1,0 +1,168 @@
+<div class="cards">
+
+  <!-- 1. Native Federation: remote -->
+  <div class="card" id="ejemplo-native-federation-remote">
+    <h3>💡 1 · Native Federation — configurar un remote (Angular 17+)</h3>
+    <p>
+      El remote expone rutas o componentes para que el shell los cargue en runtime.
+      Instalación: <code>ng add &#64;angular-architects/native-federation --type remote --port 4201</code>
+    </p>
+    <h4>federation.config.js (remote "catalogo")</h4>
+    <pre ngNonBindable><code>const &#123; withNativeFederation, shareAll &#125; = require('&#64;angular-architects/native-federation/config');
+
+module.exports = withNativeFederation(&#123;
+  name: 'catalogo',
+
+  exposes: &#123;
+    // clave pública → archivo interno que se expone
+    './routes': './src/app/catalogo/catalogo.routes.ts',
+  &#125;,
+
+  shared: &#123;
+    // comparte todas las deps con singleton para evitar
+    // dos instancias de Angular/RxJS en memoria
+    ...shareAll(&#123; singleton: true, strictVersion: true, requiredVersion: 'auto' &#125;),
+  &#125;,
+
+  skip: [
+    'rxjs/ajax', 'rxjs/fetch', 'rxjs/testing', 'rxjs/webSocket', // no usados
+  ],
+&#125;);</code></pre>
+    <div class="note">
+      <code>strictVersion: true</code> falla rápido y explícito si el shell y el remote piden
+      versiones incompatibles de una dependencia singleton — mejor un error claro al cargar que
+      un bug silencioso en runtime.
+    </div>
+  </div>
+
+  <!-- 2. Native Federation: shell -->
+  <div class="card" id="ejemplo-native-federation-shell">
+    <h3>💡 2 · Native Federation — el shell carga el remote</h3>
+    <h4>main.ts del shell — inicializar la federación ANTES de arrancar Angular</h4>
+    <pre ngNonBindable><code>import &#123; initFederation &#125; from '&#64;angular-architects/native-federation';
+
+// el manifest se resuelve por entorno (dev/staging/prod)
+initFederation('/assets/federation.manifest.json')
+  .catch(err =&gt; console.error(err))
+  .then(() =&gt; import('./bootstrap'))   // bootstrap.ts hace el bootstrapApplication real
+  .catch(err =&gt; console.error(err));</code></pre>
+    <h4>federation.manifest.json — un JSON por entorno, sin recompilar</h4>
+    <pre ngNonBindable><code>&#123;
+  "catalogo": "http://localhost:4201/remoteEntry.json",
+  "carrito":  "http://localhost:4202/remoteEntry.json"
+&#125;</code></pre>
+    <h4>app.routes.ts del shell — ruta lazy hacia el remote</h4>
+    <pre ngNonBindable><code>import &#123; loadRemoteModule &#125; from '&#64;angular-architects/native-federation';
+
+export const routes: Routes = [
+  &#123;
+    path: 'catalogo',
+    loadChildren: () =&gt;
+      loadRemoteModule('catalogo', './routes').then(m =&gt; m.CATALOGO_ROUTES),
+  &#125;,
+];</code></pre>
+    <div class="note">
+      En producción solo cambias el manifest (por ejemplo con un <code>envsubst</code> en el
+      pipeline): el mismo build del shell apunta a los remotes de cada entorno.
+    </div>
+  </div>
+
+  <!-- 3. Module Federation webpack -->
+  <div class="card" id="ejemplo-module-federation-webpack">
+    <h3>💡 3 · Module Federation clásico (webpack 5)</h3>
+    <p>
+      El equivalente con webpack (proyectos Angular ≤16 o mixtos React/Vue). Mismos conceptos:
+      <code>remotes</code> en el host, <code>exposes</code> en el remote, <code>shared</code> en ambos.
+    </p>
+    <h4>webpack.config.js — HOST</h4>
+    <pre ngNonBindable><code>const &#123; ModuleFederationPlugin &#125; = require('webpack').container;
+
+module.exports = &#123;
+  plugins: [
+    new ModuleFederationPlugin(&#123;
+      name: 'shell',
+      remotes: &#123;
+        // alias → nombreRemote&#64;URL del remoteEntry
+        catalogo: 'catalogo&#64;http://localhost:4201/remoteEntry.js',
+      &#125;,
+      shared: &#123;
+        '&#64;angular/core':   &#123; singleton: true, strictVersion: true &#125;,
+        '&#64;angular/router': &#123; singleton: true, strictVersion: true &#125;,
+        rxjs:              &#123; singleton: true &#125;,
+      &#125;,
+    &#125;),
+  ],
+&#125;;</code></pre>
+    <h4>webpack.config.js — REMOTE</h4>
+    <pre ngNonBindable><code>new ModuleFederationPlugin(&#123;
+  name: 'catalogo',
+  filename: 'remoteEntry.js',
+  exposes: &#123;
+    './Routes': './src/app/catalogo/catalogo.routes.ts',
+  &#125;,
+  shared: &#123; /* misma config de singletons que el host */ &#125;,
+&#125;)</code></pre>
+  </div>
+
+  <!-- 4. Angular Elements -->
+  <div class="card" id="ejemplo-angular-elements">
+    <h3>💡 4 · Angular Elements — MFE como Web Component</h3>
+    <p>
+      Empaquetar un componente como custom element crea una frontera framework-agnóstica:
+      el shell (aunque sea React, Vue o HTML plano) solo conoce la etiqueta.
+    </p>
+    <pre ngNonBindable><code>// main.ts del microfrontend
+import &#123; createApplication &#125; from '&#64;angular/platform-browser';
+import &#123; createCustomElement &#125; from '&#64;angular/elements';
+import &#123; MiniCartComponent &#125; from './app/mini-cart.component';
+
+(async () =&gt; &#123;
+  const app = await createApplication(&#123; providers: [] &#125;);
+  const MiniCartElement = createCustomElement(MiniCartComponent, &#123;
+    injector: app.injector,
+  &#125;);
+  customElements.define('mfe-mini-cart', MiniCartElement);
+&#125;)();</code></pre>
+    <h4>Consumo desde cualquier shell</h4>
+    <pre ngNonBindable><code>&lt;script src="https://cdn.miapp.com/mini-cart/main.js"&gt;&lt;/script&gt;
+
+&lt;mfe-mini-cart user-id="42"&gt;&lt;/mfe-mini-cart&gt;</code></pre>
+    <div class="note">
+      Los <code>&#64;Input()</code> se vuelven atributos/propiedades del elemento y los
+      <code>&#64;Output()</code> se emiten como <code>CustomEvent</code> — ese es el contrato público del MFE.
+    </div>
+  </div>
+
+  <!-- 5. Comunicación entre MFEs -->
+  <div class="card" id="ejemplo-comunicacion-event-bus">
+    <h3>💡 5 · Comunicación desacoplada — CustomEvent como event bus</h3>
+    <p>
+      Los MFEs no deben importarse entre sí ni compartir un Store: se comunican con eventos
+      tipados sobre <code>window</code> (o <code>BroadcastChannel</code> entre pestañas).
+    </p>
+    <pre ngNonBindable><code>// contrato compartido y versionado (npm package ligero o d.ts duplicado)
+export interface CartItemAddedV1 &#123;
+  productId: string;
+  quantity: number;
+&#125;
+
+// MFE Catálogo — publica
+window.dispatchEvent(new CustomEvent&lt;CartItemAddedV1&gt;('cart:item-added:v1', &#123;
+  detail: &#123; productId: 'p-42', quantity: 1 &#125;,
+&#125;));
+
+// MFE Carrito — se suscribe (y limpia al destruirse)
+const handler = (e: Event) =&gt; &#123;
+  const detail = (e as CustomEvent&lt;CartItemAddedV1&gt;).detail;
+  this.cart.add(detail.productId, detail.quantity);
+&#125;;
+window.addEventListener('cart:item-added:v1', handler);
+inject(DestroyRef).onDestroy(() =&gt;
+  window.removeEventListener('cart:item-added:v1', handler));</code></pre>
+    <div class="note">
+      El sufijo <code>:v1</code> en el nombre del evento permite evolucionar el contrato sin
+      romper a los consumidores: publicas <code>:v2</code> y mantienes <code>:v1</code> un tiempo.
+    </div>
+  </div>
+
+</div>

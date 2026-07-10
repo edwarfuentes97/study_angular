@@ -1,0 +1,145 @@
+<div class="cards">
+
+  <!-- Ejercicio 1 -->
+  <div class="card">
+    <h3>1 · Shell + remote con Native Federation</h3>
+    <p>
+      Crea dos apps Angular (<code>shell</code> en el puerto 4200 y <code>catalogo</code> en el 4201)
+      con <code>ng add &#64;angular-architects/native-federation</code>. El remote debe exponer sus
+      rutas y el shell cargarlas de forma lazy en <code>/catalogo</code>.
+    </p>
+    <ul class="criteria">
+      <li>El remote expone './routes' en federation.config.js</li>
+      <li>El shell usa loadRemoteModule() en una ruta lazy</li>
+      <li>Ambas apps arrancan por separado y el shell muestra el catálogo</li>
+    </ul>
+    <div class="tip">Arranca primero el remote: el shell falla al resolver el manifest si el remoteEntry.json no responde</div>
+    <details class="solution">
+      <summary>Ver guía de solución</summary>
+      <ul>
+        <li>Remote: <code>ng add &#64;angular-architects/native-federation --project catalogo --type remote --port 4201</code></li>
+        <li>En federation.config.js del remote: <code ngNonBindable>exposes: &#123; './routes': './src/app/catalogo.routes.ts' &#125;</code></li>
+        <li>Shell: en app.routes.ts, <code ngNonBindable>loadChildren: () =&gt; loadRemoteModule('catalogo', './routes').then(m =&gt; m.CATALOGO_ROUTES)</code></li>
+        <li>Registra el remote en assets/federation.manifest.json del shell</li>
+      </ul>
+    </details>
+  </div>
+
+  <!-- Ejercicio 2 -->
+  <div class="card">
+    <h3>2 · Dependencias compartidas y versiones</h3>
+    <p>
+      Con el setup del ejercicio 1, experimenta con <code>shared</code>: marca Angular y RxJS como
+      singleton, luego provoca un conflicto instalando una versión distinta de una librería en el
+      remote y observa qué pasa con <code>strictVersion: true</code> vs <code>false</code>.
+    </p>
+    <ul class="criteria">
+      <li>&#64;angular/* y rxjs configurados como singleton en ambos lados</li>
+      <li>Reproduces el error de versión incompatible con strictVersion: true</li>
+      <li>Documentas qué estrategia usarías en producción y por qué</li>
+    </ul>
+    <div class="tip">Mira la pestaña Network: con shared bien configurado, Angular se descarga UNA vez aunque cargues varios remotes</div>
+    <details class="solution">
+      <summary>Ver guía de solución</summary>
+      <ul>
+        <li>Con <code>strictVersion: true</code> la carga del remote lanza un error explícito al detectar la versión incompatible</li>
+        <li>Con <code>false</code> puede cargar dos copias (bundle más pesado y bugs sutiles con dos runtimes)</li>
+        <li>En producción: singleton + strictVersion para el framework; versiones alineadas vía renovate/nx en todos los MFEs</li>
+      </ul>
+    </details>
+  </div>
+
+  <!-- Ejercicio 3 -->
+  <div class="card">
+    <h3>3 · Comunicación por eventos con contrato versionado</h3>
+    <p>
+      Implementa el flujo "agregar al carrito": el MFE catálogo publica un
+      <code>CustomEvent('cart:item-added:v1')</code> y el MFE carrito (u otro componente del shell)
+      se suscribe, actualiza un contador y limpia el listener al destruirse.
+    </p>
+    <ul class="criteria">
+      <li>Interfaz TypeScript compartida para el detail del evento</li>
+      <li>El publicador no importa nada del suscriptor (cero acoplamiento)</li>
+      <li>El listener se remueve con DestroyRef.onDestroy</li>
+    </ul>
+    <div class="tip">Si necesitas comunicar pestañas distintas del navegador, cambia window.dispatchEvent por BroadcastChannel</div>
+    <details class="solution">
+      <summary>Ver guía de solución</summary>
+      <ul>
+        <li>Define <code>CartItemAddedV1</code> en un paquete de contratos (o un .d.ts duplicado conscientemente)</li>
+        <li>Publica con <code ngNonBindable>window.dispatchEvent(new CustomEvent('cart:item-added:v1', &#123; detail &#125;))</code></li>
+        <li>Suscribe en el constructor del servicio del carrito y registra la limpieza con <code>inject(DestroyRef).onDestroy(...)</code></li>
+      </ul>
+    </details>
+  </div>
+
+  <!-- Ejercicio 4 -->
+  <div class="card">
+    <h3>4 · Widget como Angular Element</h3>
+    <p>
+      Convierte un componente (por ejemplo un mini-carrito con contador) en un Web Component con
+      <code>createCustomElement</code> y consúmelo desde una página HTML plana sin Angular.
+    </p>
+    <ul class="criteria">
+      <li>customElements.define registra la etiqueta mfe-mini-cart</li>
+      <li>Un &#64;Input() se controla vía atributo HTML</li>
+      <li>Un &#64;Output() se recibe como CustomEvent con addEventListener</li>
+    </ul>
+    <div class="tip">Usa createApplication() (standalone) en vez de un NgModule: es el enfoque moderno para Elements</div>
+    <details class="solution">
+      <summary>Ver guía de solución</summary>
+      <ul>
+        <li>Instala <code>&#64;angular/elements</code> y registra el elemento en main.ts (ver pestaña Ejemplos 💡)</li>
+        <li>Compila con un solo bundle (esbuild) y cárgalo con una etiqueta &lt;script&gt; en un index.html plano</li>
+        <li>Prueba <code ngNonBindable>document.querySelector('mfe-mini-cart').setAttribute('user-id', '42')</code></li>
+      </ul>
+    </details>
+  </div>
+
+  <!-- Ejercicio 5 -->
+  <div class="card">
+    <h3>5 · Routing shell ↔ remote y deep linking</h3>
+    <p>
+      Asegura que las rutas internas del remote funcionen con deep linking: recargar
+      <code>/catalogo/producto/42</code> directamente en el navegador debe restaurar la vista exacta.
+    </p>
+    <ul class="criteria">
+      <li>El remote define rutas hijas relativas (sin hardcodear el prefijo /catalogo)</li>
+      <li>Recargar una URL profunda funciona (fallback del servidor a index.html)</li>
+      <li>La navegación entre MFEs no recarga la página completa</li>
+    </ul>
+    <div class="tip">El remote nunca debe conocer su prefijo: el shell decide dónde montarlo — así puedes moverlo de /catalogo a /tienda sin tocar el remote</div>
+    <details class="solution">
+      <summary>Ver guía de solución</summary>
+      <ul>
+        <li>En el remote exporta rutas con paths relativos: <code ngNonBindable>[&#123; path: '', component: Lista &#125;, &#123; path: 'producto/:id', component: Detalle &#125;]</code></li>
+        <li>El prefijo lo aporta la ruta lazy del shell (<code>path: 'catalogo'</code>)</li>
+        <li>Configura el servidor (nginx/Pages) con fallback a index.html para rutas desconocidas</li>
+      </ul>
+    </details>
+  </div>
+
+  <!-- Ejercicio 6 -->
+  <div class="card">
+    <h3>6 · Pipeline de deploy independiente</h3>
+    <p>
+      Diseña (en un diagrama o YAML) el CI/CD para shell + 2 remotes: cada repo despliega su propio
+      bundle a un CDN y el shell resuelve las URLs vía manifest por entorno, sin recompilarse.
+    </p>
+    <ul class="criteria">
+      <li>Cada MFE tiene pipeline propio (build, test, deploy a su carpeta del CDN)</li>
+      <li>El manifest de staging/prod apunta a versiones inmutables (hash o semver)</li>
+      <li>Hay estrategia de rollback: volver a la versión anterior editando solo el manifest</li>
+    </ul>
+    <div class="tip">Publica cada versión del remote en una ruta inmutable (p. ej. /catalogo/1.4.2/remoteEntry.json) y haz que el manifest sea lo único mutable</div>
+    <details class="solution">
+      <summary>Ver guía de solución</summary>
+      <ul>
+        <li>Remote: pipeline sube dist/ a <code>cdn.com/catalogo/&lt;version&gt;/</code> y actualiza el manifest del entorno</li>
+        <li>Shell: se construye una sola vez; en cada entorno lee su federation.manifest.json</li>
+        <li>Rollback = editar el manifest para apuntar a la versión anterior (segundos, sin build)</li>
+      </ul>
+    </details>
+  </div>
+
+</div>

@@ -58,8 +58,13 @@ export const STUDY_TOPICS: StudyTopic[] = [
     subtopics: ['Directivas', 'Pipes', 'Lifecycle Hooks', 'Content Projection', 'ViewEncapsulation', 'HttpClient & API', 'Dependency Injection', 'Template Refs & ViewChild', 'Routing Avanzado', 'Modules vs Standalone', 'Decoradores']
   },
   {
+    id: 'microfrontends', title: 'Microfrontends', icon: '🧩',
+    level: 'high', route: '/lab/microfrontends',
+    subtopics: ['Module Federation', 'Native Federation', 'Angular Elements', 'Comunicación entre MFEs', 'Deploy Independiente']
+  },
+  {
     id: 'behavioral', title: 'Behavioral & System Design', icon: '💬',
-    level: 'complementary', route: '/study-guide',
+    level: 'complementary', route: '/guide',
     subtopics: ['STAR Method', 'System Design', 'Cultural Fit']
   },
 ];

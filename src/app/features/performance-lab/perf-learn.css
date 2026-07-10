@@ -5,3 +5,12 @@
 .card p { color: var(--text-muted); line-height: 1.6; margin: 0 0 0.8rem; }
 pre { background: var(--bg-code, #161b22); border: 1px solid var(--border); border-radius: 6px; padding: 0.8rem; overflow-x: auto; font-size: 0.85rem; line-height: 1.5; }
 code { color: var(--text); }
+.card h4 { margin: 1.1rem 0 0.5rem; font-size: 0.95rem; color: var(--text); }
+.card ul, .card ol { color: var(--text-muted); line-height: 1.6; margin: 0 0 0.8rem; padding-left: 1.4rem; }
+.card li { margin-bottom: 0.35rem; }
+.card table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin: 0 0 0.9rem; }
+.card th, .card td { border: 1px solid var(--border); padding: 0.4rem 0.6rem; text-align: left; vertical-align: top; }
+.card th { background: var(--bg, #0d1117); color: var(--text); }
+.card td { color: var(--text-muted); }
+.code-ref { margin-top: 0.8rem; padding: 0.5rem 0.7rem; background: var(--bg, #0d1117); border-left: 3px solid var(--accent-orange, #d29922); border-radius: 4px; font-size: 0.82rem; color: var(--text-muted); }
+.code-ref ul { margin: 0.3rem 0 0; }

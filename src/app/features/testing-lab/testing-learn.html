@@ -1,11 +1,56 @@
     <div class="cards" appAutoGlossary>
+      <div class="card" id="0-piramide-de-testing">
+        <h3>0. Pirámide de Testing</h3>
+        <p>
+          La pirámide de testing describe cómo distribuir el esfuerzo: muchos tests unitarios
+          (rápidos, baratos, aislados), una capa media de tests de integración y pocos tests
+          E2E (lentos, frágiles, pero los más cercanos al usuario real). En Angular cada nivel
+          tiene herramientas y objetivos distintos.
+        </p>
+        <pre><code>        /\
+       /E2E\        ~10% — Playwright / Cypress
+      /-----\       Flujos completos de usuario contra la app real
+     / Integ.\      ~20% — TestBed + template + DI
+    /---------\     Componente + template + servicios reales o parciales
+   /   Unit    \    ~70% — Jasmine puro, sin DOM
+  /-------------\   Pipes, reducers, selectors, validators, lógica de servicios</code></pre>
+        <p><strong>Qué testear en cada nivel:</strong></p>
+        <ul>
+          <li><strong>Unit:</strong> funciones puras (reducers NgRx, selectors, pipes, validators),
+            lógica de servicios con dependencias mockeadas. Sin DOM ni TestBed cuando sea posible.</li>
+          <li><strong>Integración:</strong> componente + su template (render condicional, bindings,
+            eventos), interacción componente ↔ servicio, formularios reactivos con el DOM.</li>
+          <li><strong>E2E:</strong> los happy paths críticos del negocio (login, checkout, CRUD
+            principal). No dupliques aquí lo que ya cubren los tests unitarios.</li>
+        </ul>
+        <p>
+          Variante moderna: el <em>testing trophy</em> prioriza tests de integración porque dan
+          más confianza por línea de test. En Angular esto significa preferir tests con TestBed
+          que ejercitan el template sobre tests que solo llaman métodos de la clase.
+        </p>
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li>Invertir la pirámide: cientos de tests E2E lentos y casi ningún unitario → suite frágil que nadie mantiene.</li>
+          <li>Testear la misma lógica en los tres niveles: duplicación sin ganancia de confianza.</li>
+          <li>Medir calidad solo por cantidad de tests en vez de por comportamiento cubierto.</li>
+        </ul>
+        <h4>🎤 Preguntas de entrevista</h4>
+        <ul>
+          <li><strong>¿Por qué la base de la pirámide son los tests unitarios?</strong> — Porque son rápidos, deterministas y baratos de mantener; permiten feedback inmediato y localizan fallos con precisión.</li>
+          <li><strong>¿Cuándo elegirías un test de integración sobre uno unitario?</strong> — Cuando el valor está en la colaboración entre piezas (componente + template + DI), no en una función aislada.</li>
+          <li><strong>¿Qué NO deberías testear con E2E?</strong> — Casos borde y combinaciones exhaustivas; eso pertenece al nivel unitario. E2E cubre flujos críticos de usuario.</li>
+        </ul>
+      </div>
+
       <div class="card" id="1-testbed-amp-componentfixture">
         <h3>1. TestBed &amp; ComponentFixture</h3>
         <p>
-          TestBed es el entorno de testing de Angular. Configura un módulo de prueba con
-          <code>configureTestingModule</code>, crea instancias de componentes con
-          <code>createComponent</code> y dispara la detección de cambios con
-          <code>detectChanges()</code>.
+          TestBed es el entorno de testing de Angular: crea un módulo de prueba dinámico donde
+          declaras imports y providers, y del que obtienes componentes reales renderizados.
+          <code>ComponentFixture</code> es el "mango" del componente: da acceso a la instancia
+          (<code>componentInstance</code>), al DOM (<code>nativeElement</code>), al árbol de
+          debug (<code>debugElement</code>) y al ciclo de change detection
+          (<code>detectChanges()</code>).
         </p>
         <pre><code>describe('MyComponent', () =&gt; &#123;
   let fixture: ComponentFixture&lt;MyComponent&gt;;
@@ -13,11 +58,13 @@
 
   beforeEach(async () =&gt; &#123;
     await TestBed.configureTestingModule(&#123;
-      imports: [AutoGlossaryDirective, MyComponent]
+      imports: [MyComponent],          // standalone: se importa, no se declara
+      providers: [&#123; provide: ApiService, useValue: apiSpy &#125;],
     &#125;).compileComponents();
+
     fixture = TestBed.createComponent(MyComponent);
     component = fixture.componentInstance;
-    fixture.detectChanges();
+    fixture.detectChanges();           // primer render (ngOnInit + bindings)
   &#125;);
 
   it('should render title', () =&gt; &#123;
@@ -25,6 +72,48 @@
     expect(el.textContent).toContain('Mi Título');
   &#125;);
 &#125;);</code></pre>
+        <h4>detectChanges vs autoDetectChanges</h4>
+        <p>
+          En tests, la change detection NO corre sola: cada vez que cambias estado debes llamar
+          <code>fixture.detectChanges()</code> para sincronizar el DOM. Con
+          <code>fixture.autoDetectChanges()</code> Angular detecta cambios automáticamente tras
+          eventos y microtareas (útil en tests con signals y zoneless), a costa de menos control
+          sobre cuándo se renderiza.
+        </p>
+        <h4>DebugElement vs nativeElement + By.css</h4>
+        <p>
+          <code>nativeElement</code> es el DOM real (HTMLElement): úsalo para leer texto y
+          atributos. <code>debugElement</code> es la abstracción de Angular: permite consultar
+          con <code>By.css()</code> / <code>By.directive()</code>, acceder al injector local y
+          disparar eventos sin DOM real con <code>triggerEventHandler</code>.
+        </p>
+        <pre><code>import &#123; By &#125; from '@angular/platform-browser';
+
+// Consulta tipada por CSS
+const btn = fixture.debugElement.query(By.css('[data-testid="increment-btn"]'));
+
+// Dispara el (click) del template SIN necesitar un evento DOM real
+btn.triggerEventHandler('click', null);
+fixture.detectChanges();
+
+// Consulta por directiva aplicada
+const tooltip = fixture.debugElement.query(By.directive(TooltipDirective));
+
+// Injector local del elemento: acceder a servicios provistos en el componente
+const service = btn.injector.get(MyScopedService);</code></pre>
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li>Olvidar <code>fixture.detectChanges()</code> tras cambiar estado → el DOM sigue mostrando el valor anterior y el test falla "misteriosamente".</li>
+          <li>Llamar <code>detectChanges()</code> en el <code>beforeEach</code> y luego sorprenderse de que <code>ngOnInit</code> ya se ejecutó antes de configurar el spy del test.</li>
+          <li>Usar <code>nativeElement.click()</code> esperando que también corra change detection: dispara el handler, pero el DOM no se actualiza hasta el próximo <code>detectChanges()</code>.</li>
+          <li>Declarar el componente standalone en <code>declarations</code> en vez de <code>imports</code> → error de compilación del TestBed.</li>
+        </ul>
+        <h4>🎤 Preguntas de entrevista</h4>
+        <ul>
+          <li><strong>¿Qué hace <code>compileComponents()</code>?</strong> — Compila templates y estilos externos de forma asíncrona. Con el CLI (que precompila) suele ser opcional, pero es la convención segura.</li>
+          <li><strong>¿Diferencia entre <code>debugElement</code> y <code>nativeElement</code>?</strong> — nativeElement es el DOM crudo; debugElement envuelve el elemento con utilidades de Angular (query con predicados, injector, triggerEventHandler) y funciona incluso en renderers sin DOM.</li>
+          <li><strong>¿Por qué la change detection no es automática en tests?</strong> — Para que el test controle exactamente cuándo se renderiza y pueda asertar estados intermedios (loading, error, etc.).</li>
+        </ul>
         <div class="code-ref">
           📂 <code>features/testing-lab/testing-demo.spec.ts</code> — TestBed.configureTestingModule con ComponentFixture
         </div>
@@ -40,56 +129,205 @@
       <div class="card" id="2-fakeasync-amp-tick">
         <h3>2. fakeAsync &amp; tick</h3>
         <p>
-          <code>fakeAsync</code> permite ejecutar código asíncrono de forma síncrona en tests.
-          <code>tick(ms)</code> simula el paso del tiempo, avanzando timers y promesas pendientes.
+          <code>fakeAsync</code> ejecuta el test dentro de una zona con tiempo virtual: los
+          <code>setTimeout</code>, intervals y promesas no corren de verdad, sino que TÚ avanzas
+          el reloj. El test queda 100% síncrono y determinista — sin sleeps reales ni flakiness.
         </p>
-        <pre><code>it('should load data after delay', fakeAsync(() =&gt; &#123;
-  component.loadData();
-  tick(1000); // simula 1 segundo
-  fixture.detectChanges();
-  expect(component.data().length).toBeGreaterThan(0);
+        <pre><code>it('should show loading and then products after delay', fakeAsync(() =&gt; &#123;
+  mockApiService.getProducts.and.returnValue(of(mockProducts).pipe(delay(800)));
+
+  component.loadProducts();
+  expect(component.loading()).toBeTrue();   // estado intermedio asertable
+
+  tick(800);                                // avanza 800ms virtuales
+  expect(component.loading()).toBeFalse();
+  expect(component.products()).toEqual(mockProducts);
 &#125;));</code></pre>
+        <h4>La caja de herramientas async</h4>
+        <ul>
+          <li><code>tick(ms)</code> — avanza el reloj virtual exactamente <code>ms</code> milisegundos. Ejecuta timers vencidos y microtareas.</li>
+          <li><code>flush()</code> — avanza el reloj hasta vaciar TODOS los timers pendientes (útil cuando no conoces el delay exacto). Devuelve los ms avanzados.</li>
+          <li><code>flushMicrotasks()</code> — resuelve solo microtareas (Promises) sin avanzar timers.</li>
+          <li><code>discardPeriodicTasks()</code> — descarta intervals pendientes (ej. <code>setInterval</code>) para que el test no falle al salir de la zona.</li>
+          <li><code>waitForAsync</code> + <code>fixture.whenStable()</code> — espera asíncrona REAL: el test espera a que la zona esté estable. Necesario cuando hay async que fakeAsync no puede controlar (ej. XHR real, APIs que usan tiempo nativo).</li>
+        </ul>
+        <pre><code>// flush: no importa cuántos timers anidados haya
+it('completes all pending timers', fakeAsync(() =&gt; &#123;
+  component.startPolling();      // setTimeout dentro de setTimeout...
+  flush();                       // vacía toda la cola de timers
+  expect(component.done()).toBeTrue();
+&#125;));
+
+// flushMicrotasks: solo Promises, el reloj no avanza
+it('resolves promises without advancing timers', fakeAsync(() =&gt; &#123;
+  let value = 0;
+  Promise.resolve(42).then(v =&gt; (value = v));
+  flushMicrotasks();
+  expect(value).toBe(42);
+&#125;));
+
+// waitForAsync: async real, se usa con whenStable
+it('waits for real async', waitForAsync(() =&gt; &#123;
+  fixture.whenStable().then(() =&gt; &#123;
+    fixture.detectChanges();
+    expect(component.ready()).toBeTrue();
+  &#125;);
+&#125;));</code></pre>
+        <p>
+          <strong>Regla práctica:</strong> usa <code>fakeAsync</code> por defecto (control total,
+          test síncrono); <code>waitForAsync</code> solo cuando el código usa async que la zona
+          fake no intercepta; y nunca mezcles ambos en el mismo test.
+        </p>
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li>Error <code>"1 timer(s) still in the queue"</code> al terminar el test: quedó un timer sin consumir. Solución: <code>flush()</code> o <code>discardPeriodicTasks()</code> antes de salir.</li>
+          <li>Llamar <code>tick()</code> fuera de una zona <code>fakeAsync</code> → excepción inmediata.</li>
+          <li>Usar <code>delay(0)</code> creyendo que es síncrono: sigue siendo un timer, necesita <code>tick(0)</code>.</li>
+          <li>Hacer llamadas HTTP reales dentro de <code>fakeAsync</code>: XHR no es "patcheable" por la zona fake; mockea el servicio o usa HttpTestingController.</li>
+        </ul>
+        <h4>🎤 Preguntas de entrevista</h4>
+        <ul>
+          <li><strong>¿Diferencia entre <code>tick()</code> y <code>flush()</code>?</strong> — tick avanza una cantidad exacta de tiempo; flush avanza lo necesario hasta vaciar la cola de timers.</li>
+          <li><strong>¿Cuándo usarías <code>waitForAsync</code> en lugar de <code>fakeAsync</code>?</strong> — Cuando hay asincronía real que la zona fake no controla (compilación, APIs nativas, librerías con timers propios).</li>
+          <li><strong>¿Qué son macrotareas y microtareas en este contexto?</strong> — Macrotareas: setTimeout/setInterval (las avanza tick/flush). Microtareas: Promises (las resuelve flushMicrotasks o cualquier tick).</li>
+        </ul>
         <div class="code-ref">
-          📂 <code>features/testing-lab/testing-demo.spec.ts</code> — fakeAsync + tick para operaciones asíncronas
+          📂 <code>features/testing-lab/testing-demo.spec.ts</code> — fakeAsync + tick para operaciones asíncronas (tests "Async behavior with fakeAsync")
         </div>
       </div>
 
       <div class="card" id="3-jasmine-spies">
         <h3>3. Jasmine Spies</h3>
         <p>
-          Los spies interceptan llamadas a métodos. Usa <code>spyOn</code> para espiar,
-          <code>returnValue</code> para devolver datos mock, <code>callFake</code> para
-          lógica personalizada y <code>toHaveBeenCalledWith</code> para verificar argumentos.
+          Los spies interceptan llamadas a funciones: registran cuántas veces se llamó, con qué
+          argumentos, y opcionalmente reemplazan la implementación. Son la base del mocking en
+          Angular + Jasmine.
         </p>
-        <pre><code>it('should call service on init', () =&gt; &#123;
-  const service = TestBed.inject(ProductService);
-  spyOn(service, 'getAll').and.returnValue(of(mockProducts));
-  component.ngOnInit();
-  expect(service.getAll).toHaveBeenCalled();
-&#125;);</code></pre>
+        <h4>Crear spies</h4>
+        <pre><code>// 1) spyOn: espía un método de un objeto EXISTENTE (lo reemplaza por defecto)
+spyOn(service, 'getAll').and.returnValue(of(mockProducts));
+
+// 2) createSpy: función suelta espiada
+const callback = jasmine.createSpy('callback');
+
+// 3) createSpyObj: objeto completo con métodos espiados — ideal para mocks de servicios
+const apiSpy = jasmine.createSpyObj&lt;MockApiService&gt;('MockApiService',
+  ['getProducts', 'getProduct', 'createProduct']);
+apiSpy.getProducts.and.returnValue(of([]));  // tipado: SpyObj&lt;T&gt;</code></pre>
+        <h4>Controlar el comportamiento (.and)</h4>
+        <pre><code>spy.and.returnValue(of(data));        // siempre devuelve lo mismo
+spy.and.returnValues(1, 2, 3);        // valores distintos por llamada
+spy.and.callFake((id) =&gt; of(db[id])); // lógica personalizada
+spy.and.callThrough();                // espía PERO ejecuta la impl. real
+spy.and.throwError('boom');           // lanza excepción
+spy.and.resolveTo(data);              // para métodos que devuelven Promise
+spy.and.stub();                       // vuelve al comportamiento por defecto (nada)</code></pre>
+        <h4>Verificar llamadas (calls API)</h4>
+        <pre><code>expect(spy).toHaveBeenCalled();
+expect(spy).toHaveBeenCalledTimes(2);
+expect(spy).toHaveBeenCalledWith('42', jasmine.any(Object));
+expect(spy).toHaveBeenCalledOnceWith('42');   // exactamente 1 vez y con esos args
+
+spy.calls.count();                 // número de llamadas
+spy.calls.mostRecent().args;       // args de la última llamada
+spy.calls.first().args;            // args de la primera
+spy.calls.argsFor(1);              // args de la llamada n
+spy.calls.allArgs();               // args de todas
+spy.calls.reset();                 // limpia el historial (útil entre fases del test)</code></pre>
+        <h4>Matchers útiles de Jasmine</h4>
+        <pre><code>expect(a).toBe(b);                 // igualdad por referencia (===)
+expect(obj).toEqual(&#123; id: 1 &#125;);    // igualdad estructural profunda
+expect(list).toContain('item');
+expect(fn).toThrowError(/not found/);
+expect(0.1 + 0.2).toBeCloseTo(0.3, 5);
+expect(value).toBeNull();  expect(value).toBeUndefined();
+
+// Matchers asimétricos: aserciones parciales
+expect(spy).toHaveBeenCalledWith(jasmine.objectContaining(&#123; id: '1' &#125;));
+expect(result).toEqual(jasmine.arrayContaining([item1]));
+expect(text).toEqual(jasmine.stringMatching(/^Error/));</code></pre>
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li>Olvidar que <code>spyOn</code> reemplaza la implementación: si necesitas la real, añade <code>.and.callThrough()</code>.</li>
+          <li>Configurar el spy DESPUÉS de que el componente ya llamó al método (típico con <code>ngOnInit</code> disparado por el <code>detectChanges()</code> del beforeEach).</li>
+          <li>Usar <code>toBe</code> con objetos: compara referencias, no contenido. Para objetos usa <code>toEqual</code>.</li>
+          <li>Un <code>createSpyObj</code> sin <code>returnValue</code> devuelve <code>undefined</code> → <code>undefined.subscribe is not a function</code>. Da siempre un valor por defecto.</li>
+        </ul>
+        <h4>🎤 Preguntas de entrevista</h4>
+        <ul>
+          <li><strong>¿Diferencia entre <code>spyOn</code> y <code>createSpyObj</code>?</strong> — spyOn parchea un método de una instancia real existente; createSpyObj fabrica un doble completo sin implementación real, ideal para sustituir el servicio entero vía DI.</li>
+          <li><strong>¿Qué hace <code>callThrough</code>?</strong> — Registra la llamada pero delega en la implementación original: observas sin alterar el comportamiento.</li>
+          <li><strong>¿Para qué sirven los matchers asimétricos?</strong> — Para asertar solo la parte relevante de un argumento (ej. <code>objectContaining</code>) sin acoplar el test a todo el objeto.</li>
+        </ul>
+        <div class="code-ref">
+          📂 <code>features/testing-lab/testing-demo.spec.ts</code> — createSpyObj tipado + and.returnValue + toHaveBeenCalledTimes
+        </div>
       </div>
 
       <div class="card" id="4-mockstore-ngrx">
         <h3>4. MockStore (NgRx)</h3>
         <p>
-          <code>provideMockStore</code> crea un store falso para tests. Usa
-          <code>overrideSelector</code> para definir valores de selectores y
-          <code>setState</code> para cambiar el estado completo.
+          <code>provideMockStore</code> sustituye el Store real: los componentes reciben un store
+          falso donde defines el estado y el valor de cada selector, sin reducers ni effects
+          reales. Así el test del componente queda aislado de la lógica de NgRx.
         </p>
-        <pre><code>beforeEach(() =&gt; &#123;
+        <pre><code>import &#123; MockStore, provideMockStore &#125; from '@ngrx/store/testing';
+
+let store: MockStore;
+
+beforeEach(() =&gt; &#123;
   TestBed.configureTestingModule(&#123;
-    imports: [AutoGlossaryDirective, ProductListComponent],
+    imports: [ProductListComponent],
     providers: [
       provideMockStore(&#123;
+        initialState: &#123; products: &#123; entities: &#123;&#125;, loading: false &#125; &#125;,
         selectors: [
           &#123; selector: selectAllProducts, value: mockProducts &#125;,
           &#123; selector: selectLoading, value: false &#125;,
-        ]
-      &#125;)
-    ]
+        ],
+      &#125;),
+    ],
   &#125;);
   store = TestBed.inject(MockStore);
 &#125;);</code></pre>
+        <h4>Cambiar el estado durante el test</h4>
+        <pre><code>it('should show spinner while loading', () =&gt; &#123;
+  // 1) redefine el selector
+  store.overrideSelector(selectLoading, true);
+  // 2) fuerza a los subscribers a re-emitir
+  store.refreshState();
+  fixture.detectChanges();
+
+  expect(fixture.nativeElement.querySelector('.spinner')).toBeTruthy();
+&#125;);
+
+it('should dispatch load action on init', () =&gt; &#123;
+  const dispatchSpy = spyOn(store, 'dispatch');
+  component.ngOnInit();
+  expect(dispatchSpy).toHaveBeenCalledWith(ProductActions.loadProducts());
+&#125;);
+
+afterEach(() =&gt; &#123;
+  store.resetSelectors();  // evita que overrides contaminen otros specs
+&#125;);</code></pre>
+        <p>
+          También existe <code>store.setState(nuevoEstado)</code> para reemplazar el estado
+          completo — útil si el componente usa <code>store.select(fn)</code> con funciones en
+          vez de selectors memoizados.
+        </p>
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li>Llamar <code>overrideSelector</code> y olvidar <code>refreshState()</code>: los observables ya suscritos no re-emiten y el DOM no cambia.</li>
+          <li>No llamar <code>resetSelectors()</code> en <code>afterEach</code>: los selectors memoizados quedan sobreescritos y contaminan los siguientes tests del archivo.</li>
+          <li>Testear reducers o effects a través del MockStore: MockStore no los ejecuta; testéalos por separado (ver card 10).</li>
+          <li>Asertar el dispatch con un objeto literal en vez de la action creator: acopla el test al string del type.</li>
+        </ul>
+        <h4>🎤 Preguntas de entrevista</h4>
+        <ul>
+          <li><strong>¿Por qué usar MockStore en vez del Store real?</strong> — Aísla el componente: el test no depende de reducers/effects, defines directamente los datos que el componente ve, y no necesitas providers de toda la feature.</li>
+          <li><strong>¿Qué hace <code>overrideSelector</code> internamente?</strong> — Sustituye el resultado memoizado del selector, por eso hace falta refreshState para propagar la nueva emisión.</li>
+          <li><strong>¿Cómo verificas que un componente despacha la acción correcta?</strong> — <code>spyOn(store, 'dispatch')</code> y asertar con <code>toHaveBeenCalledWith(actionCreator(props))</code>.</li>
+        </ul>
         <div class="code-ref">
           📂 Pendiente de implementar — consulta el ejercicio en la pestaña Lab 🧪
         </div>
@@ -98,33 +336,725 @@
       <div class="card" id="5-httptestingcontroller">
         <h3>5. HttpTestingController</h3>
         <p>
-          Permite testear llamadas HTTP sin un servidor real. Intercepta requests con
-          <code>expectOne</code>, verifica método y URL, y responde con <code>flush</code>.
+          Permite testear servicios que usan <code>HttpClient</code> sin servidor: cada request
+          queda "en vuelo" hasta que el test la intercepta y responde. Controlas la respuesta,
+          el status y los errores, y verificas que no queden requests inesperadas.
         </p>
-        <pre><code>it('should fetch products', () =&gt; &#123;
-  service.getProducts().subscribe(products =&gt; &#123;
-    expect(products.length).toBe(2);
+        <pre><code>import &#123; provideHttpClient &#125; from '@angular/common/http';
+import &#123; provideHttpClientTesting, HttpTestingController &#125;
+  from '@angular/common/http/testing';
+
+let service: ProductService;
+let httpMock: HttpTestingController;
+
+beforeEach(() =&gt; &#123;
+  TestBed.configureTestingModule(&#123;
+    providers: [
+      provideHttpClient(),         // el orden importa: primero el real...
+      provideHttpClientTesting(),  // ...luego el testing backend que lo intercepta
+      ProductService,
+    ],
   &#125;);
+  service = TestBed.inject(ProductService);
+  httpMock = TestBed.inject(HttpTestingController);
+&#125;);
+
+afterEach(() =&gt; httpMock.verify());  // falla si quedaron requests sin responder
+
+it('should fetch products', () =&gt; &#123;
+  let result: Product[] = [];
+  service.getProducts().subscribe(p =&gt; (result = p));
+
   const req = httpMock.expectOne('/api/products');
   expect(req.request.method).toBe('GET');
-  req.flush(mockProducts);
+  req.flush(mockProducts);           // responde la request pendiente
+
+  expect(result.length).toBe(2);
 &#125;);</code></pre>
+        <h4>expectOne, match, flush con status, errores</h4>
+        <pre><code>// expectOne con predicado: método + URL + params
+const req = httpMock.expectOne(
+  r =&gt; r.method === 'POST' &amp;&amp; r.url === '/api/products'
+);
+expect(req.request.body).toEqual(newProduct);
+expect(req.request.headers.get('Authorization')).toBe('Bearer token');
+
+// match: varias requests a la misma URL (expectOne fallaría)
+const reqs = httpMock.match('/api/products');
+expect(reqs.length).toBe(2);
+reqs.forEach(r =&gt; r.flush([]));
+
+// flush con status personalizado
+req.flush(&#123; message: 'Created' &#125;, &#123; status: 201, statusText: 'Created' &#125;);
+
+// Error HTTP (el servidor respondió con error)
+req.flush('Not found', &#123; status: 404, statusText: 'Not Found' &#125;);
+
+// Error de red (la request nunca llegó)
+req.error(new ProgressEvent('network error'));</code></pre>
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li>Olvidar suscribirse al observable del servicio: HttpClient es lazy, sin subscribe no hay request y <code>expectOne</code> falla con "no matching request".</li>
+          <li>No llamar <code>httpMock.verify()</code> en afterEach: requests inesperadas pasan desapercibidas.</li>
+          <li><code>expectOne('/api/products')</code> no matchea si el servicio añade query params: usa <code>r =&gt; r.url === ...</code> (url sin params) o incluye los params exactos.</li>
+          <li>Asertar dentro del subscribe sin capturar el valor fuera: si flush nunca ocurre, el expect nunca corre y el test pasa en falso.</li>
+        </ul>
+        <h4>🎤 Preguntas de entrevista</h4>
+        <ul>
+          <li><strong>¿Diferencia entre <code>expectOne</code> y <code>match</code>?</strong> — expectOne exige exactamente una request que coincida (falla con 0 o &gt;1); match devuelve todas las coincidencias sin asertar cantidad.</li>
+          <li><strong>¿Cómo simulas un error 500 vs un fallo de red?</strong> — <code>flush(body, &#123;status: 500&#125;)</code> para respuesta de error del servidor; <code>req.error(new ProgressEvent(...))</code> para fallo de red/transporte.</li>
+          <li><strong>¿Por qué <code>verify()</code> va en afterEach?</strong> — Garantiza que cada test declaró TODAS las requests que su código disparó; detecta llamadas HTTP accidentales.</li>
+        </ul>
+        <div class="code-ref">
+          📂 Ejercicio relacionado en la pestaña Lab 🧪 — "5. Service Test"
+        </div>
       </div>
 
       <div class="card" id="6-marble-testing">
         <h3>6. Marble Testing</h3>
         <p>
-          Los diagramas marble representan flujos RxJS como strings ASCII.
-          Cada <code>-</code> = 10ms, letras = emisiones, <code>|</code> = complete,
-          <code>#</code> = error.
+          Los diagramas marble representan flujos RxJS como strings ASCII, permitiendo testear
+          operadores y streams con tiempo virtual y precisión de frame. Con
+          <code>TestScheduler</code> el tiempo no pasa de verdad: se calcula.
         </p>
-        <pre><code>// Diagrama: --a--b--c|
-// - = 10ms, a/b/c = emisiones, | = complete
-it('should map values', () =&gt; &#123;
-  const source = cold('--a--b--c|', &#123; a: 1, b: 2, c: 3 &#125;);
-  const expected = '--x--y--z|';
-  const result = source.pipe(map(v =&gt; v * 10));
-  expectObservable(result).toBe(expected, &#123; x: 10, y: 20, z: 30 &#125;);
+        <h4>Sintaxis marble</h4>
+        <pre><code>' -a--b|'   //  - = 1 frame (1ms virtual en run mode)
+            //  a,b = emisiones (next)
+            //  | = complete       # = error
+            //  () = emisiones síncronas agrupadas: '(ab|)' emite a, b y completa
+            //  ^ = punto de suscripción (hot)   ! = unsubscribe
+            //  '100ms a' = sintaxis de tiempo explícito</code></pre>
+        <pre><code>import &#123; TestScheduler &#125; from 'rxjs/testing';
+
+let scheduler: TestScheduler;
+
+beforeEach(() =&gt; &#123;
+  scheduler = new TestScheduler((actual, expected) =&gt; &#123;
+    expect(actual).toEqual(expected);   // conecta con Jasmine
+  &#125;);
+&#125;);
+
+it('should debounce and map values', () =&gt; &#123;
+  scheduler.run((&#123; cold, hot, expectObservable, expectSubscriptions &#125;) =&gt; &#123;
+    const source = cold('-a--b--c---|', &#123; a: 1, b: 2, c: 3 &#125;);
+    const expected =    '-x--y--z---|';
+
+    const result = source.pipe(map(v =&gt; v * 10));
+
+    expectObservable(result).toBe(expected, &#123; x: 10, y: 20, z: 30 &#125;);
+    expectSubscriptions(source.subscriptions).toBe('^----------!');
+  &#125;);
 &#125;);</code></pre>
+        <h4>cold vs hot</h4>
+        <ul>
+          <li><code>cold('--a|')</code> — el observable empieza a emitir cuando alguien se suscribe (como HttpClient). Cada subscriber recibe la secuencia completa.</li>
+          <li><code>hot('--^-a|')</code> — el stream ya está "vivo"; <code>^</code> marca cuándo se suscribe el test. Los valores anteriores a ^ se pierden (como eventos de usuario o un Subject).</li>
+        </ul>
+        <p>
+          Dentro de <code>scheduler.run()</code>, operadores basados en tiempo
+          (<code>debounceTime</code>, <code>delay</code>, <code>interval</code>) usan el reloj
+          virtual automáticamente — un <code>debounceTime(300)</code> se testea en microsegundos.
+        </p>
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li>Crear el TestScheduler sin la función de aserción → los tests "pasan" aunque los marbles no coincidan.</li>
+          <li>Contar mal los frames: cada carácter es 1 frame, y la emisión también consume un frame. <code>'-a-b'</code>: a en frame 1, b en frame 3.</li>
+          <li>Usar cold cuando el comportamiento depende de suscripción tardía (multicast): necesitas hot con <code>^</code>.</li>
+          <li>Reutilizar el mismo TestScheduler entre tests sin recrearlo en beforeEach: el tiempo virtual queda contaminado.</li>
+        </ul>
+        <h4>🎤 Preguntas de entrevista</h4>
+        <ul>
+          <li><strong>¿Qué ventaja da marble testing sobre subscribe + done?</strong> — Verifica la secuencia COMPLETA con su timing exacto (valores, orden, tiempo, complete/error) de forma síncrona y sin flakiness.</li>
+          <li><strong>¿Diferencia entre cold y hot en un test?</strong> — cold emite desde el principio para cada subscriber; hot emite independientemente de los subscribers y ^ define cuándo entra el test.</li>
+          <li><strong>¿Cómo testeas un <code>debounceTime(300)</code> sin esperar 300ms?</strong> — Dentro de <code>scheduler.run()</code> el operador usa el scheduler virtual: el tiempo se simula, no transcurre.</li>
+        </ul>
+        <div class="code-ref">
+          📂 Ejercicio relacionado en la pestaña Lab 🧪 — "4. NgRx Effects" (marble o Subject)
+        </div>
+      </div>
+
+      <div class="card" id="7-testing-de-componentes-con-signals-e-inputs">
+        <h3>7. Testing de Componentes con Signals e Inputs</h3>
+        <p>
+          Los componentes modernos usan <code>signal()</code> para estado local e
+          <code>input()</code> para datos de entrada. Los signals se leen como funciones
+          (<code>component.counter()</code>) y los inputs se establecen desde el test con
+          <code>fixture.componentRef.setInput()</code> — nunca por asignación directa.
+        </p>
+        <pre><code>// Componente bajo test
+export class ProductCardComponent &#123;
+  readonly product = input.required&lt;Product&gt;();   // InputSignal: solo lectura
+  readonly highlighted = input(false);
+  readonly discounted = computed(() =&gt; this.product().price &lt; 50);
+&#125;
+
+// Test
+it('should compute discount from input', () =&gt; &#123;
+  const fixture = TestBed.createComponent(ProductCardComponent);
+
+  // ✅ la única forma correcta de setear un input signal
+  fixture.componentRef.setInput('product', &#123; id: '1', name: 'Tee', price: 29.99 &#125;);
+  fixture.componentRef.setInput('highlighted', true);
+  fixture.detectChanges();
+
+  expect(fixture.componentInstance.discounted()).toBeTrue();
+  const el = fixture.nativeElement.querySelector('.badge');
+  expect(el.textContent).toContain('Oferta');
+&#125;);</code></pre>
+        <p>
+          <code>setInput</code> funciona igual para <code>&#64;Input()</code> clásicos y para
+          <code>input()</code> signals, y además marca el componente para check (importante con
+          OnPush). Para probar estado local basta con llamar los métodos públicos y leer el
+          signal, como hace este lab:
+        </p>
+        <pre><code>it('should increment the counter', () =&gt; &#123;
+  component.increment();
+  expect(component.counter()).toBe(1);   // leer un signal = invocarlo
+&#125;);
+
+it('should display the counter value in the template', () =&gt; &#123;
+  component.increment();
+  fixture.detectChanges();               // sincroniza signal → DOM
+  const el = fixture.nativeElement.querySelector('[data-testid="counter-value"]');
+  expect(el.textContent?.trim()).toBe('1');
+&#125;);</code></pre>
+        <p>
+          Alternativa para <code>output()</code> y proyección de contenido: el <em>host component
+          pattern</em> (ver card 11) — un componente wrapper definido en el spec que usa el
+          componente real en su template.
+        </p>
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li>Asignar directamente <code>component.product = value</code> con input signals → error en runtime: <code>InputSignal</code> no es escribible.</li>
+          <li>Olvidar los paréntesis al leer: <code>expect(component.counter).toBe(1)</code> compara la función, no el valor.</li>
+          <li>No llamar <code>detectChanges()</code> tras <code>setInput</code>: el <code>computed</code> se recalcula lazy al leerlo, pero el DOM no se actualiza solo.</li>
+          <li>Testear un <code>input.required</code> sin setearlo → error <code>NG0950: required input is accessed before a value is set</code>.</li>
+        </ul>
+        <h4>🎤 Preguntas de entrevista</h4>
+        <ul>
+          <li><strong>¿Por qué <code>setInput</code> y no asignación directa?</strong> — Respeta el ciclo de inputs de Angular (transforms, marcado OnPush, ngOnChanges en inputs clásicos) y es la única vía para InputSignal, que es read-only.</li>
+          <li><strong>¿Cómo testeas un <code>computed()</code>?</strong> — Seteas sus dependencias (signals/inputs) y lees el computed: al ser derivación pura no necesita DOM.</li>
+          <li><strong>¿Los signals necesitan fakeAsync?</strong> — No: escribir y leer signals es síncrono. Solo la actualización del DOM requiere detectChanges.</li>
+        </ul>
+        <div class="code-ref">
+          📂 <code>features/testing-lab/testing-demo.spec.ts</code> — tests del counter con signals (describe "Counter")
+        </div>
+        <div class="code-ref">
+          📂 <code>features/testing-lab/testing-demo.ts</code> — signals: counter, products, loading, error
+        </div>
+      </div>
+
+      <div class="card" id="8-testing-de-servicios">
+        <h3>8. Testing de Servicios</h3>
+        <p>
+          Dos estrategias: <strong>aislada</strong> (instanciar la clase a mano, sin Angular) y
+          <strong>con TestBed</strong> (usar el injector real). La aislada es más rápida y simple;
+          TestBed es necesario cuando el servicio usa <code>inject()</code> en field initializers
+          o depende del árbol de DI.
+        </p>
+        <pre><code>// A) Aislado — constructor injection, sin TestBed
+it('should compute totals (isolated)', () =&gt; &#123;
+  const logger = jasmine.createSpyObj&lt;LoggerService&gt;('Logger', ['log']);
+  const service = new CartService(logger);   // new directo
+
+  service.add(&#123; id: '1', price: 10 &#125;);
+  expect(service.total()).toBe(10);
+  expect(logger.log).toHaveBeenCalled();
+&#125;);</code></pre>
+        <pre><code>// B) Con TestBed — necesario si el servicio usa inject()
+describe('ProductService', () =&gt; &#123;
+  let service: ProductService;
+  let apiSpy: jasmine.SpyObj&lt;MockApiService&gt;;
+
+  beforeEach(() =&gt; &#123;
+    apiSpy = jasmine.createSpyObj&lt;MockApiService&gt;('MockApiService', ['getProducts']);
+
+    TestBed.configureTestingModule(&#123;
+      providers: [
+        ProductService,
+        &#123; provide: MockApiService, useValue: apiSpy &#125;,
+      ],
+    &#125;);
+    service = TestBed.inject(ProductService);  // resuelve TODO el árbol de deps
+  &#125;);
+
+  it('should filter sustainable products', () =&gt; &#123;
+    apiSpy.getProducts.and.returnValue(of(mockProducts));
+
+    let result: Product[] = [];
+    service.getSustainable(80).subscribe(p =&gt; (result = p));
+
+    expect(result.every(p =&gt; p.sustainabilityScore &gt;= 80)).toBeTrue();
+  &#125;);
+&#125;);</code></pre>
+        <p>
+          Los servicios <code>providedIn: 'root'</code> no necesitan declararse en providers —
+          TestBed los resuelve — pero SÍ debes sobreescribir sus dependencias si quieres
+          aislarlos. Para código que usa <code>inject()</code> fuera de un contexto de
+          construcción, existe <code>TestBed.runInInjectionContext(() =&gt; ...)</code>.
+        </p>
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li>Instanciar con <code>new</code> un servicio que usa <code>inject()</code> → <code>NG0203: inject() must be called from an injection context</code>.</li>
+          <li>Testear el servicio a través del componente: si falla, no sabes qué capa rompió. Testéalos por separado.</li>
+          <li>Compartir estado entre tests con servicios singleton: TestBed se resetea entre specs, pero variables module-scope del spec no.</li>
+          <li>Mockear TODO, incluidas funciones puras del propio servicio: termina testeando los mocks, no el servicio.</li>
+        </ul>
+        <h4>🎤 Preguntas de entrevista</h4>
+        <ul>
+          <li><strong>¿Cuándo usar TestBed.inject vs new?</strong> — new para clases con constructor injection y lógica pura (más rápido); TestBed cuando hay inject(), providers jerárquicos o interceptors involucrados.</li>
+          <li><strong>¿Cómo testeas un servicio <code>providedIn: 'root'</code> con dependencias?</strong> — Lo obtienes con TestBed.inject y sustituyes sus dependencias con <code>&#123; provide: Dep, useValue: spy &#125;</code>.</li>
+          <li><strong>¿Qué es un injection context?</strong> — El ámbito donde inject() es válido: constructores/inicializadores de clases DI, factories de providers, o runInInjectionContext.</li>
+        </ul>
+        <div class="code-ref">
+          📂 <code>core/services/mock-api.service.ts</code> — servicio bajo test en los ejercicios del Lab 🧪
+        </div>
+      </div>
+
+      <div class="card" id="9-mocking-de-dependencias">
+        <h3>9. Mocking de Dependencias</h3>
+        <p>
+          El injector de Angular hace el mocking trivial: en el TestBed sustituyes cualquier token
+          por un doble. Las tres formas principales son <code>useValue</code>,
+          <code>useClass</code> y <code>useFactory</code>, más <code>spyOn</code> sobre la
+          instancia real cuando solo quieres interceptar un método.
+        </p>
+        <pre><code>// useValue: objeto/spy concreto — el caso más común
+&#123; provide: MockApiService, useValue: jasmine.createSpyObj('Api', ['getProducts']) &#125;
+
+// useClass: implementación fake completa con estado propio
+class FakeAuthService &#123;
+  private loggedIn = false;
+  login() &#123; this.loggedIn = true; return of(true); &#125;
+  isAuthenticated() &#123; return this.loggedIn; &#125;
+&#125;
+&#123; provide: AuthService, useClass: FakeAuthService &#125;
+
+// useFactory: cuando el mock depende de otro token
+&#123; provide: ConfigService,
+  useFactory: (env: EnvService) =&gt; new FakeConfig(env.name),
+  deps: [EnvService] &#125;
+
+// spyOn sobre la instancia REAL: mínima intervención
+const service = TestBed.inject(ProductService);
+spyOn(service, 'getAll').and.returnValue(of(mockProducts));</code></pre>
+        <h4>¿Spy parcial o mock completo?</h4>
+        <ul>
+          <li><strong>spyOn (parcial):</strong> el resto del servicio sigue siendo real. Bueno para interceptar un solo método; peligroso si el constructor real tiene side effects (HTTP, timers).</li>
+          <li><strong>createSpyObj / useValue (completo):</strong> aislamiento total y sin side effects; requiere definir el comportamiento de cada método usado.</li>
+          <li><strong>useClass (fake con lógica):</strong> ideal cuando el doble necesita estado coherente entre llamadas (ej. un fake de storage o auth).</li>
+        </ul>
+        <p>
+          Herramientas extra: <code>TestBed.overrideProvider()</code> para reemplazar providers
+          después de configurar (gana incluso sobre providers del propio componente) y
+          <code>TestBed.overrideComponent()</code> para tocar template/imports del componente
+          bajo test. Evita <code>NO_ERRORS_SCHEMA</code>: silencia errores de template y esconde
+          typos en bindings.
+        </p>
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li>Mutar el objeto de <code>useValue</code> entre tests sin restaurarlo: los specs se contaminan entre sí. Recréalo en <code>beforeEach</code>.</li>
+          <li>Mockear lo que no posees en exceso (ej. HttpClient a mano): usa las utilidades oficiales (HttpTestingController, provideMockStore).</li>
+          <li>Que el mock se desvíe del contrato real y el test pase mientras producción falla: tipa los dobles (<code>jasmine.SpyObj&lt;T&gt;</code>) para que TypeScript vigile las firmas.</li>
+          <li>Providers a nivel de componente (<code>providers: []</code> en el decorador) que ignoran tu mock del TestBed: usa <code>overrideComponent</code> u <code>overrideProvider</code>.</li>
+        </ul>
+        <h4>🎤 Preguntas de entrevista</h4>
+        <ul>
+          <li><strong>¿Cuándo useValue vs useClass?</strong> — useValue para dobles simples/spies preconstruidos; useClass cuando el fake necesita comportamiento y estado propios instanciados por el injector.</li>
+          <li><strong>¿Por qué tipar los spies con <code>SpyObj&lt;T&gt;</code>?</strong> — El compilador verifica que el mock respeta la firma real: si el servicio cambia, el test no compila en vez de fallar en runtime (o peor, pasar).</li>
+          <li><strong>¿Qué riesgo tiene <code>NO_ERRORS_SCHEMA</code>?</strong> — Silencia elementos y bindings desconocidos: un typo en un input deja de ser error y el test da falsa confianza.</li>
+        </ul>
+        <div class="code-ref">
+          📂 <code>features/testing-lab/testing-demo.spec.ts</code> — useValue + createSpyObj para MockApiService
+        </div>
+      </div>
+
+      <div class="card" id="10-testing-de-ngrx-reducers-selectors-y-effects">
+        <h3>10. Testing de NgRx: Reducers, Selectors y Effects</h3>
+        <p>
+          Cada pieza de NgRx se testea a su nivel: reducers y selectors son funciones puras
+          (tests unitarios triviales, sin TestBed); los effects son streams (se testean con
+          <code>provideMockActions</code> y marbles o suscripción directa).
+        </p>
+        <h4>Reducers: estado + acción = nuevo estado</h4>
+        <pre><code>describe('productReducer', () =&gt; &#123;
+  it('should set loading on loadProducts', () =&gt; &#123;
+    const state = productReducer(initialState, ProductActions.loadProducts());
+    expect(state.loading).toBeTrue();
+    expect(state.error).toBeNull();
+  &#125;);
+
+  it('should populate products on success', () =&gt; &#123;
+    const state = productReducer(
+      &#123; ...initialState, loading: true &#125;,
+      ProductActions.loadProductsSuccess(&#123; products: mockProducts &#125;)
+    );
+    expect(state.products).toEqual(mockProducts);
+    expect(state.loading).toBeFalse();
+  &#125;);
+
+  it('should return same state for unknown action', () =&gt; &#123;
+    const state = productReducer(initialState, &#123; type: 'NOOP' &#125; as any);
+    expect(state).toBe(initialState);   // misma referencia = inmutabilidad OK
+  &#125;);
+&#125;);</code></pre>
+        <h4>Selectors: usa projector()</h4>
+        <pre><code>it('should select products above sustainability threshold', () =&gt; &#123;
+  // projector salta la memoización y el estado global:
+  // pasas directamente las ENTRADAS del selector
+  const result = selectHighSustainability.projector(mockProducts, 80);
+  expect(result.length).toBe(1);
+  expect(result[0].sustainabilityScore).toBeGreaterThanOrEqual(80);
+&#125;);</code></pre>
+        <h4>Effects: provideMockActions</h4>
+        <pre><code>import &#123; provideMockActions &#125; from '@ngrx/effects/testing';
+
+describe('ProductEffects', () =&gt; &#123;
+  let actions$: Observable&lt;Action&gt;;
+  let effects: ProductEffects;
+  let apiSpy: jasmine.SpyObj&lt;MockApiService&gt;;
+
+  beforeEach(() =&gt; &#123;
+    apiSpy = jasmine.createSpyObj('Api', ['getProducts']);
+    TestBed.configureTestingModule(&#123;
+      providers: [
+        ProductEffects,
+        provideMockActions(() =&gt; actions$),
+        &#123; provide: MockApiService, useValue: apiSpy &#125;,
+      ],
+    &#125;);
+    effects = TestBed.inject(ProductEffects);
+  &#125;);
+
+  it('should dispatch success on API ok', (done) =&gt; &#123;
+    apiSpy.getProducts.and.returnValue(of(mockProducts));
+    actions$ = of(ProductActions.loadProducts());
+
+    effects.loadProducts$.subscribe(action =&gt; &#123;
+      expect(action).toEqual(
+        ProductActions.loadProductsSuccess(&#123; products: mockProducts &#125;)
+      );
+      done();
+    &#125;);
+  &#125;);
+
+  it('should dispatch failure on API error (marble)', () =&gt; &#123;
+    scheduler.run((&#123; cold, expectObservable &#125;) =&gt; &#123;
+      actions$ = cold('-a', &#123; a: ProductActions.loadProducts() &#125;);
+      apiSpy.getProducts.and.returnValue(cold('-#', &#123;&#125;, new Error('boom')));
+
+      expectObservable(effects.loadProducts$).toBe('--b', &#123;
+        b: ProductActions.loadProductsFailure(&#123; error: 'boom' &#125;),
+      &#125;);
+    &#125;);
+  &#125;);
+&#125;);</code></pre>
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li>Testear reducers vía el Store completo: son funciones puras, llámalas directamente.</li>
+          <li>Olvidar el caso "acción desconocida devuelve el mismo estado" — detecta mutaciones accidentales.</li>
+          <li>En effects con done: si el effect nunca emite, el test se cuelga hasta timeout en vez de fallar claro. El marble falla al instante.</li>
+          <li>Usar el selector completo (con estado global gigante) en vez de <code>projector()</code>: acopla el test a la forma de TODO el estado.</li>
+        </ul>
+        <h4>🎤 Preguntas de entrevista</h4>
+        <ul>
+          <li><strong>¿Por qué los reducers son tan fáciles de testear?</strong> — Son funciones puras y síncronas: mismas entradas → misma salida, sin mocks ni DI.</li>
+          <li><strong>¿Qué hace <code>projector()</code>?</strong> — Ejecuta la función de proyección del selector con las entradas que le pases, saltándose memoización y selectors padre.</li>
+          <li><strong>¿Cómo testeas que un effect NO despacha nada (dispatch: false)?</strong> — Suscríbete y verifica el side effect (spy llamado) en lugar de la emisión, o aserta el marble vacío <code>''</code>.</li>
+        </ul>
+        <div class="code-ref">
+          📂 <code>features/testing-lab/testing-demo.spec.ts</code> — TODOs de reducer/selectors/effects al final del archivo
+        </div>
+        <div class="code-ref">
+          📂 Ejercicios 2, 3 y 4 en la pestaña Lab 🧪
+        </div>
+      </div>
+
+      <div class="card" id="11-testing-de-pipes-y-directivas">
+        <h3>11. Testing de Pipes y Directivas</h3>
+        <p>
+          Un pipe puro es una clase con un método <code>transform</code>: se testea con
+          <code>new</code>, sin TestBed. Una directiva no vive sola — necesita un elemento donde
+          aplicarse — así que se testea con el <em>host component pattern</em>: un componente
+          de prueba definido en el spec cuyo template usa la directiva.
+        </p>
+        <h4>Pipes: unit test puro</h4>
+        <pre><code>describe('SustainabilityLabelPipe', () =&gt; &#123;
+  const pipe = new SustainabilityLabelPipe();
+
+  it('should label high scores', () =&gt; &#123;
+    expect(pipe.transform(85)).toBe('🌱 Eco líder');
+  &#125;);
+
+  it('should handle edge values', () =&gt; &#123;
+    expect(pipe.transform(0)).toBe('Sin datos');
+    expect(pipe.transform(null)).toBe('Sin datos');
+  &#125;);
+&#125;);</code></pre>
+        <h4>Directivas: host component pattern</h4>
+        <pre><code>// Componente host definido SOLO en el spec
+&#64;Component(&#123;
+  imports: [HighlightDirective],
+  template: `&lt;p appHighlight="gold" data-testid="target"&gt;Texto&lt;/p&gt;`,
+&#125;)
+class HostComponent &#123;&#125;
+
+describe('HighlightDirective', () =&gt; &#123;
+  let fixture: ComponentFixture&lt;HostComponent&gt;;
+
+  beforeEach(async () =&gt; &#123;
+    await TestBed.configureTestingModule(&#123; imports: [HostComponent] &#125;)
+      .compileComponents();
+    fixture = TestBed.createComponent(HostComponent);
+    fixture.detectChanges();
+  &#125;);
+
+  it('should highlight on mouseenter', () =&gt; &#123;
+    const p = fixture.debugElement.query(By.css('[data-testid="target"]'));
+
+    p.triggerEventHandler('mouseenter', null);
+    fixture.detectChanges();
+
+    expect(p.nativeElement.style.backgroundColor).toBe('gold');
+  &#125;);
+
+  it('should expose the directive instance', () =&gt; &#123;
+    const dirEl = fixture.debugElement.query(By.directive(HighlightDirective));
+    const directive = dirEl.injector.get(HighlightDirective);
+    expect(directive).toBeTruthy();
+  &#125;);
+&#125;);</code></pre>
+        <p>
+          El mismo patrón sirve para testear componentes con <code>output()</code>, proyección
+          de contenido (<code>ng-content</code>) o interacción padre-hijo realista.
+        </p>
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li>Levantar TestBed para un pipe puro: sobreingeniería; <code>new Pipe()</code> basta.</li>
+          <li>Testear la directiva llamando sus métodos directamente sin DOM: no verifica el binding real con el elemento host (HostListener/HostBinding).</li>
+          <li>Olvidar importar la directiva en el <code>imports</code> del host component → la directiva simplemente no se aplica y los asserts fallan sin error de compilación (con esquemas laxos).</li>
+          <li>Pipes impuros testeados como puros: verifica también el comportamiento por referencia/mutación.</li>
+        </ul>
+        <h4>🎤 Preguntas de entrevista</h4>
+        <ul>
+          <li><strong>¿Por qué las directivas necesitan un host component?</strong> — Su comportamiento depende del elemento al que se aplican (listeners, bindings de atributos); sin DOM host no hay nada que observar.</li>
+          <li><strong>¿Cómo obtienes la instancia de una directiva en el test?</strong> — <code>debugElement.query(By.directive(X)).injector.get(X)</code>.</li>
+          <li><strong>¿Qué diferencia hay al testear un pipe puro vs impuro?</strong> — El puro solo depende de sus argumentos (test trivial); el impuro puede depender de estado externo y se recalcula cada CD: hay que testear ambos disparadores.</li>
+        </ul>
+      </div>
+
+      <div class="card" id="12-testing-de-formularios-reactivos">
+        <h3>12. Testing de Formularios Reactivos</h3>
+        <p>
+          Los formularios reactivos viven en la clase, así que gran parte se testea sin DOM:
+          <code>setValue</code>/<code>patchValue</code>, estados de validez y errores. El DOM
+          entra cuando quieres verificar que el usuario ve los mensajes y que los inputs están
+          enlazados de verdad.
+        </p>
+        <pre><code>describe('ProductFormComponent', () =&gt; &#123;
+  it('should be invalid when empty', () =&gt; &#123;
+    expect(component.form.valid).toBeFalse();
+    expect(component.form.get('name')?.hasError('required')).toBeTrue();
+  &#125;);
+
+  it('should validate price range', () =&gt; &#123;
+    const price = component.form.get('price')!;
+    price.setValue(-5);
+    expect(price.hasError('min')).toBeTrue();
+
+    price.setValue(29.99);
+    expect(price.valid).toBeTrue();
+  &#125;);
+
+  it('should submit valid form with payload', () =&gt; &#123;
+    spyOn(component.saved, 'emit');
+    component.form.setValue(&#123; name: 'Tee', price: 29.99, category: 'Textiles' &#125;);
+
+    component.onSubmit();
+
+    expect(component.saved.emit).toHaveBeenCalledWith(
+      jasmine.objectContaining(&#123; name: 'Tee' &#125;)
+    );
+  &#125;);
+&#125;);</code></pre>
+        <h4>Interacción con el DOM real</h4>
+        <pre><code>it('should show error message after user touches the field', () =&gt; &#123;
+  const input: HTMLInputElement =
+    fixture.nativeElement.querySelector('[data-testid="name-input"]');
+
+  // Simula escritura real del usuario
+  input.value = '';
+  input.dispatchEvent(new Event('input'));   // actualiza el FormControl
+  input.dispatchEvent(new Event('blur'));    // marca touched
+  fixture.detectChanges();
+
+  const error = fixture.nativeElement.querySelector('[data-testid="name-error"]');
+  expect(error.textContent).toContain('El nombre es obligatorio');
+&#125;);</code></pre>
+        <h4>Validators custom y async</h4>
+        <pre><code>// Validator síncrono: función pura, sin TestBed
+it('should reject forbidden words', () =&gt; &#123;
+  const control = new FormControl('spam');
+  expect(forbiddenWordValidator(control)).toEqual(&#123; forbidden: true &#125;);
+&#125;);
+
+// Validator async: fakeAsync + tick
+it('should validate unique name against API', fakeAsync(() =&gt; &#123;
+  apiSpy.search.and.returnValue(of([existing]).pipe(delay(300)));
+  const name = component.form.get('name')!;
+
+  name.setValue('Organic Cotton T-Shirt');
+  expect(name.pending).toBeTrue();      // validación en curso
+
+  tick(300);
+  expect(name.hasError('nameTaken')).toBeTrue();
+&#125;));</code></pre>
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li>Setear <code>input.value</code> sin despachar el evento <code>input</code>: el FormControl nunca se entera.</li>
+          <li>Usar <code>setValue</code> con objeto incompleto → lanza error; para parciales usa <code>patchValue</code>.</li>
+          <li>Asertar mensajes de error sin marcar el control como touched: la mayoría de templates los ocultan hasta <code>touched &amp;&amp; invalid</code>.</li>
+          <li>Olvidar que los async validators dejan el control en estado <code>pending</code> (ni valid ni invalid) hasta resolverse.</li>
+        </ul>
+        <h4>🎤 Preguntas de entrevista</h4>
+        <ul>
+          <li><strong>¿setValue vs patchValue en tests?</strong> — setValue exige la forma completa del grupo (falla rápido ante drift del form); patchValue acepta parciales.</li>
+          <li><strong>¿Cómo testeas un async validator?</strong> — Mockea la dependencia, usa fakeAsync, aserta <code>pending</code> antes del tick y el error después.</li>
+          <li><strong>¿Qué testeas en la clase y qué en el DOM?</strong> — Reglas de validación y payload en la clase; visibilidad de errores, binding de inputs y accesibilidad en el DOM.</li>
+        </ul>
+      </div>
+
+      <div class="card" id="13-coverage-y-umbrales">
+        <h3>13. Coverage y Umbrales</h3>
+        <p>
+          El code coverage mide qué porcentaje del código ejecutan tus tests, en cuatro métricas:
+          <strong>statements</strong>, <strong>branches</strong> (cada rama de if/switch/ternario),
+          <strong>functions</strong> y <strong>lines</strong>. Es un detector de huecos, no una
+          medida de calidad: 100% de coverage con asserts débiles no garantiza nada.
+        </p>
+        <pre><code># Genera el reporte en /coverage (HTML navegable + lcov)
+ng test --code-coverage --watch=false
+
+# karma.conf.js — falla el build si se baja del umbral
+coverageReporter: &#123;
+  dir: require('path').join(__dirname, './coverage'),
+  subdir: '.',
+  reporters: [&#123; type: 'html' &#125;, &#123; type: 'text-summary' &#125;, &#123; type: 'lcov' &#125;],
+  check: &#123;
+    global: &#123;
+      statements: 80,
+      branches: 75,
+      functions: 80,
+      lines: 80,
+    &#125;,
+  &#125;,
+&#125;</code></pre>
+        <p><strong>Umbral razonable:</strong> 75–85% global es un buen equilibrio en apps Angular.
+          Sube el listón en código crítico (reducers, servicios de dominio, validators: 90%+) y
+          relájalo en código declarativo de bajo riesgo (configuración de rutas, wiring de módulos).
+          Las <em>branches</em> son la métrica más honesta: revela los <code>else</code> y casos
+          de error que nadie testeó.</p>
+        <p>
+          Para medir la <em>calidad</em> de los tests (no solo su alcance) existe el mutation
+          testing (Stryker): introduce bugs artificiales y comprueba si algún test los detecta.
+        </p>
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li>Perseguir 100%: lleva a tests triviales que ejecutan código sin asertar comportamiento ("assertion-free coverage").</li>
+          <li>Mirar solo lines y no branches: el happy path cubre líneas, pero los errores viven en las ramas.</li>
+          <li>Subir el umbral de golpe en un proyecto legacy: bloquea todo el equipo. Sube gradualmente y por carpeta.</li>
+          <li>Excluir archivos "difíciles" del coverage para maquillar el número.</li>
+        </ul>
+        <h4>🎤 Preguntas de entrevista</h4>
+        <ul>
+          <li><strong>¿Es 100% de coverage un buen objetivo?</strong> — No: coste marginal altísimo y falsa seguridad. Mejor 80% con asserts fuertes y 90%+ en dominio crítico.</li>
+          <li><strong>¿Diferencia entre line coverage y branch coverage?</strong> — Line: la línea se ejecutó; branch: CADA camino de decisión se ejecutó. Un if sin else puede dar 100% lines y 50% branches.</li>
+          <li><strong>¿Qué aporta mutation testing sobre coverage?</strong> — Verifica que los tests DETECTAN cambios de comportamiento, no solo que ejecutan el código.</li>
+        </ul>
+      </div>
+
+      <div class="card" id="14-buenas-practicas-de-testing">
+        <h3>14. Buenas Prácticas de Testing</h3>
+        <p>
+          Los tests son código de producción: se leen mucho más de lo que se escriben. Estas
+          prácticas mantienen la suite útil, legible y resistente a refactors.
+        </p>
+        <h4>Patrón AAA: Arrange, Act, Assert</h4>
+        <pre><code>it('should show error banner when the API fails', () =&gt; &#123;
+  // Arrange — prepara el mundo
+  mockApiService.getProducts.and.returnValue(
+    throwError(() =&gt; new Error('Network error'))
+  );
+
+  // Act — UNA acción bajo test
+  component.loadProducts();
+  fixture.detectChanges();
+
+  // Assert — verifica el comportamiento observable
+  const banner = fixture.nativeElement.querySelector('[data-testid="error-message"]');
+  expect(banner.textContent).toContain('Network error');
+&#125;);</code></pre>
+        <h4>Comportamiento, no implementación</h4>
+        <pre><code>// ❌ MAL — acoplado a detalles internos: se rompe con cualquier refactor
+expect(component['sortInternal']).toHaveBeenCalled();
+expect((component as any)._cache.size).toBe(3);
+
+// ✅ BIEN — aserta lo que el usuario/consumidor observa
+expect(component.products()).toEqual(sortedProducts);
+expect(rows[0].textContent).toContain('Organic Cotton T-Shirt');</code></pre>
+        <h4>Page Object en unit tests</h4>
+        <p>
+          Igual que en E2E, encapsula los selectores del template en un objeto: si el HTML
+          cambia, actualizas UN lugar en vez de cincuenta tests.
+        </p>
+        <pre><code>class DemoPage &#123;
+  constructor(private fixture: ComponentFixture&lt;TestingDemoComponent&gt;) &#123;&#125;
+
+  get counterValue() &#123;
+    return this.fixture.nativeElement
+      .querySelector('[data-testid="counter-value"]')?.textContent?.trim();
+  &#125;
+  get productRows(): NodeListOf&lt;HTMLElement&gt; &#123;
+    return this.fixture.nativeElement.querySelectorAll('[data-testid="product-row"]');
+  &#125;
+  clickIncrement() &#123;
+    this.fixture.nativeElement.querySelector('[data-testid="increment-btn"]').click();
+    this.fixture.detectChanges();
+  &#125;
+&#125;
+
+it('should increment via UI', () =&gt; &#123;
+  const page = new DemoPage(fixture);
+  page.clickIncrement();
+  expect(page.counterValue).toBe('1');
+&#125;);</code></pre>
+        <h4>Checklist profesional</h4>
+        <ul>
+          <li><strong>Un comportamiento por test:</strong> nombres descriptivos ("should show error banner when API fails"), un motivo de fallo por spec.</li>
+          <li><strong>Selectores estables:</strong> <code>data-testid</code> en vez de clases CSS o estructura del DOM.</li>
+          <li><strong>Deterministas:</strong> nada de fechas reales (<code>jasmine.clock().mockDate()</code>), random sin semilla ni timers reales.</li>
+          <li><strong>Sin lógica en los tests:</strong> ni ifs ni loops complejos; si los necesitas, el test está mal diseñado.</li>
+          <li><strong>Independientes:</strong> cada test debe pasar solo y en cualquier orden; estado nuevo en cada beforeEach.</li>
+          <li><strong>Rápidos:</strong> tiempo virtual (fakeAsync/TestScheduler), mocks para I/O, TestBed mínimo.</li>
+        </ul>
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li>Tests que espían métodos privados o leen estado interno: cualquier refactor los rompe aunque el comportamiento sea idéntico.</li>
+          <li>Un solo it gigante con 20 asserts: cuando falla, no sabes qué se rompió.</li>
+          <li>Copiar-pegar el beforeEach entre archivos con variaciones sutiles: extrae helpers de setup.</li>
+          <li>Tests flaky tolerados ("relanza el CI"): erosionan la confianza en toda la suite. Un flaky se arregla o se borra.</li>
+        </ul>
+        <h4>🎤 Preguntas de entrevista</h4>
+        <ul>
+          <li><strong>¿Qué significa "testear comportamiento y no implementación"?</strong> — Asertar salidas observables (DOM, valores retornados, llamadas a colaboradores externos) en vez de detalles internos; así los refactors no rompen tests.</li>
+          <li><strong>¿Qué es el patrón AAA?</strong> — Estructurar cada test en Arrange (setup), Act (una acción) y Assert (verificación), separados visualmente para máxima legibilidad.</li>
+          <li><strong>¿Cómo manejas un test flaky?</strong> — Se cuarentena y diagnostica ya: casi siempre es async mal controlado, estado compartido o dependencia de orden. Nunca se normaliza el re-run.</li>
+        </ul>
+        <div class="code-ref">
+          📂 <code>features/testing-lab/testing-demo.html</code> — data-testid en todos los elementos testeables
+        </div>
+        <div class="code-ref">
+          📂 <code>features/testing-lab/testing-demo.spec.ts</code> — estructura AAA en los 13 tests del lab
+        </div>
       </div>
     </div>

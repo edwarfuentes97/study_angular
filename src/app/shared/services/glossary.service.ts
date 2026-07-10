@@ -1312,6 +1312,78 @@ La pregunta clave no es 'cómo lo registro' sino 'qué scope necesito'.`,
         'Operación que produce el mismo resultado sin importar cuántas veces se ejecute. GET, PUT, DELETE son idempotentes; POST no.',
       topic: 'fundamentals',
     },
+    // Microfrontends terms
+    {
+      term: 'Microfrontends',
+      definition: `Arquitectura que divide una aplicación frontend en piezas independientes, cada una desarrollada y desplegada por un equipo autónomo.
+
+Piensa en microservicios aplicados al frontend:
+• cada MFE tiene su propio repo/pipeline/deploy
+• un shell (host) los compone en runtime
+• los equipos eligen su cadencia de release
+
+Úsalo cuando:
+• varios equipos trabajan sobre el mismo producto
+• necesitas deploys independientes de verdad
+• la app creció más allá de lo que un solo build tolera
+
+Riesgo:
+• para apps de un solo equipo suele ser overengineering: pagas complejidad operacional sin ganar autonomía`,
+      topic: 'microfrontends',
+    },
+    {
+      term: 'Module Federation',
+      definition: `Mecanismo de webpack 5 para cargar código de otro build en runtime.
+
+Conceptos clave:
+• host: la app shell que consume remotes
+• remote: la app que expone módulos (exposes)
+• shared: dependencias compartidas (singleton para Angular/RxJS)
+
+Ventaja frente a npm packages:
+• el remote se actualiza sin recompilar el host
+
+En Angular moderno se usa su evolución: Native Federation (esbuild).`,
+      topic: 'microfrontends',
+    },
+    {
+      term: 'Native Federation',
+      definition: `Implementación de federación agnóstica del bundler (@angular-architects/native-federation), basada en import maps y esbuild.
+
+Es el enfoque recomendado para Angular 17+:
+• federation.config.js define exposes y shared
+• initFederation() carga el manifest por entorno
+• loadRemoteModule() se usa en rutas lazy del shell
+
+Ventaja:
+• funciona con el builder esbuild moderno de Angular, sin volver a webpack`,
+      topic: 'microfrontends',
+    },
+    {
+      term: 'Angular Elements',
+      definition: `Empaqueta un componente Angular como Web Component (custom element) con createCustomElement().
+
+Úsalo como frontera framework-agnóstica entre microfrontends:
+• el shell solo conoce la etiqueta HTML (<mi-widget>)
+• el MFE puede migrar de versión/framework sin romper el contrato
+
+Riesgo:
+• cada elemento carga su propio runtime de Angular si no compartes dependencias`,
+      topic: 'microfrontends',
+    },
+    {
+      term: 'Shell',
+      definition: `La aplicación host/contenedor en una arquitectura de microfrontends.
+
+Responsabilidades:
+• routing de alto nivel (qué MFE responde a qué prefijo de URL)
+• layout global (header, nav)
+• orquestar autenticación y estado compartido mínimo
+• cargar remotes vía manifest
+
+Regla mental: el shell debe ser tonto y estable — cuanta menos lógica de negocio tenga, mejor.`,
+      topic: 'microfrontends',
+    },
   ];
 
   // Map topic IDs to routes and labels
@@ -1325,6 +1397,7 @@ La pregunta clave no es 'cómo lo registro' sino 'qué scope necesito'.`,
     testing: { route: '/lab/testing', label: 'Testing Lab' },
     playwright: { route: '/lab/playwright', label: 'Playwright Lab' },
     fundamentals: { route: '/lab/fundamentals', label: 'Angular Fundamentals' },
+    microfrontends: { route: '/lab/microfrontends', label: 'Microfrontends Lab' },
   };
 
   getDefinition(term: string): string | null {

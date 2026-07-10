@@ -2,9 +2,9 @@ import { Component } from '@angular/core';
 import { AutoGlossaryDirective } from '../../shared/directives/auto-glossary.directive';
 
 @Component({
-  selector: 'app-arch-learn',
+  selector: 'app-mfe-learn',
   imports: [AutoGlossaryDirective],
-  templateUrl: './arch-learn.html',
-  styleUrl: './arch-learn.css'
+  templateUrl: './mfe-learn.html',
+  styleUrl: './mfe-learn.css'
 })
-export class ArchLearnComponent {}
+export class MfeLearnComponent {}

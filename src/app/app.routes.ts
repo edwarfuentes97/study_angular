@@ -41,5 +41,9 @@ export const routes: Routes = [
     path: 'lab/playwright',
     loadChildren: () => import('./features/playwright-lab/playwright-lab.routes').then(m => m.PLAYWRIGHT_LAB_ROUTES)
   },
+  {
+    path: 'lab/microfrontends',
+    loadChildren: () => import('./features/microfrontends-lab/mfe-lab.routes').then(m => m.MFE_LAB_ROUTES)
+  },
   { path: '**', redirectTo: '' }
 ];

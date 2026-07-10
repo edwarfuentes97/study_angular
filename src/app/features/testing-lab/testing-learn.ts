@@ -3,6 +3,7 @@ import { AutoGlossaryDirective } from '../../shared/directives/auto-glossary.dir
 
 @Component({
   selector: 'app-testing-learn',
+  imports: [AutoGlossaryDirective],
   templateUrl: './testing-learn.html',
   styleUrl: './testing-learn.css'
 })

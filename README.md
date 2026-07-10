@@ -1,59 +1,74 @@
-# StudyAngular
+# 🎯 StudyAngular — Guía de Estudio Interactiva
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 20.3.9.
+Aplicación Angular 20 para estudiar y practicar el ecosistema frontend a nivel profesional.
+Cada categoría tiene su propio **lab** con tres pestañas: **Estudiar 📖** (teoría en profundidad con
+ejemplos, errores comunes y preguntas de entrevista), **Ejemplos 💡** (demos interactivas o
+configuraciones comentadas) y **Lab 🧪** (ejercicios prácticos con criterios de aceptación).
 
-## Development server
+**Demo:** https://edwarfuentes97.github.io/study_angular/
 
-To start a local development server, run:
+## 📚 Categorías de estudio
 
-```bash
-ng serve
-```
+| Categoría | Ruta | Nivel |
+|---|---|---|
+| 🔴 NgRx — State Management | `/lab/ngrx` | Crítico |
+| 🔴 RxJS — Programación Reactiva | `/lab/rxjs` | Crítico |
+| 🔴 Angular Core Avanzado | `/lab/angular` | Crítico |
+| 🔴 TypeScript Avanzado | `/lab/typescript` | Crítico |
+| 🟢 Angular Fundamentals | `/lab/fundamentals` | Crítico |
+| 🟠 Arquitectura | `/lab/architecture` | Alto |
+| 🟠 Performance | `/lab/performance` | Alto |
+| 🟠 Testing (unit) | `/lab/testing` | Alto |
+| 🧪 Playwright E2E Testing | `/lab/playwright` | Alto |
+| 🧩 Microfrontends | `/lab/microfrontends` | Alto |
+| 💬 Behavioral & System Design | `/guide` | Complementario |
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+Funcionalidades transversales:
 
-## Code scaffolding
+- **Progreso por subtema** persistido en `localStorage`, con barras de avance por categoría y globales.
+- **Buscador global con glosario**: cualquier término técnico del glosario navega directo a su sección.
+- **Auto-glosario**: los términos conocidos se resaltan en el contenido con su definición.
 
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
-
-```bash
-ng generate component component-name
-```
-
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
-
-```bash
-ng generate --help
-```
-
-## Building
-
-To build the project run:
-
-```bash
-ng build
-```
-
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
-
-## Running unit tests
-
-To execute unit tests with the [Karma](https://karma-runner.github.io) test runner, use the following command:
+## 🚀 Desarrollo
 
 ```bash
-ng test
+npm install
+npm start          # http://localhost:4200
 ```
 
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
+## 🏗️ Build
 
 ```bash
-ng e2e
+npm run build      # artefactos en dist/
 ```
 
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
+## ✅ Tests
 
-## Additional Resources
+```bash
+npm test                     # unit tests (Karma + Jasmine)
+npm run test:e2e             # Playwright E2E (chromium, firefox, webkit)
+npm run test:e2e:smoke       # solo tests @smoke
+npm run test:e2e:regression  # solo tests @regression
+npm run test:e2e:ui          # modo UI interactivo
+npm run test:e2e:report      # abrir el último reporte HTML
+```
 
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+Los tests E2E generan documentación por test en `test-documentation/` (carpeta ignorada por git).
+
+## 🔄 CI/CD
+
+Cada push a `main` ejecuta el pipeline de GitHub Actions (`.github/workflows/playwright.yml`):
+build → unit tests → E2E en 3 navegadores → **deploy automático a GitHub Pages**.
+
+## 📁 Estructura
+
+```
+src/app/
+├── core/          # guards, interceptors, servicios singleton (progreso, mock API)
+├── shared/        # lab-layout, buscador global, glosario, directivas, modelos
+└── features/      # un directorio por categoría de estudio (lazy loaded)
+    ├── dashboard/
+    ├── study-guide/
+    └── *-lab/     # ngrx, rxjs, angular, typescript, fundamentals,
+                   # architecture, performance, testing, playwright, microfrontends
+```

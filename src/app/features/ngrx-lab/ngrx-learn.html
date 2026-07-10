@@ -28,6 +28,15 @@ export const selectAllProducts = createSelector(
   selectProductState,
   (state) => state.products
 );</code></pre>
+        <h4>🎤 Preguntas de entrevista</h4>
+        <dl class="qa">
+          <dt>P: ¿Qué problema resuelve NgRx?</dt>
+          <dd>R: Gestionar estado compartido complejo de forma predecible: una única fuente de verdad, cambios trazables mediante actions, y side effects aislados. Elimina el "¿quién cambió este dato y cuándo?".</dd>
+          <dt>P: ¿Cuáles son los tres principios de Redux que hereda NgRx?</dt>
+          <dd>R: 1) Single source of truth (un solo Store), 2) el estado es de solo lectura (solo cambia despachando actions), 3) los cambios se hacen con funciones puras (reducers).</dd>
+          <dt>P: ¿Qué significa "flujo unidireccional de datos"?</dt>
+          <dd>R: Los datos siempre viajan en un solo sentido: Component → dispatch(Action) → Reducer → Store → Selector → Component. Nunca hay escrituras directas al estado desde la vista.</dd>
+        </dl>
         <div class="code-ref">
           📂 Implementación completa en el proyecto:
           <ul>
@@ -435,6 +444,410 @@ export const appConfig: ApplicationConfig = &#123;
         </div>
       </div>
 
+      <div class="card" id="actions-en-profundidad">
+        <h3>🎬 Actions en Profundidad</h3>
+        <p>
+          Una action es un <strong>evento</strong>, no un comando. Describe algo que <em>ya pasó</em>
+          (&quot;el usuario hizo click en guardar&quot;, &quot;el API respondió con error&quot;), y son los reducers
+          y effects quienes deciden cómo reaccionar. Esta distinción — <strong>event-driven, no
+          command-driven</strong> — es la clave para que NgRx escale.
+        </p>
+        <h4>createAction + props</h4>
+        <pre ngNonBindable><code class="language-typescript">import &#123; createAction, props &#125; from '&#64;ngrx/store';
+
+// Sin payload — el tipo string DEBE ser único en toda la app
+export const loadProducts = createAction('[Products Page] Load Products');
+
+// Con payload tipado — props&lt;T&gt;() define la forma del payload
+export const createProduct = createAction(
+  '[Products Page] Create Product',
+  props&lt;&#123; product: Omit&lt;Product, 'id'&gt; &#125;&gt;()
+);
+
+// Payload derivado — tercera forma: función creadora
+export const searchProducts = createAction(
+  '[Products Page] Search',
+  (term: string) =&gt; (&#123; term: term.trim().toLowerCase() &#125;)
+);</code></pre>
+        <h4>createActionGroup (NgRx 15+)</h4>
+        <p>
+          Agrupa actions relacionadas bajo un mismo <code>source</code> y genera los nombres de
+          método automáticamente (Title Case → camelCase). Reduce boilerplate drásticamente:
+        </p>
+        <pre ngNonBindable><code class="language-typescript">import &#123; createActionGroup, emptyProps, props &#125; from '&#64;ngrx/store';
+
+export const ProductsApiActions = createActionGroup(&#123;
+  source: 'Products API',
+  events: &#123;
+    // 'Load Success' → ProductsApiActions.loadSuccess
+    'Load Success': props&lt;&#123; products: Product[] &#125;&gt;(),
+    'Load Failure': props&lt;&#123; error: string &#125;&gt;(),
+    'Delete Success': props&lt;&#123; id: string &#125;&gt;(),
+    'Noop': emptyProps(),   // action sin payload dentro del grupo
+  &#125;,
+&#125;);
+
+// Uso — tipos generados: '[Products API] Load Success'
+this.store.dispatch(ProductsApiActions.loadSuccess(&#123; products &#125;));</code></pre>
+        <h4>Buenas prácticas de naming</h4>
+        <ul>
+          <li><strong>[Source] Event:</strong> el source dice DÓNDE se originó (<code>[Products Page]</code>, <code>[Products API]</code>, <code>[Auth Guard]</code>).</li>
+          <li>Actions de UI y de API separadas: la página despacha <code>Load Products</code>; el effect despacha <code>Load Products Success/Failure</code>.</li>
+          <li>Nombra el evento, no el efecto deseado: <code>[Login Page] Login Button Clicked</code> es mejor que <code>[Auth] Set User</code>.</li>
+          <li>Varios reducers/effects pueden reaccionar a la MISMA action — eso es deseable (event-driven).</li>
+        </ul>
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li><strong>Actions genéricas tipo setter</strong> (<code>[App] Set Products</code>) reutilizadas desde 10 sitios: pierdes trazabilidad total en DevTools. Cada origen debería tener su propia action.</li>
+          <li><strong>Tipos duplicados:</strong> dos actions con el mismo string type — el reducer responde a ambas sin que lo notes. El type es la identidad de la action.</li>
+          <li><strong>Payloads no serializables</strong> (instancias de clase, funciones, <code>Map</code>): rompen DevTools, time-travel e hidratación.</li>
+          <li><strong>Despachar una action "para que el effect haga algo"</strong> sin que describa un evento real — señal de que estás usando NgRx como un bus de comandos.</li>
+        </ul>
+        <h4>🎤 Preguntas de entrevista</h4>
+        <dl class="qa">
+          <dt>P: ¿Por qué las actions deben ser eventos y no comandos?</dt>
+          <dd>R: Un evento describe qué pasó y permite que múltiples consumidores (reducers, effects) reaccionen de forma independiente. Un comando acopla al emisor con un único receptor y convierte el Store en un bus de RPC.</dd>
+          <dt>P: ¿Qué ventaja tiene createActionGroup sobre createAction?</dt>
+          <dd>R: Agrupa actions con el mismo source, genera automáticamente los creators con nombres camelCase y elimina repetición de strings. Menos boilerplate y menos typos.</dd>
+          <dt>P: ¿Pueden dos reducers responder a la misma action?</dt>
+          <dd>R: Sí, y es un patrón recomendado: por ejemplo, <code>[Auth] Logout</code> puede limpiar el slice de auth, el de carrito y el de perfil a la vez.</dd>
+        </dl>
+        <div class="code-ref">
+          📂 <code>features/ngrx-lab/store/product.actions.ts</code> — Actions con convención [Products Page] / [Products API]
+        </div>
+      </div>
+
+      <div class="card" id="reducers-e-inmutabilidad">
+        <h3>🧮 Reducers e Inmutabilidad</h3>
+        <p>
+          Un reducer es una <strong>función pura</strong>: <code>(state, action) =&gt; newState</code>.
+          Puro significa: sin side effects, sin mutar argumentos, y el mismo input produce SIEMPRE
+          el mismo output. NgRx (y el <code>OnPush</code> de Angular) dependen de la
+          <strong>igualdad por referencia</strong>: si el estado cambió, la referencia del objeto
+          debe ser nueva.
+        </p>
+        <h4>createReducer + on</h4>
+        <pre ngNonBindable><code class="language-typescript">export const productReducer = createReducer(
+  initialState,   // ← obligatorio: el estado por defecto
+
+  // Un on puede escuchar VARIAS actions con el mismo handler
+  on(
+    ProductActions.loadProducts,
+    ProductActions.createProduct,
+    ProductActions.deleteProduct,
+    (state) =&gt; (&#123; ...state, loading: true, error: null &#125;)
+  ),
+
+  // Handler con payload destructurado
+  on(ProductActions.loadProductsFailure, (state, &#123; error &#125;) =&gt; (&#123;
+    ...state,
+    loading: false,
+    error,
+  &#125;)),
+);</code></pre>
+        <h4>Actualizaciones inmutables anidadas</h4>
+        <pre ngNonBindable><code class="language-typescript">// ❌ MUTACIÓN — misma referencia, nadie se entera del cambio
+on(updateAddress, (state, &#123; city &#125;) =&gt; &#123;
+  state.user.address.city = city;   // ¡NO! muta el state original
+  return state;
+&#125;);
+
+// ✅ INMUTABLE — copia cada nivel que cambia
+on(updateAddress, (state, &#123; city &#125;) =&gt; (&#123;
+  ...state,
+  user: &#123;
+    ...state.user,
+    address: &#123; ...state.user.address, city &#125;,
+  &#125;,
+&#125;));
+
+// ✅ Arrays: nunca push/splice — crea uno nuevo
+on(addTag, (state, &#123; tag &#125;) =&gt; (&#123;
+  ...state,
+  tags: [...state.tags, tag],
+&#125;));
+on(removeTag, (state, &#123; tag &#125;) =&gt; (&#123;
+  ...state,
+  tags: state.tags.filter(t =&gt; t !== tag),
+&#125;));</code></pre>
+        <h4>Mejores prácticas</h4>
+        <ul>
+          <li><strong>Reducers "tontos":</strong> solo transforman datos. La lógica de negocio va en effects; la lógica de derivación, en selectors.</li>
+          <li><strong>No guardes datos derivados</strong> (totales, filtrados): calcúlalos en selectors. El Store guarda el estado mínimo.</li>
+          <li>Estado <strong>serializable</strong>: primitivos, objetos planos y arrays. Nada de <code>Date</code> (usa ISO string), <code>Map</code>, <code>Set</code> ni instancias de clase.</li>
+          <li>En desarrollo activa <code>provideStore(reducers, &#123; runtimeChecks: &#123; strictStateImmutability: true, strictActionImmutability: true &#125; &#125;)</code> para detectar mutaciones al instante.</li>
+        </ul>
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li><strong>Mutar y devolver el mismo objeto:</strong> los selectors memoizados no recalculan y los componentes OnPush no se re-renderizan. El bug clásico de "el dato cambió pero la UI no".</li>
+          <li><strong>Side effects en el reducer:</strong> <code>Date.now()</code>, <code>Math.random()</code>, llamadas HTTP o <code>localStorage</code> rompen la pureza — el timestamp/id se genera en la action creator o en un effect.</li>
+          <li><strong>Spread superficial en objetos anidados:</strong> <code>&#123; ...state &#125;</code> copia solo el primer nivel; si mutas <code>state.user.address</code> sigues mutando el original.</li>
+          <li><strong>Lógica condicional compleja por action type</strong> dentro de un solo handler — divide en varios <code>on()</code>.</li>
+        </ul>
+        <h4>🎤 Preguntas de entrevista</h4>
+        <dl class="qa">
+          <dt>P: ¿Qué pasa exactamente si mutas el state en un reducer?</dt>
+          <dd>R: La referencia no cambia, así que los selectors memoizados devuelven el valor cacheado, OnPush no dispara change detection y el time-travel de DevTools muestra estados corruptos. Con strictStateImmutability activado, NgRx lanza un error.</dd>
+          <dt>P: ¿Por qué los reducers deben ser funciones puras?</dt>
+          <dd>R: Garantizan predictibilidad (mismo input → mismo output), permiten testear sin mocks, y hacen posible el time-travel debugging: re-ejecutar la secuencia de actions reconstruye el estado exacto.</dd>
+          <dt>P: ¿Dónde generarías un id o timestamp para una entidad nueva?</dt>
+          <dd>R: Nunca en el reducer. En la función creadora de la action, en un effect, o idealmente en el backend.</dd>
+        </dl>
+        <div class="code-ref">
+          📂 <code>features/ngrx-lab/store/product.reducer.ts</code> — createReducer con handlers inmutables + EntityAdapter
+        </div>
+      </div>
+
+      <div class="card" id="effects-patrones-de-concurrencia">
+        <h3>🌊 Effects — Patrones de Concurrencia</h3>
+        <p>
+          El operador de aplanamiento (<em>flattening operator</em>) que elijas define qué pasa cuando
+          llegan <strong>varias actions del mismo tipo seguidas</strong>. Elegir mal no es un detalle:
+          puede cancelar un POST a mitad de camino o duplicar un pago.
+        </p>
+        <table class="compare-table">
+          <thead>
+            <tr>
+              <th>Operador</th>
+              <th>Si llega otra action mientras la anterior está en vuelo…</th>
+              <th>Caso de uso</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>switchMap</strong></td>
+              <td>Cancela la petición anterior y arranca la nueva</td>
+              <td>GET / búsqueda / autocomplete — solo importa el último resultado</td>
+            </tr>
+            <tr>
+              <td><strong>concatMap</strong></td>
+              <td>Encola: espera a que termine la anterior, ejecuta en orden</td>
+              <td>UPDATE / escrituras donde el orden importa</td>
+            </tr>
+            <tr>
+              <td><strong>mergeMap</strong></td>
+              <td>Ejecuta todas en paralelo, sin orden garantizado</td>
+              <td>DELETE de items independientes, operaciones sin dependencia</td>
+            </tr>
+            <tr>
+              <td><strong>exhaustMap</strong></td>
+              <td>IGNORA las nuevas hasta que termine la actual</td>
+              <td>LOGIN / submit / refresh — anti doble-click</td>
+            </tr>
+          </tbody>
+        </table>
+        <p>
+          <strong>Regla mnemotécnica:</strong> lecturas → <code>switchMap</code>; escrituras ordenadas →
+          <code>concatMap</code>; escrituras independientes → <code>mergeMap</code>; acciones que no deben
+          repetirse → <code>exhaustMap</code>. Si dudas con escrituras, <code>concatMap</code> es lo más seguro.
+        </p>
+        <h4>Leer state dentro de un effect — concatLatestFrom</h4>
+        <pre ngNonBindable><code class="language-typescript">import &#123; concatLatestFrom &#125; from '&#64;ngrx/operators';
+
+// Evitar recargar si ya hay datos en el Store
+loadIfEmpty$ = createEffect(() =&gt;
+  this.actions$.pipe(
+    ofType(ProductActions.loadProducts),
+    concatLatestFrom(() =&gt; this.store.select(selectProductTotal)),
+    filter(([, total]) =&gt; total === 0),   // solo si el store está vacío
+    switchMap(() =&gt;
+      this.api.getProducts().pipe(
+        map((products) =&gt; ProductActions.loadProductsSuccess(&#123; products &#125;)),
+        catchError((err) =&gt; of(ProductActions.loadProductsFailure(&#123; error: err.message &#125;)))
+      )
+    )
+  )
+);
+// concatLatestFrom es lazy: solo evalúa el selector cuando llega la action
+// (withLatestFrom lo evaluaría siempre, aunque no haya actions)</code></pre>
+        <h4>Reintentos con backoff</h4>
+        <pre ngNonBindable><code class="language-typescript">switchMap(() =&gt;
+  this.api.getProducts().pipe(
+    retry(&#123; count: 3, delay: 1000 &#125;),   // 3 reintentos, 1s entre cada uno
+    map((products) =&gt; ProductActions.loadProductsSuccess(&#123; products &#125;)),
+    catchError((err) =&gt; of(ProductActions.loadProductsFailure(&#123; error: err.message &#125;)))
+  )
+)</code></pre>
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li><strong>catchError FUERA del operador de aplanamiento:</strong> completa el stream del effect y NUNCA vuelve a procesar actions. Siempre dentro del pipe interno.</li>
+          <li><strong>switchMap en escrituras:</strong> si el usuario dispara dos POST rápidos, el primero se cancela en el cliente… pero el servidor quizá ya lo procesó. Resultado: estado inconsistente.</li>
+          <li><strong>Loops infinitos:</strong> un effect que despacha (directa o indirectamente) la misma action que escucha. DevTools lo delata: la misma action repetida sin parar.</li>
+          <li><strong>subscribe() manual dentro del effect:</strong> rompe la cadena declarativa y pierde el manejo de errores/cancelación. El effect debe devolver un Observable de actions.</li>
+          <li><strong>Despachar la misma action Success desde varios effects</strong> sin source distinto — imposible saber quién la emitió.</li>
+        </ul>
+        <h4>🎤 Preguntas de entrevista</h4>
+        <dl class="qa">
+          <dt>P: ¿Cuándo usarías exhaustMap y por qué?</dt>
+          <dd>R: En login o cualquier submit: mientras la petición está en vuelo, los clicks repetidos se ignoran. Es la protección anti doble-submit más limpia.</dd>
+          <dt>P: ¿Por qué "muere" un effect y cómo lo evitas?</dt>
+          <dd>R: Si un error alcanza el stream externo del effect, RxJS lo completa y deja de escuchar actions para siempre. Se evita poniendo catchError dentro del observable interno (dentro del switchMap/mergeMap) y devolviendo una action de failure.</dd>
+          <dt>P: ¿Cómo lees un valor del Store dentro de un effect?</dt>
+          <dd>R: Con concatLatestFrom(() =&gt; this.store.select(...)) de &#64;ngrx/operators — es lazy y solo evalúa el selector cuando llega la action.</dd>
+          <dt>P: ¿Qué es un non-dispatching effect?</dt>
+          <dd>R: Un effect con &#123; dispatch: false &#125; que ejecuta un side effect terminal (navegación, analytics, toast, logging) sin emitir una nueva action.</dd>
+        </dl>
+        <div class="code-ref">
+          📂 <code>features/ngrx-lab/store/product.effects.ts</code> — switchMap (load), exhaustMap (create), mergeMap (update/delete)
+        </div>
+      </div>
+
+      <div class="card" id="functional-effects-ngrx-moderno">
+        <h3>⚡ Functional Effects (NgRx moderno)</h3>
+        <p>
+          Desde NgRx 15 los effects pueden ser <strong>funciones en vez de clases</strong>. Las
+          dependencias se obtienen con <code>inject()</code> como parámetros por defecto, lo que los
+          hace tree-shakeables y triviales de testear (puedes pasar mocks como argumentos).
+        </p>
+        <pre ngNonBindable><code class="language-typescript">// product.effects.ts — sin clase, sin &#64;Injectable
+import &#123; createEffect, Actions, ofType &#125; from '&#64;ngrx/effects';
+import &#123; inject &#125; from '&#64;angular/core';
+
+export const loadProducts = createEffect(
+  (actions$ = inject(Actions), api = inject(MockApiService)) =&gt;
+    actions$.pipe(
+      ofType(ProductActions.loadProducts),
+      switchMap(() =&gt;
+        api.getProducts().pipe(
+          map((products) =&gt; ProductActions.loadProductsSuccess(&#123; products &#125;)),
+          catchError((err) =&gt;
+            of(ProductActions.loadProductsFailure(&#123; error: err.message &#125;))
+          )
+        )
+      )
+    ),
+  &#123; functional: true &#125;   // ← imprescindible
+);
+
+// Non-dispatching functional effect
+export const logActions = createEffect(
+  (actions$ = inject(Actions)) =&gt;
+    actions$.pipe(tap((a) =&gt; console.log('[NgRx]', a.type))),
+  &#123; functional: true, dispatch: false &#125;
+);
+
+// Registro — se pasa un objeto con los effects (o import * as)
+import * as productEffects from './store/product.effects';
+provideEffects(productEffects);</code></pre>
+        <h4>Testing simplificado</h4>
+        <pre ngNonBindable><code class="language-typescript">// Los deps son parámetros: pásalos mockeados directamente
+it('despacha success al cargar', () =&gt; &#123;
+  const actions$ = of(ProductActions.loadProducts());
+  const api = &#123; getProducts: () =&gt; of([mockProduct]) &#125; as MockApiService;
+
+  TestBed.runInInjectionContext(() =&gt; &#123;
+    loadProducts(actions$, api).subscribe((action) =&gt; &#123;
+      expect(action).toEqual(
+        ProductActions.loadProductsSuccess(&#123; products: [mockProduct] &#125;)
+      );
+    &#125;);
+  &#125;);
+&#125;);</code></pre>
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li><strong>Olvidar <code>&#123; functional: true &#125;</code>:</strong> NgRx trata la función como effect de clase y falla en runtime al registrarlo.</li>
+          <li><strong>Llamar <code>inject()</code> fuera del parámetro por defecto</strong> (p. ej. dentro del pipe): solo funciona en contexto de inyección, es decir, al crearse el effect.</li>
+          <li><strong>Mezclar estilos sin criterio:</strong> elige clase o funcional por feature; mezclar ambos en el mismo archivo confunde el registro con provideEffects.</li>
+        </ul>
+        <h4>🎤 Preguntas de entrevista</h4>
+        <dl class="qa">
+          <dt>P: ¿Qué ventajas tienen los functional effects sobre los de clase?</dt>
+          <dd>R: Menos boilerplate (sin clase ni &#64;Injectable), tree-shaking real, y testing directo: las dependencias son parámetros que puedes sustituir por mocks sin TestBed complejo.</dd>
+          <dt>P: ¿Cómo se registran?</dt>
+          <dd>R: provideEffects(objetoConEffects) — típicamente <code>import * as productEffects</code> y pasar el namespace completo.</dd>
+        </dl>
+        <div class="code-ref">
+          📂 <code>features/ngrx-lab/store/product.effects.ts</code> — versión de clase equivalente (compárala con la funcional de arriba)
+        </div>
+      </div>
+
+      <div class="card" id="selectors-memoizacion-y-composicion">
+        <h3>🎯 Selectors — Memoización y Composición</h3>
+        <p>
+          <code>createSelector</code> memoiza con <strong>caché de tamaño 1</strong>: guarda los últimos
+          inputs y el último resultado. Si los inputs son <em>los mismos por referencia</em>, devuelve
+          el resultado cacheado sin ejecutar la función proyectora. Por eso la inmutabilidad del
+          reducer es crítica: referencia nueva = recálculo; misma referencia = caché.
+        </p>
+        <pre ngNonBindable><code class="language-typescript">// Composición: cada selector construye sobre otros
+export const selectProductState = createFeatureSelector&lt;ProductState&gt;('products');
+
+export const selectAllProducts = createSelector(selectProductState, selectAll);
+export const selectLoading = createSelector(selectProductState, (s) =&gt; s.loading);
+
+// Derivar, no almacenar: el filtrado vive AQUÍ, no en el Store
+export const selectHighSustainability = createSelector(
+  selectAllProducts,
+  (products) =&gt; products.filter((p) =&gt; p.sustainabilityScore &gt;= 80)
+);
+
+// View model selector: un solo selector para toda la vista
+// → el componente hace UN select en vez de cinco
+export const selectProductListVm = createSelector(
+  selectAllProducts,
+  selectLoading,
+  selectError,
+  (products, loading, error) =&gt; (&#123; products, loading, error &#125;)
+);</code></pre>
+        <h4>Selectores parametrizados</h4>
+        <pre ngNonBindable><code class="language-typescript">// Factory selector — crea una instancia memoizada POR LLAMADA
+export const selectProductById = (id: string) =&gt;
+  createSelector(selectProductEntities, (entities) =&gt; entities[id] ?? null);
+
+// ⚠️ Cada llamada a selectProductById('1') crea un selector NUEVO
+// (memoización desde cero). Crea la instancia UNA vez por componente:
+export class ProductDetailComponent &#123;
+  private store = inject(Store);
+  private route = inject(ActivatedRoute);
+
+  // ✅ el selector se crea UNA sola vez y se reutiliza
+  private readonly byId = selectProductById(this.route.snapshot.params['id']);
+  product = this.store.selectSignal(this.byId);
+&#125;
+
+// Alternativa sin factory: seleccionar el mapa de entities
+// e indexar con un computed — memoización intacta, cero instancias extra
+export class ProductDetailComponent &#123;
+  private store = inject(Store);
+  id = input.required&lt;string&gt;();
+
+  private entities = this.store.selectSignal(selectProductEntities);
+  product = computed(() =&gt; this.entities()[this.id()] ?? null);
+&#125;</code></pre>
+        <h4>Testing con projector</h4>
+        <pre ngNonBindable><code class="language-typescript">// .projector() ejecuta SOLO la función proyectora, sin Store ni memoización
+it('filtra productos sostenibles', () =&gt; &#123;
+  const products = [
+    &#123; id: '1', sustainabilityScore: 90 &#125;,
+    &#123; id: '2', sustainabilityScore: 40 &#125;,
+  ] as Product[];
+
+  const result = selectHighSustainability.projector(products);
+  expect(result.length).toBe(1);
+&#125;);</code></pre>
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li><strong>Llamar el factory selector en el template o en cada select:</strong> cada llamada crea un selector nuevo sin caché — recálculo en cada change detection.</li>
+          <li><strong>Filtrar/mapear en el componente</strong> en vez de en un selector: pierdes memoización y duplicas lógica entre componentes.</li>
+          <li><strong>Selectores que devuelven objetos literales nuevos por diseño:</strong> está bien en view models, pero recuerda que emiten referencia nueva en cada recálculo — no los uses como input de otros selectors con lógica pesada sin necesidad.</li>
+          <li><strong>Feature selector con string equivocado:</strong> <code>createFeatureSelector('product')</code> vs <code>'products'</code> devuelve undefined silenciosamente. Usa createFeature para tipar el nombre.</li>
+        </ul>
+        <h4>🎤 Preguntas de entrevista</h4>
+        <dl class="qa">
+          <dt>P: ¿Cómo funciona la memoización de createSelector?</dt>
+          <dd>R: Guarda los últimos argumentos y el último resultado (caché de 1). Compara los nuevos inputs por referencia (===): si son iguales, devuelve el cacheado; si no, ejecuta el projector y actualiza la caché.</dd>
+          <dt>P: ¿Por qué la memoización depende de la inmutabilidad?</dt>
+          <dd>R: Porque compara por referencia. Si el reducer muta, la referencia no cambia y el selector devuelve el valor viejo cacheado aunque los datos hayan cambiado.</dd>
+          <dt>P: ¿Cómo testeas un selector sin montar el Store?</dt>
+          <dd>R: Con selector.projector(...inputs): ejecuta solo la función de proyección con datos fake — test de función pura.</dd>
+          <dt>P: ¿Cuál es el riesgo de los selectores parametrizados (factory)?</dt>
+          <dd>R: Cada invocación de la factory crea una instancia con su propia caché vacía. Hay que crearla una vez por componente/parámetro, o usar el mapa de entities e indexar.</dd>
+        </dl>
+        <div class="code-ref">
+          📂 <code>features/ngrx-lab/store/product.selectors.ts</code> — composición: selectSelectedProduct combina selectSelectedId + selectProductEntities
+        </div>
+      </div>
+
       <div class="card" id="patrones-avanzados-ngrx">
         <h3>🧩 Patrones Avanzados de NgRx</h3>
 
@@ -631,6 +1044,25 @@ const metaReducers: MetaReducer[] = isDevMode()
 // En app.config.ts:
 provideStore(&#123; router: routerReducer &#125;, &#123; metaReducers &#125;);</code></pre>
 
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li><strong>Facade como god-object:</strong> si el facade acumula métodos de 4 features distintas, se convierte en el nuevo acoplamiento. Un facade por feature, con API mínima.</li>
+          <li><strong>Facade que oculta el modelo de eventos:</strong> métodos tipo <code>facade.setProducts(list)</code> convierten NgRx en un setter glorificado. Los métodos deben mapear 1:1 a eventos de dominio.</li>
+          <li><strong>Optimistic update sin rollback:</strong> si borras de la UI antes de confirmar, la action de failure DEBE restaurar el item (y avisar al usuario). Sin plan de reversión, no hagas optimistic.</li>
+          <li><strong>Lógica de dominio en meta-reducers:</strong> son infraestructura transversal (logging, reset, hydration). Si un meta-reducer conoce tus entidades de negocio, ese código pertenece a un reducer.</li>
+        </ul>
+        <h4>🎤 Preguntas de entrevista</h4>
+        <dl class="qa">
+          <dt>P: ¿Ventajas y desventajas del Facade Pattern con NgRx?</dt>
+          <dd>R: Ventajas: componentes desacoplados de NgRx, testing sencillo (mockeas el facade), API de dominio clara. Desventajas: capa extra de indirección y riesgo de esconder el modelo de eventos detrás de métodos imperativos.</dd>
+          <dt>P: ¿Cuándo aplicarías optimistic updates?</dt>
+          <dd>R: En operaciones con alta probabilidad de éxito y bajo costo de reversión (likes, toggles, deletes recuperables). Nunca en pagos u operaciones críticas donde mostrar un estado falso es inaceptable.</dd>
+          <dt>P: ¿Qué es un meta-reducer y un caso de uso real?</dt>
+          <dd>R: Una función de orden superior que envuelve a los reducers (middleware). Caso típico: al despachar [Auth] Logout, delegar con state = undefined para resetear TODO el store al estado inicial.</dd>
+          <dt>P: ¿Para qué sirve &#64;ngrx/router-store?</dt>
+          <dd>R: Sincroniza la ruta con el Store para que la URL sea parte del estado: puedes crear selectors que combinan route params con entities (p. ej. el detalle actual) sin inyectar ActivatedRoute.</dd>
+        </dl>
+
         <div class="code-ref">
           📂 Implementación en el proyecto:
           <ul>
@@ -729,8 +1161,75 @@ on(addProductSuccess, (state, {{ '{' }} product {{ '}' }}) =>
   productAdapter.addOne(product, state)
 ),</code></pre>
         <p><strong>¿Por qué normalizar?</strong> Evita duplicados, simplifica updates, y los selectors son más eficientes.</p>
+
+        <h4>selectId y sortComparer</h4>
+        <p>
+          El adapter acepta dos opciones de configuración: <code>selectId</code> (cómo extraer la clave —
+          por defecto busca la propiedad <code>id</code>) y <code>sortComparer</code> (mantiene
+          <code>ids</code> ordenado en cada inserción; sin él, el orden es el de llegada).
+        </p>
+        <pre ngNonBindable><code class="language-typescript">// Así está configurado en este proyecto:
+export const productAdapter = createEntityAdapter&lt;Product&gt;(&#123;
+  selectId: (p) =&gt; p.id,                                // clave primaria
+  sortComparer: (a, b) =&gt; a.name.localeCompare(b.name), // orden alfabético
+&#125;);
+
+// Si tu entidad usa otra clave (sku, uuid, code)... selectId es OBLIGATORIO:
+const adapter = createEntityAdapter&lt;Sku&gt;(&#123; selectId: (s) =&gt; s.sku &#125;);</code></pre>
+
+        <h4>Métodos CRUD del adapter</h4>
+        <table class="compare-table">
+          <thead>
+            <tr><th>Método</th><th>Qué hace</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>addOne / addMany</code></td><td>Agrega si NO existe (si el id ya está, no hace nada)</td></tr>
+            <tr><td><code>setOne / setMany</code></td><td>Agrega o REEMPLAZA completo por id</td></tr>
+            <tr><td><code>setAll</code></td><td>Reemplaza TODA la colección (típico en Load Success)</td></tr>
+            <tr><td><code>updateOne / updateMany</code></td><td>Actualización PARCIAL: recibe <code>&#123; id, changes &#125;</code> (tipo <code>Update&lt;T&gt;</code>)</td></tr>
+            <tr><td><code>upsertOne / upsertMany</code></td><td>Inserta si no existe, mergea si existe</td></tr>
+            <tr><td><code>removeOne / removeMany / removeAll</code></td><td>Elimina por id(s) / vacía la colección</td></tr>
+            <tr><td><code>mapOne / map</code></td><td>Transforma una / todas las entidades con una función</td></tr>
+          </tbody>
+        </table>
+
+        <h4>Selectors generados — getSelectors()</h4>
+        <pre ngNonBindable><code class="language-typescript">// El adapter genera 4 selectors contra EntityState&lt;Product&gt;:
+export const &#123; selectAll, selectEntities, selectIds, selectTotal &#125; =
+  productAdapter.getSelectors();
+
+// Se componen con el feature selector:
+export const selectAllProducts = createSelector(selectProductState, selectAll);
+export const selectProductTotal = createSelector(selectProductState, selectTotal);
+
+// selectEntities (el diccionario) es la base para lookups O(1):
+export const selectSelectedProduct = createSelector(
+  selectSelectedId,
+  selectProductEntities,
+  (id, entities) =&gt; (id ? entities[id] ?? null : null)
+);</code></pre>
+
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li><strong>Confundir addOne con setOne/upsertOne:</strong> <code>addOne</code> ignora silenciosamente si el id ya existe — el clásico "actualicé pero no se refleja".</li>
+          <li><strong>Pasar la entidad completa a updateOne:</strong> espera <code>&#123; id, changes &#125;</code>, no el objeto plano. <code>updateOne(product, state)</code> compila raro y falla en runtime.</li>
+          <li><strong>Olvidar selectId</strong> cuando la clave no se llama <code>id</code>: el adapter guarda entidades bajo <code>undefined</code>.</li>
+          <li><strong>sortComparer en colecciones enormes con inserciones frecuentes:</strong> reordena en cada operación de escritura. Si el orden solo importa en una vista, ordena en un selector.</li>
+          <li><strong>Iterar <code>entities</code> con Object.values() en cada componente:</strong> para listas usa <code>selectAll</code>, que ya está memoizado.</li>
+        </ul>
+        <h4>🎤 Preguntas de entrevista</h4>
+        <dl class="qa">
+          <dt>P: ¿Qué estructura interna crea EntityAdapter y por qué?</dt>
+          <dd>R: &#123; ids: string[], entities: &#123; [id]: T &#125; &#125; — el array preserva el orden y el diccionario da lookup O(1). Es la forma normalizada estándar de Redux.</dd>
+          <dt>P: ¿Diferencia entre addOne, setOne y upsertOne?</dt>
+          <dd>R: addOne solo inserta si no existe; setOne inserta o reemplaza el objeto completo; upsertOne inserta o hace merge parcial con el existente.</dd>
+          <dt>P: ¿Qué recibe updateOne?</dt>
+          <dd>R: Un Update&lt;T&gt;: &#123; id, changes &#125; donde changes es un Partial&lt;T&gt; — permite actualizar solo los campos que cambiaron.</dd>
+          <dt>P: ¿Para qué sirve sortComparer?</dt>
+          <dd>R: Mantiene el array ids ordenado en cada mutación, de modo que selectAll siempre devuelve la colección ordenada sin trabajo extra en los selectors.</dd>
+        </dl>
         <div class="code-ref">
-          📂 <code>features/ngrx-lab/store/product.reducer.ts</code> — EntityAdapter con addOne, setAll, updateOne, removeOne
+          📂 <code>features/ngrx-lab/store/product.reducer.ts</code> — EntityAdapter con selectId, sortComparer, addOne, setAll, updateOne, removeOne
         </div>
       </div>
 
@@ -760,12 +1259,307 @@ export const NGRX_LAB_ROUTES: Routes = [{{ '{' }}
   children: [...]
 {{ '}' }}];</code></pre>
         <p>Cada feature registra su estado de forma lazy — solo se carga cuando el usuario navega ahí.</p>
+
+        <h4>createFeature — menos strings mágicos</h4>
+        <pre ngNonBindable><code class="language-typescript">import &#123; createFeature, createReducer &#125; from '&#64;ngrx/store';
+
+export const productsFeature = createFeature(&#123;
+  name: 'products',            // nombre tipado, una sola vez
+  reducer: createReducer(initialState, /* ...on() */),
+&#125;);
+
+// Genera automáticamente el feature selector y un selector
+// por cada propiedad top-level del state:
+productsFeature.selectProductsState;  // ← feature selector
+productsFeature.selectLoading;        // ← por cada propiedad
+productsFeature.selectError;
+
+// Registro sin string: imposible el typo 'product' vs 'products'
+provideState(productsFeature);</code></pre>
+
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li><strong>Olvidar <code>provideStore()</code> en el root:</strong> <code>provideState()</code> en una ruta lazy falla si no existe el Store raíz en <code>app.config.ts</code> (aunque sea vacío).</li>
+          <li><strong>Registrar el feature state en el root "por si acaso":</strong> pierdes el lazy loading — el reducer y sus imports entran en el bundle inicial.</li>
+          <li><strong>provideEffects a nivel de componente en vez de ruta:</strong> los effects se registran cada vez que el componente se instancia; a nivel de ruta se registran una sola vez.</li>
+          <li><strong>String del feature desincronizado</strong> entre <code>provideState('products', ...)</code> y <code>createFeatureSelector('products')</code> — usa createFeature para eliminarlo.</li>
+        </ul>
+        <h4>🎤 Preguntas de entrevista</h4>
+        <dl class="qa">
+          <dt>P: ¿Diferencia entre provideStore y provideState?</dt>
+          <dd>R: provideStore se llama UNA vez en el root y crea el Store global (puede ir vacío). provideState registra un slice de feature, típicamente en los providers de una ruta lazy.</dd>
+          <dt>P: ¿Qué gana una app registrando state en rutas lazy?</dt>
+          <dd>R: El reducer, effects y selectors del feature solo se cargan (bundle) y registran cuando el usuario navega a esa ruta — arranque más rápido y aislamiento del dominio.</dd>
+          <dt>P: ¿Qué aporta createFeature?</dt>
+          <dd>R: Une nombre + reducer en un objeto tipado, genera el feature selector y un selector por propiedad del state, y elimina los strings mágicos duplicados.</dd>
+        </dl>
         <div class="code-ref">
           📂 Implementación en el proyecto:
           <ul>
             <li><code>app.config.ts</code> — provideStore() + provideStoreDevtools()</li>
             <li><code>features/ngrx-lab/ngrx-lab.routes.ts</code> — provideState('products') + provideEffects() a nivel de ruta</li>
           </ul>
+        </div>
+      </div>
+
+      <div class="card" id="ngrx-store-devtools">
+        <h3>🛠️ &#64;ngrx/store-devtools</h3>
+        <p>
+          Conecta el Store con la extensión <strong>Redux DevTools</strong> del navegador: log de
+          actions, inspección del árbol de estado, diffs entre estados, time-travel y export/import
+          de sesiones. Es la razón número uno por la que debuggear NgRx es más fácil que debuggear
+          servicios con estado disperso.
+        </p>
+        <pre ngNonBindable><code class="language-typescript">import &#123; provideStoreDevtools &#125; from '&#64;ngrx/store-devtools';
+import &#123; isDevMode &#125; from '&#64;angular/core';
+
+provideStoreDevtools(&#123;
+  maxAge: 25,                 // últimas N actions en memoria (default: false = ilimitado)
+  logOnly: !isDevMode(),      // en prod: solo lectura, sin time-travel
+  autoPause: true,            // pausa la grabación si DevTools está cerrado
+  trace: false,               // stack trace del origen de cada dispatch (costoso)
+  traceLimit: 75,
+  actionsBlocklist: ['[Mouse] Move'],   // filtra actions ruidosas del log
+  connectInZone: true,        // integra con Zone.js para el timing correcto
+&#125;)</code></pre>
+        <h4>Qué mirar en DevTools cuando algo falla</h4>
+        <ul>
+          <li><strong>La action no aparece en el log</strong> → nunca se despachó (bug en el componente/facade).</li>
+          <li><strong>La action aparece pero el diff está vacío</strong> → ningún reducer la maneja (falta el <code>on()</code>) o el handler devolvió el mismo objeto.</li>
+          <li><strong>Aparece la action de trigger pero nunca Success/Failure</strong> → el effect no está registrado, o murió por un catchError mal puesto.</li>
+          <li><strong>La misma action se repite sin fin</strong> → loop infinito entre effect y action.</li>
+        </ul>
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li><strong>DevTools completo en producción:</strong> mantiene el historial de estados en memoria y expone datos. Usa <code>logOnly: !isDevMode()</code> o no lo registres en prod.</li>
+          <li><strong>State no serializable</strong> (Date, Map, Set, instancias): el inspector muestra objetos vacíos y el time-travel reconstruye estados corruptos.</li>
+          <li><strong>maxAge sin límite en apps con muchas actions:</strong> el historial crece indefinidamente — memoria del tab por las nubes.</li>
+          <li><strong>trace: true siempre activado:</strong> capturar el stack trace de cada dispatch tiene costo real de rendimiento; actívalo solo mientras cazas un bug.</li>
+        </ul>
+        <h4>🎤 Preguntas de entrevista</h4>
+        <dl class="qa">
+          <dt>P: ¿Qué es time-travel debugging y qué lo hace posible?</dt>
+          <dd>R: Saltar a cualquier estado pasado re-aplicando la secuencia de actions con los reducers. Es posible porque los reducers son puros y el estado es inmutable y serializable: misma secuencia = mismo estado.</dd>
+          <dt>P: ¿Por qué el estado debe ser serializable?</dt>
+          <dd>R: DevTools serializa estado y actions a JSON para inspección, export y time-travel. Además habilita hidratación (persistir/restaurar el store) y los runtimeChecks de NgRx lo validan en dev.</dd>
+          <dt>P: ¿Cómo evitas que actions muy frecuentes ensucien el log?</dt>
+          <dd>R: Con actionsBlocklist (o actionsSafelist para lo inverso) en la configuración de provideStoreDevtools.</dd>
+        </dl>
+        <div class="code-ref">
+          📂 <code>app.config.ts</code> — provideStoreDevtools con maxAge y logOnly
+        </div>
+      </div>
+
+      <div class="card" id="ngrx-store-vs-signalstore">
+        <h3>🚦 NgRx Store vs SignalStore (&#64;ngrx/signals)</h3>
+        <p>
+          <code>&#64;ngrx/signals</code> es la librería moderna del equipo NgRx construida 100% sobre
+          Signals. En vez del ciclo action → reducer → selector, defines un store con
+          <strong>estado, computeds y métodos</strong> — más directo, mucho menos boilerplate, pero
+          sin el modelo de eventos global.
+        </p>
+        <pre ngNonBindable><code class="language-typescript">import &#123; signalStore, withState, withComputed, withMethods, patchState &#125; from '&#64;ngrx/signals';
+import &#123; rxMethod &#125; from '&#64;ngrx/signals/rxjs-interop';
+import &#123; tapResponse &#125; from '&#64;ngrx/operators';
+
+export const ProductsStore = signalStore(
+  &#123; providedIn: 'root' &#125;,   // global; sin esto, se provee por componente (local)
+
+  withState(&#123;
+    products: [] as Product[],
+    loading: false,
+    error: null as string | null,
+  &#125;),
+
+  withComputed((store) =&gt; (&#123;
+    total: computed(() =&gt; store.products().length),
+    sustainable: computed(() =&gt;
+      store.products().filter((p) =&gt; p.sustainabilityScore &gt;= 80)
+    ),
+  &#125;)),
+
+  withMethods((store, api = inject(MockApiService)) =&gt; (&#123;
+    // rxMethod: side effects reactivos (equivale a un effect)
+    loadProducts: rxMethod&lt;void&gt;(
+      pipe(
+        tap(() =&gt; patchState(store, &#123; loading: true, error: null &#125;)),
+        switchMap(() =&gt;
+          api.getProducts().pipe(
+            tapResponse(&#123;
+              next: (products) =&gt; patchState(store, &#123; products, loading: false &#125;),
+              error: (err: Error) =&gt;
+                patchState(store, &#123; error: err.message, loading: false &#125;),
+            &#125;)
+          )
+        )
+      )
+    ),
+  &#125;))
+);
+
+// En el componente — sin dispatch, sin selectors:
+export class ProductListComponent &#123;
+  store = inject(ProductsStore);
+  // template: store.products(), store.loading(), store.sustainable()
+  ngOnInit() &#123; this.store.loadProducts(); &#125;
+&#125;</code></pre>
+        <table class="compare-table">
+          <thead>
+            <tr>
+              <th>Criterio</th>
+              <th>NgRx Store (Redux)</th>
+              <th>SignalStore (&#64;ngrx/signals)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Paradigma</td>
+              <td>Event-driven: actions globales, indirección total</td>
+              <td>Llamadas directas a métodos del store</td>
+            </tr>
+            <tr>
+              <td>Boilerplate</td>
+              <td>Actions + reducer + selectors + effects</td>
+              <td>Un archivo: withState/withComputed/withMethods</td>
+            </tr>
+            <tr>
+              <td>Trazabilidad</td>
+              <td>Redux DevTools, time-travel, log de eventos</td>
+              <td>Limitada (no hay log de actions nativo)</td>
+            </tr>
+            <tr>
+              <td>Reactividad</td>
+              <td>Observables (+ selectSignal como puente)</td>
+              <td>Signals nativos — integra con OnPush/zoneless gratis</td>
+            </tr>
+            <tr>
+              <td>Alcance</td>
+              <td>Global por diseño</td>
+              <td>Global o local (por componente/ruta)</td>
+            </tr>
+            <tr>
+              <td>Colecciones</td>
+              <td>&#64;ngrx/entity</td>
+              <td>withEntities() de &#64;ngrx/signals/entities</td>
+            </tr>
+            <tr>
+              <td>Extensibilidad</td>
+              <td>Meta-reducers, router-store</td>
+              <td>Custom features (withX composables)</td>
+            </tr>
+          </tbody>
+        </table>
+        <h4>¿Cuándo usar cada uno?</h4>
+        <ul>
+          <li><strong>NgRx Store clásico:</strong> estado de dominio compartido por MUCHOS features, equipos grandes que necesitan trazabilidad de eventos, requisitos de auditoría/debugging con time-travel, o múltiples consumidores reaccionando al mismo evento.</li>
+          <li><strong>SignalStore:</strong> estado de un feature o componente complejo, apps nuevas signal-first/zoneless, equipos pequeños que priorizan velocidad de desarrollo sobre el event log.</li>
+          <li><strong>Pueden convivir:</strong> Store global para el dominio transversal (auth, carrito) + SignalStores locales por feature es una arquitectura perfectamente válida hoy.</li>
+        </ul>
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li><strong>Asumir que SignalStore "reemplaza" a NgRx Store:</strong> son trade-offs distintos; pierdes el modelo de eventos y el tooling de Redux.</li>
+          <li><strong>Mutar el state en vez de usar <code>patchState</code>:</strong> los signals internos son readonly; toda escritura pasa por patchState/updateState.</li>
+          <li><strong>Olvidar <code>&#123; providedIn: 'root' &#125;</code></strong> cuando quieres un store global — sin él, cada componente que lo provea tiene SU PROPIA instancia.</li>
+          <li><strong>Suscripciones manuales para side effects</strong> en vez de <code>rxMethod</code>, que gestiona la suscripción y la limpieza automáticamente.</li>
+        </ul>
+        <h4>🎤 Preguntas de entrevista</h4>
+        <dl class="qa">
+          <dt>P: ¿Diferencia fundamental entre NgRx Store y SignalStore?</dt>
+          <dd>R: NgRx Store es event-driven: despachas actions y reducers/effects reaccionan (indirección + trazabilidad). SignalStore expone estado y métodos que llamas directamente: menos ceremonia, menos trazabilidad.</dd>
+          <dt>P: ¿Qué es rxMethod?</dt>
+          <dd>R: Un método reactivo que acepta valores, signals u observables como input y ejecuta un pipeline RxJS gestionando la suscripción — el equivalente de un effect dentro de un SignalStore.</dd>
+          <dt>P: ¿Pueden convivir en la misma app?</dt>
+          <dd>R: Sí. Es común mantener el Store Redux para dominio global existente e introducir SignalStores en features nuevas.</dd>
+          <dt>P: ¿SignalStore puede ser local?</dt>
+          <dd>R: Sí: si lo agregas a los providers de un componente, vive y muere con él — ideal para estado de UI complejo pero no global.</dd>
+        </dl>
+        <div class="code-ref">
+          📂 Compara con <code>features/ngrx-lab/store/</code> — el mismo CRUD implementado con el patrón Redux clásico
+        </div>
+      </div>
+
+      <div class="card" id="testing-ngrx">
+        <h3>🧪 Testing NgRx</h3>
+        <p>
+          La gran ventaja de NgRx: casi todo es una <strong>función pura</strong>. Reducers y selectors
+          se testean sin Angular; para componentes existe <code>provideMockStore</code> y para effects,
+          <code>provideMockActions</code>.
+        </p>
+        <h4>Reducers — funciones puras</h4>
+        <pre ngNonBindable><code class="language-typescript">it('activa loading al despachar loadProducts', () =&gt; &#123;
+  const state = productReducer(initialState, ProductActions.loadProducts());
+  expect(state.loading).toBe(true);
+  expect(state).not.toBe(initialState);   // referencia NUEVA (inmutabilidad)
+&#125;);</code></pre>
+        <h4>Selectors — projector()</h4>
+        <pre ngNonBindable><code class="language-typescript">it('selecciona el producto activo', () =&gt; &#123;
+  const entities = &#123; '1': mockProduct &#125;;
+  expect(selectSelectedProduct.projector('1', entities)).toEqual(mockProduct);
+  expect(selectSelectedProduct.projector(null, entities)).toBeNull();
+&#125;);</code></pre>
+        <h4>Effects — provideMockActions</h4>
+        <pre ngNonBindable><code class="language-typescript">import &#123; provideMockActions &#125; from '&#64;ngrx/effects/testing';
+
+it('emite success cuando el API responde', (done) =&gt; &#123;
+  const actions$ = of(ProductActions.loadProducts());
+  TestBed.configureTestingModule(&#123;
+    providers: [
+      ProductEffects,
+      provideMockActions(() =&gt; actions$),
+      &#123; provide: MockApiService, useValue: &#123; getProducts: () =&gt; of([mockProduct]) &#125; &#125;,
+    ],
+  &#125;);
+
+  TestBed.inject(ProductEffects).loadProducts$.subscribe((action) =&gt; &#123;
+    expect(action).toEqual(
+      ProductActions.loadProductsSuccess(&#123; products: [mockProduct] &#125;)
+    );
+    done();
+  &#125;);
+&#125;);</code></pre>
+        <h4>Componentes — provideMockStore</h4>
+        <pre ngNonBindable><code class="language-typescript">import &#123; provideMockStore, MockStore &#125; from '&#64;ngrx/store/testing';
+
+TestBed.configureTestingModule(&#123;
+  providers: [
+    provideMockStore(&#123;
+      selectors: [
+        &#123; selector: selectAllProducts, value: [mockProduct] &#125;,
+        &#123; selector: selectLoading, value: false &#125;,
+      ],
+    &#125;),
+  ],
+&#125;);
+
+const store = TestBed.inject(MockStore);
+
+// Cambiar el valor de un selector a mitad de test:
+store.overrideSelector(selectLoading, true);
+store.refreshState();          // ← imprescindible para re-emitir
+fixture.detectChanges();
+
+// Verificar dispatches:
+const spy = jest.spyOn(store, 'dispatch');
+component.onDelete('1');
+expect(spy).toHaveBeenCalledWith(ProductActions.deleteProduct(&#123; id: '1' &#125;));</code></pre>
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+          <li><strong>Usar el Store real en tests de componente:</strong> acoplas el test a reducers/effects. provideMockStore aísla el componente por completo.</li>
+          <li><strong>Olvidar <code>refreshState()</code></strong> después de overrideSelector — el componente sigue viendo el valor anterior.</li>
+          <li><strong>Testear effects con el servicio HTTP real</strong> en vez de un stub — lento y frágil.</li>
+          <li><strong>No testear el caso de error del effect:</strong> es exactamente donde viven los bugs (catchError mal ubicado, mensaje perdido).</li>
+        </ul>
+        <h4>🎤 Preguntas de entrevista</h4>
+        <dl class="qa">
+          <dt>P: ¿Por qué NgRx facilita el testing?</dt>
+          <dd>R: Reducers y selectors son funciones puras (input → output, sin mocks), los effects aíslan TODOS los side effects en un solo lugar, y provideMockStore permite testear componentes sin tocar la lógica de estado.</dd>
+          <dt>P: ¿Cómo testeas un componente que usa selectSignal?</dt>
+          <dd>R: Igual que con select: provideMockStore con selectors mockeados; selectSignal lee del MockStore. Para cambios en runtime, overrideSelector + refreshState.</dd>
+          <dt>P: ¿Qué provee provideMockActions?</dt>
+          <dd>R: Reemplaza el stream Actions por uno controlado por el test (Observable o Subject), para emitir exactamente las actions que quieres y verificar qué emite el effect.</dd>
+        </dl>
+        <div class="code-ref">
+          📂 <code>features/ngrx-lab/store/</code> — reducer, selectors y effects listos para aplicar estos patrones de test
         </div>
       </div>
     </div>

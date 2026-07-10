@@ -48,6 +48,28 @@
             El asistente te pedirá opciones como TypeScript vs JavaScript, ubicación de tests, integración CI y si
             deseas instalar navegadores.
         </p>
+        <p>
+            Los navegadores de Playwright son binarios propios (Chromium, Firefox y WebKit) que se descargan aparte del
+            paquete npm. Después de actualizar la versión de <code>&#64;playwright/test</code> debes reinstalarlos:
+        </p>
+        <pre><code [textContent]="browsersInstallCode"></code></pre>
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+            <li>Actualizar el paquete npm sin volver a ejecutar <code>npx playwright install</code>: los binarios quedan
+                desincronizados y los tests fallan con errores de "Executable doesn't exist".</li>
+            <li>Olvidar <code>--with-deps</code> en CI Linux: faltan librerías del sistema y el navegador no arranca.</li>
+            <li>Versionar la carpeta <code>test-results/</code> o <code>playwright-report/</code> en git en lugar de
+                agregarlas a <code>.gitignore</code>.</li>
+        </ul>
+        <h4>🎤 Preguntas de entrevista</h4>
+        <ul>
+            <li><strong>¿Por qué Playwright descarga sus propios navegadores?</strong> Para garantizar versiones probadas
+                y reproducibles en cualquier máquina; WebKit y Firefox usan builds parcheados que exponen el protocolo de
+                automatización.</li>
+            <li><strong>¿Qué hace <code>npx playwright install --with-deps</code>?</strong> Instala los binarios de los
+                navegadores y además las dependencias del sistema operativo (fuentes, librerías gráficas) que necesitan
+                en entornos CI Linux.</li>
+        </ul>
     </div>
 
     <div class="card" id="configuracion-inicial">
@@ -61,6 +83,52 @@
         <p>
             Estas opciones permiten ejecutar pruebas automáticamente contra la app Angular en desarrollo.
         </p>
+    </div>
+
+    <div class="card" id="playwright-config-ts-en-profundidad">
+        <h3>playwright.config.ts en profundidad</h3>
+        <p>
+            El archivo de configuración es el contrato de toda la suite. Este repo tiene uno real en la raíz
+            (<code>playwright.config.ts</code>) que ilustra las opciones más importantes:
+        </p>
+        <pre><code [textContent]="realConfigCode"></code></pre>
+        <h4>Opciones clave</h4>
+        <ul>
+            <li><strong>baseURL:</strong> permite escribir <code>page.goto('/lab/playwright')</code> con rutas relativas;
+                cambiar de entorno (local, staging) es cambiar una sola línea o una variable de entorno.</li>
+            <li><strong>projects:</strong> cada project es una combinación de navegador + opciones. Sirven para
+                cross-browser, viewports móviles, o para modelar dependencias (proyecto de setup de autenticación).</li>
+            <li><strong>webServer:</strong> levanta la app antes de la suite y espera a que responda la URL.
+                <code>reuseExistingServer: !process.env.CI</code> reutiliza tu <code>ng serve</code> local pero garantiza
+                un server limpio en CI.</li>
+            <li><strong>retries:</strong> reintenta tests fallidos. Útil en CI (<code>retries: 2</code>) para absorber
+                fallas de infraestructura, pero un test que necesita retries para pasar es un test flaky que hay que
+                arreglar.</li>
+            <li><strong>workers:</strong> procesos paralelos. Local usa el default (mitad de los cores); este repo usa
+                <code>workers: 1</code> en CI porque los runners compartidos tienen poca CPU.</li>
+            <li><strong>trace / screenshot / video:</strong> artefactos de diagnóstico. La combinación
+                <code>trace: 'on-first-retry'</code> + <code>screenshot: 'only-on-failure'</code> da evidencia sin
+                penalizar los runs exitosos.</li>
+        </ul>
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+            <li>Poner <code>reuseExistingServer: true</code> también en CI: puedes terminar testeando contra un server
+                zombie con código viejo.</li>
+            <li>Subir <code>workers</code> en CI sin medir: más workers que cores reales provoca timeouts en cascada.</li>
+            <li>Usar <code>trace: 'on'</code> siempre: los traces pesan y ralentizan; guárdalos solo en retry o failure.</li>
+            <li>Hardcodear URLs absolutas en los tests en vez de confiar en <code>baseURL</code>.</li>
+        </ul>
+        <h4>🎤 Preguntas de entrevista</h4>
+        <ul>
+            <li><strong>¿Qué diferencia hay entre <code>timeout</code> y <code>expect.timeout</code>?</strong> El primero
+                limita la duración total de cada test (30s default); el segundo, cuánto reintenta cada assertion web-first
+                (5s default).</li>
+            <li><strong>¿Para qué sirven los projects además de cross-browser?</strong> Para variar cualquier opción de
+                <code>use</code> (viewport, locale, storageState) y para encadenar dependencias, como un project de setup
+                que autentica antes que el resto.</li>
+            <li><strong>¿Qué hace <code>forbidOnly</code>?</strong> Falla el build en CI si alguien dejó un
+                <code>test.only</code>, evitando que la suite corra incompleta sin que nadie lo note.</li>
+        </ul>
     </div>
 
     <div class="card" id="estructura-de-pruebas">
@@ -86,6 +154,91 @@
             de los casos.
         </p>
         <pre><code [textContent]="firstTestCode"></code></pre>
+    </div>
+
+    <div class="card" id="jerarquia-de-locators-recomendada">
+        <h3>Jerarquía de locators recomendada</h3>
+        <p>
+            La documentación oficial recomienda un orden claro:
+            <code>getByRole</code> &gt; <code>getByLabel</code> &gt; <code>getByText</code> &gt;
+            <code>getByTestId</code>. La razón: cuanto más se parezca el locator a cómo un usuario (o un lector de
+            pantalla) encuentra el elemento, más resistente será a refactors de CSS y de estructura del DOM.
+        </p>
+        <ul>
+            <li><strong>getByRole:</strong> usa el árbol de accesibilidad (ARIA). Si un botón cambia de clase, de tag o
+                de posición, el rol y su nombre accesible suelen mantenerse. Además valida gratis que tu UI es
+                semántica.</li>
+            <li><strong>getByLabel:</strong> el estándar para formularios. Si falla, probablemente al input le falta un
+                <code>label</code>, lo cual también es un bug de accesibilidad.</li>
+            <li><strong>getByText:</strong> válido para contenido visible único; frágil si el copy cambia con
+                frecuencia o está internacionalizado.</li>
+            <li><strong>getByTestId:</strong> estable pero opaco: no valida nada de la experiencia real del usuario.
+                Resérvalo para elementos sin semántica (divs decorativos, ítems generados).</li>
+        </ul>
+        <pre><code [textContent]="locatorHierarchyCode"></code></pre>
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+            <li>Selectores CSS acoplados a la estructura: <code>div.container &gt; div:nth-child(3) span</code> se rompe
+                con cualquier refactor.</li>
+            <li>Abusar de <code>.nth(i)</code>: el orden de los elementos es un detalle de implementación; prefiere
+                <code>.filter()</code> con texto o con otro locator.</li>
+            <li>Usar XPath por costumbre: casi siempre existe un locator semántico equivalente más legible.</li>
+            <li>Poner <code>data-testid</code> en todo "por si acaso": pierdes la validación semántica que dan los
+                locators por rol.</li>
+        </ul>
+        <h4>🎤 Preguntas de entrevista</h4>
+        <ul>
+            <li><strong>¿Por qué getByRole es preferible a un selector CSS?</strong> Porque se basa en el árbol de
+                accesibilidad, no en la implementación: sobrevive a cambios de estilos y verifica de paso la semántica
+                ARIA.</li>
+            <li><strong>¿Qué es un locator en Playwright?</strong> Una descripción lazy de cómo encontrar un elemento;
+                no busca en el DOM hasta que ejecutas una acción o assertion, y en ese momento re-resuelve el elemento
+                (evita stale references).</li>
+            <li><strong>¿Qué es el strict mode de locators?</strong> Si un locator usado en una acción resuelve más de
+                un elemento, Playwright lanza error en vez de actuar sobre el primero; te obliga a desambiguar.</li>
+        </ul>
+    </div>
+
+    <div class="card" id="auto-waiting-y-web-first-assertions">
+        <h3>Auto-waiting y web-first assertions</h3>
+        <p>
+            Antes de cada acción, Playwright ejecuta <em>actionability checks</em>: espera a que el elemento esté
+            adjunto al DOM, visible, estable (sin animarse), habilitado y que reciba los eventos (no tapado por otro
+            elemento). Por eso casi nunca necesitas esperas manuales.
+        </p>
+        <p>
+            Las <strong>web-first assertions</strong> (<code>await expect(locator)...</code>) complementan esto: no leen
+            el estado una vez, sino que hacen <em>polling</em> reintentando hasta que la condición se cumple o se agota
+            el timeout. Son la herramienta central contra el flakiness en apps Angular, donde el render es asíncrono.
+        </p>
+        <pre><code [textContent]="webFirstAssertionsCode"></code></pre>
+        <h4>Mejores prácticas</h4>
+        <ul>
+            <li>Prefiere <code>toBeVisible</code>, <code>toHaveText</code>, <code>toHaveURL</code>,
+                <code>toHaveCount</code> sobre extraer valores con <code>textContent()</code> y comparar a mano.</li>
+            <li>Después de una navegación SPA, asserta sobre la URL o sobre contenido nuevo; no uses
+                <code>waitForLoadState('networkidle')</code> como comodín (está desaconsejado).</li>
+            <li>Usa <code>expect.poll</code> o <code>expect.toPass</code> para condiciones que no son locators
+                (respuestas de API, estado de un store).</li>
+        </ul>
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+            <li>Olvidar el <code>await</code> en la assertion: <code>expect(locator).toBeVisible()</code> sin await no
+                espera nada y el test sigue de largo.</li>
+            <li>Mezclar <code>expect(await locator.isVisible()).toBe(true)</code>: convierte una assertion con polling
+                en una lectura única y flaky.</li>
+            <li>Añadir <code>waitForTimeout</code> "para estar seguros": suma minutos a la suite y esconde la condición
+                real que había que esperar.</li>
+        </ul>
+        <h4>🎤 Preguntas de entrevista</h4>
+        <ul>
+            <li><strong>¿Qué checks hace Playwright antes de un click?</strong> Visible, estable, adjunto al DOM,
+                habilitado y que el punto de click no esté interceptado por otro elemento; reintenta hasta el timeout.</li>
+            <li><strong>¿Diferencia entre una assertion web-first y una de Jest?</strong> La web-first recibe un locator
+                y reintenta con polling; la clásica evalúa un valor ya resuelto una sola vez.</li>
+            <li><strong>¿Cuándo sí usarías una espera explícita?</strong> Para eventos no ligados a un elemento:
+                <code>waitForURL</code> tras navegación, <code>waitForResponse</code> para una llamada de red concreta.</li>
+        </ul>
     </div>
 
     <div class="card" id="page-object-model">
@@ -127,6 +280,38 @@ tests/pages/product.page.ts</code></pre>
             <li>Evita lógica de negocio en los Page Objects; solo encapsula interacción y consultas de UI.</li>
             <li>Si una pantalla crece, divide la clase en page components (subobjetos) para mantenerla manejable.</li>
         </ul>
+        <h4>Cuándo NO usarlo</h4>
+        <ul>
+            <li>Suites pequeñas (menos de ~10 tests sobre pocas pantallas): la capa extra solo agrega indirección.</li>
+            <li>Cuando el Page Object se convierte en una "god class" con decenas de métodos: divide o reemplaza por
+                helpers puntuales.</li>
+            <li>Como sustituto de fixtures: el POM organiza <em>páginas</em>; el <em>entorno</em> (instancias, datos,
+                auth) se organiza mejor con fixtures. En este repo ambos conviven: los page objects viven en
+                <code>tests/pages/</code> y se inyectan vía fixtures desde <code>tests/fixtures/app-fixtures.ts</code>.</li>
+        </ul>
+        <h4>Page Object real de este repo</h4>
+        <pre><code [textContent]="realPomCode"></code></pre>
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+            <li>Meter <code>expect</code> de negocio dentro del Page Object: oculta qué verifica cada test y acopla la
+                clase al framework de assertions.</li>
+            <li>Exponer locators públicos crudos por todas partes: los tests vuelven a acoplarse a la UI y el patrón
+                pierde sentido.</li>
+            <li>Devolver <code>ElementHandle</code> en lugar de <code>Locator</code>: los handles se vuelven stale;
+                los locators se re-resuelven solos.</li>
+            <li>Crear jerarquías de herencia profundas entre pages: prefiere composición (page components).</li>
+        </ul>
+        <h4>🎤 Preguntas de entrevista</h4>
+        <ul>
+            <li><strong>¿Qué problema resuelve el POM?</strong> Centraliza selectores y flujos de UI: un cambio de
+                interfaz se arregla en un solo archivo en vez de en cada test.</li>
+            <li><strong>¿Deben ir las assertions en el Page Object?</strong> Regla práctica: assertions de negocio en el
+                test; el page object puede exponer estados o assertions genéricas de "página cargada".</li>
+            <li><strong>¿Qué alternativa moderna existe al POM clásico?</strong> Fixtures de Playwright que inyectan
+                pages o helpers ya inicializados; combinan bien: la fixture crea, el POM encapsula.</li>
+        </ul>
+        <p class="code-ref">📁 Código real: <code>tests/pages/playwright-lab.page.ts</code>,
+            <code>tests/pages/dashboard.page.ts</code>, <code>tests/pages/app.module.ts</code></p>
     </div>
 
     <div class="card" id="fixtures-personalizados">
@@ -158,6 +343,92 @@ tests/pages/product.page.ts</code></pre>
         <h4>Auth Storage</h4>
         <p>Usa una fixture para cargar un estado de autenticación ya guardado y evitar logins repetidos.</p>
         <pre><code [textContent]="authStorageExampleCode"></code></pre>
+        <h4>Fixtures reales de este repo</h4>
+        <p>Toda la suite E2E de esta app importa <code>test</code> desde <code>tests/fixtures</code>, que inyecta los
+            page objects listos para usar:</p>
+        <pre><code [textContent]="realFixturesCode"></code></pre>
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+            <li>Olvidar llamar <code>await use(...)</code>: el test se cuelga hasta el timeout porque la fixture nunca
+                "entrega" su valor.</li>
+            <li>Poner el teardown antes de <code>use()</code>: todo lo que va después de <code>use</code> es cleanup;
+                antes, setup.</li>
+            <li>Compartir estado mutable entre fixtures de distinto test: cada test debe recibir instancias propias.</li>
+            <li>Importar <code>test</code> desde <code>&#64;playwright/test</code> en unos specs y desde tus fixtures en
+                otros: los primeros no reciben tus fixtures.</li>
+        </ul>
+        <h4>🎤 Preguntas de entrevista</h4>
+        <ul>
+            <li><strong>¿Qué ventaja tienen las fixtures sobre beforeEach?</strong> Son declarativas y lazy (solo se
+                inicializa lo que el test pide), componibles entre sí, tipadas, y encapsulan setup + teardown en un solo
+                lugar reutilizable entre archivos.</li>
+            <li><strong>¿Cómo comparte una fixture datos con el test?</strong> Mediante el callback
+                <code>use(valor)</code>: lo previo es setup, el argumento es lo inyectado y lo posterior es teardown.</li>
+        </ul>
+        <p class="code-ref">📁 Código real: <code>tests/fixtures/app-fixtures.ts</code>,
+            <code>tests/fixtures/index.ts</code></p>
+    </div>
+
+    <div class="card" id="fixtures-scope-de-test-vs-worker">
+        <h3>Fixtures: scope de test vs worker</h3>
+        <p>
+            Cada fixture tiene un <strong>scope</strong>. Con <code>scope: 'test'</code> (default) se crea y destruye
+            por cada test: máximo aislamiento. Con <code>scope: 'worker'</code> se crea una sola vez por proceso worker
+            y se comparte entre todos los tests que ese worker ejecute: ideal para setups caros (tokens, contenedores,
+            seeds de base de datos).
+        </p>
+        <pre><code [textContent]="workerScopeCode"></code></pre>
+        <h4>Override de fixtures</h4>
+        <p>También puedes sobrescribir fixtures integradas o propias para cambiar el comportamiento de toda una suite:</p>
+        <pre><code [textContent]="overrideFixtureCode"></code></pre>
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+            <li>Guardar estado mutable en una fixture worker-scoped: un test lo modifica y contamina a los siguientes
+                del mismo worker.</li>
+            <li>Hacer que una fixture worker-scoped dependa de una test-scoped: es imposible (viven distinto tiempo) y
+                Playwright lo rechaza.</li>
+            <li>Usar worker scope "para ir más rápido" en cosas baratas: sacrificas aislamiento sin ganancia real.</li>
+        </ul>
+        <h4>🎤 Preguntas de entrevista</h4>
+        <ul>
+            <li><strong>¿Cuándo eliges worker scope?</strong> Cuando el setup es costoso e inmutable durante los tests:
+                autenticarse contra una API, levantar un mock server, poblar datos base.</li>
+            <li><strong>¿Qué significa <code>auto: true</code> en una fixture?</strong> Que se inicializa en todos los
+                tests aunque ninguno la pida en sus argumentos; útil para hooks transversales (logging, documentación).</li>
+        </ul>
+    </div>
+
+    <div class="card" id="hook-de-documentacion-automatica">
+        <h3>Hook de documentación automática</h3>
+        <p>
+            Este repo usa una fixture <code>auto</code> como hook transversal: cada test genera automáticamente un
+            archivo markdown de documentación en <code>test-documentation/</code> con su nombre, descripción y archivo
+            de origen. Es un ejemplo real de cómo las fixtures reemplazan a los hooks globales con algo componible y
+            tipado.
+        </p>
+        <pre><code [textContent]="autoFixtureDocCode"></code></pre>
+        <p>
+            La cadena de composición del repo es: <code>&#64;playwright/test</code> →
+            <code>tests/fixtures/app-fixtures.ts</code> (page objects) →
+            <code>tests/hooks/generate-documentation.ts</code> (fixture auto) →
+            <code>tests/fixtures/index.ts</code> (punto de entrada que importan los specs). Cada capa extiende la
+            anterior con <code>test.extend()</code>.
+        </p>
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+            <li>Hacer trabajo pesado en una fixture <code>auto</code>: se paga en TODOS los tests de la suite.</li>
+            <li>Escribir al mismo archivo desde tests paralelos sin nombres únicos: aquí se evita generando un slug por
+                título de test.</li>
+        </ul>
+        <h4>🎤 Preguntas de entrevista</h4>
+        <ul>
+            <li><strong>¿Cómo ejecutarías lógica en todos los tests sin tocar cada spec?</strong> Con una fixture
+                <code>&#123; auto: true &#125;</code> en el <code>test</code> base compartido, como hace este repo.</li>
+            <li><strong>¿Qué información expone <code>testInfo</code>?</strong> Título, archivo, proyecto, número de
+                retry, estado, y utilidades como <code>attach()</code> para adjuntar artefactos al reporte.</li>
+        </ul>
+        <p class="code-ref">📁 Código real: <code>tests/hooks/generate-documentation.ts</code>,
+            <code>tests/fixtures/index.ts</code></p>
     </div>
 
     <div class="card" id="autenticacion-persistente">
@@ -169,6 +440,83 @@ tests/pages/product.page.ts</code></pre>
         <p>
             Luego el config de Playwright puede reutilizar ese archivo para pruebas autenticadas.
         </p>
+        <h4>Patrón recomendado: setup project + storageState</h4>
+        <p>
+            <code>storageState</code> serializa cookies y localStorage del contexto. El patrón oficial es un
+            <em>setup project</em> que hace login una vez y guarda el archivo; los demás projects lo declaran como
+            <code>dependencies</code> y arrancan cada test ya autenticados:
+        </p>
+        <pre><code [textContent]="setupProjectCode"></code></pre>
+        <h4>Mejores prácticas</h4>
+        <ul>
+            <li>Agrega <code>playwright/.auth/</code> a <code>.gitignore</code>: contiene credenciales de sesión.</li>
+            <li>Antes de guardar el estado, asserta algo que pruebe que el login terminó (evita guardar un estado a
+                medias).</li>
+            <li>Para tests que necesitan varios roles, genera un archivo por rol
+                (<code>admin.json</code>, <code>user.json</code>) y selecciónalo con <code>test.use</code>.</li>
+            <li>Si los tests mutan la sesión (logout, cambio de contraseña), aíslalos con un login propio.</li>
+        </ul>
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+            <li>Hacer login por UI en cada test: multiplica minutos de suite y añade un punto de flakiness por test.</li>
+            <li>Reusar un storageState expirado: si el token caduca, media suite falla con síntomas confusos; regenera
+                el archivo en el setup de cada run de CI.</li>
+            <li>Guardar el estado sin esperar la redirección post-login: el archivo queda sin las cookies finales.</li>
+        </ul>
+        <h4>🎤 Preguntas de entrevista</h4>
+        <ul>
+            <li><strong>¿Qué guarda exactamente storageState?</strong> Cookies del contexto y localStorage por origen
+                (no sessionStorage, que requiere un truco aparte).</li>
+            <li><strong>¿Cómo autenticas con distintos roles en la misma suite?</strong> Un setup project que genera un
+                storageState por rol y <code>test.use(&#123; storageState: '...' &#125;)</code> por describe o archivo.</li>
+        </ul>
+    </div>
+
+    <div class="card" id="mock-de-red-con-page-route">
+        <h3>Mock de red con page.route</h3>
+        <p>
+            <code>page.route(pattern, handler)</code> intercepta las requests que hace la página. Con
+            <code>route.fulfill()</code> respondes tú mismo (mock), con <code>route.abort()</code> cancelas la request
+            y con <code>route.continue()</code> / <code>route.fetch()</code> la dejas pasar (opcionalmente modificada).
+            Es la herramienta clave para probar estados difíciles de reproducir: errores 500, listas vacías, respuestas
+            lentas o payloads enormes.
+        </p>
+        <pre><code [textContent]="routeMockCode"></code></pre>
+        <h4>Esperar respuestas reales</h4>
+        <p>Cuando no quieres mockear sino sincronizarte con la red real, usa <code>waitForResponse</code> registrando
+            la espera antes de disparar la acción:</p>
+        <pre><code [textContent]="waitForResponseCode"></code></pre>
+        <h4>Mejores prácticas</h4>
+        <ul>
+            <li>Decide una estrategia por suite: E2E "full stack" contra backend real para flujos críticos, y mocks
+                para estados excepcionales y edge cases.</li>
+            <li>Registra las rutas antes de <code>page.goto()</code>; si la app dispara la request al cargar, un route
+                tardío no la intercepta.</li>
+            <li>Mantén los payloads mock en archivos/factories compartidos para no duplicar JSON en cada spec.</li>
+            <li>Usa <code>page.unroute()</code> o el helper del contexto si necesitas restaurar el comportamiento.</li>
+        </ul>
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+            <li>Patrones glob que no coinciden (olvidar <code>**/</code> al inicio): el mock nunca aplica y el test pega
+                al backend real.</li>
+            <li>Mockear TODO: terminas testeando tus mocks y no la integración; deja al menos un smoke test end-to-end
+                real.</li>
+            <li>Poner <code>waitForResponse</code> después del click: si la respuesta llega antes de registrar la
+                espera, el test se cuelga.</li>
+            <li>Olvidar <code>contentType: 'application/json'</code> en el fulfill: algunos clients HTTP no parsean el
+                body.</li>
+        </ul>
+        <h4>🎤 Preguntas de entrevista</h4>
+        <ul>
+            <li><strong>¿Diferencia entre route.fulfill, route.continue y route.abort?</strong> fulfill responde sin
+                tocar el servidor; continue deja pasar la request (con posibles modificaciones de headers/postData);
+                abort la falla como error de red.</li>
+            <li><strong>¿Cómo probarías el estado de error de una pantalla?</strong> Interceptando su endpoint con
+                <code>route.fulfill(&#123; status: 500 &#125;)</code> y assertando el mensaje de error visible.</li>
+            <li><strong>¿Qué es HAR replay?</strong> Grabar el tráfico real en un archivo HAR
+                (<code>routeFromHAR</code>) y reproducirlo en los tests para tener red determinista sin escribir mocks a
+                mano.</li>
+        </ul>
     </div>
 
     <div class="card" id="ejecucion-y-debug">
@@ -193,6 +541,44 @@ tests/pages/product.page.ts</code></pre>
         </p>
     </div>
 
+    <div class="card" id="tracing-trace-viewer-y-ui-mode">
+        <h3>Tracing, Trace Viewer y UI Mode</h3>
+        <p>
+            El <strong>trace</strong> es la caja negra de un test: graba screenshots por acción, snapshots del DOM
+            (antes/durante/después), requests de red, logs de consola y el código fuente ejecutado. Con
+            <code>trace: 'on-first-retry'</code> (la opción de este repo) obtienes esa evidencia exactamente cuando un
+            test falla en CI, sin costo en los runs verdes.
+        </p>
+        <pre><code [textContent]="traceToolsCode"></code></pre>
+        <h4>¿Qué herramienta usar para cada problema?</h4>
+        <ul>
+            <li><strong>UI Mode (<code>--ui</code>):</strong> desarrollo diario; corre tests en watch, permite "time
+                travel" por cada acción y probar locators en vivo.</li>
+            <li><strong>Inspector (<code>--debug</code>):</strong> avanzar paso a paso una prueba concreta con el
+                navegador visible.</li>
+            <li><strong>Trace Viewer:</strong> diagnóstico post-mortem de fallas en CI; descarga el trace del artifact y
+                ábrelo con <code>show-trace</code> (o en trace.playwright.dev).</li>
+            <li><strong>Codegen:</strong> punto de partida para descubrir locators; el código generado se refactoriza
+                después (POM, fixtures), no se pega tal cual.</li>
+        </ul>
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+            <li>Depurar fallas de CI a base de <code>console.log</code> y re-runs: un trace responde en segundos qué
+                pasó.</li>
+            <li>Dejar <code>trace: 'on'</code> permanente: artefactos gigantes y suite más lenta.</li>
+            <li>Commitear directamente el output de codegen: suele usar el contexto equivocado y carece de
+                assertions.</li>
+        </ul>
+        <h4>🎤 Preguntas de entrevista</h4>
+        <ul>
+            <li><strong>¿Cómo depuras un test que solo falla en CI?</strong> Con <code>trace: 'on-first-retry'</code>,
+                subiendo <code>test-results/</code> como artifact y abriendo el trace en el Trace Viewer: incluye DOM,
+                red y consola del momento exacto de la falla.</li>
+            <li><strong>¿Qué contiene un trace además de screenshots?</strong> Snapshots interactivos del DOM por
+                acción, timeline, network, consola, código del test y metadatos del run.</li>
+        </ul>
+    </div>
+
     <div class="card" id="paralelizacion">
         <h3>Paralelización</h3>
         <p>
@@ -202,7 +588,82 @@ tests/pages/product.page.ts</code></pre>
         <pre><code [textContent]="parallelCode"></code></pre>
         <p>
             Para desactivar el paralelismo usa <code>--workers=1</code> o <code>workers: 1</code> en la configuración.
+            Este repo usa <code>fullyParallel: true</code> en local y <code>workers: 1</code> en CI (runners con poca
+            CPU).
         </p>
+    </div>
+
+    <div class="card" id="paralelismo-y-sharding-en-ci">
+        <h3>Paralelismo y sharding en CI</h3>
+        <p>
+            El paralelismo con <strong>workers</strong> escala dentro de una máquina; el <strong>sharding</strong>
+            escala entre máquinas: divide la suite en N porciones y cada job de CI ejecuta una con
+            <code>--shard=i/N</code>. Combinado con una matrix de GitHub Actions, una suite de 40 minutos puede bajar a
+            10.
+        </p>
+        <pre><code [textContent]="shardingCode"></code></pre>
+        <h4>Mejores prácticas</h4>
+        <ul>
+            <li>El requisito número uno es que los tests sean independientes: sin orden implícito ni datos
+                compartidos.</li>
+            <li>Usa <code>fail-fast: false</code> en la matrix para que un shard fallido no cancele los demás y veas el
+                panorama completo.</li>
+            <li>Con sharding usa el <em>blob reporter</em> y <code>merge-reports</code> para un único reporte HTML
+                final.</li>
+            <li>Ajusta <code>retries</code> en CI (aquí: 2) para absorber fallas de infraestructura, y monitorea qué
+                tests las consumen.</li>
+        </ul>
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+            <li>Tests que comparten un mismo usuario/registro de datos: en paralelo se pisan entre sí de forma
+                intermitente.</li>
+            <li>Usar <code>test.describe.configure(&#123; mode: 'serial' &#125;)</code> para encadenar tests dependientes:
+                si uno falla, arrastra a los demás y bloquea el sharding eficiente.</li>
+            <li>Asumir que los shards tardan lo mismo: distribuye archivos pesados o usa más shards pequeños.</li>
+        </ul>
+        <h4>🎤 Preguntas de entrevista</h4>
+        <ul>
+            <li><strong>¿Diferencia entre workers y shards?</strong> Workers son procesos paralelos en una máquina;
+                shards son particiones de la suite entre varias máquinas. Se combinan.</li>
+            <li><strong>¿Cómo garantiza Playwright el aislamiento entre tests paralelos?</strong> Cada test recibe un
+                BrowserContext nuevo (cookies, storage y cache limpios) dentro de un mismo browser por worker, lo cual
+                es barato de crear.</li>
+        </ul>
+    </div>
+
+    <div class="card" id="tags-y-grep-smoke-y-regression">
+        <h3>Tags y grep: &#64;smoke y &#64;regression</h3>
+        <p>
+            Los tags permiten ejecutar subconjuntos de la suite según el contexto: un set <strong>&#64;smoke</strong>
+            pequeño y rápido que corre en cada push, y un set <strong>&#64;regression</strong> amplio para pipelines
+            nocturnos o pre-release. Se filtran con <code>--grep</code> y <code>--grep-invert</code>.
+        </p>
+        <pre><code [textContent]="tagsCode"></code></pre>
+        <h4>Mejores prácticas</h4>
+        <ul>
+            <li>Mantén &#64;smoke corto (minutos, no decenas de minutos): son los flujos que, si fallan, bloquean todo lo
+                demás.</li>
+            <li>Define un vocabulario de tags acordado por el equipo (&#64;smoke, &#64;regression, &#64;slow, &#64;a11y) y
+                documéntalo.</li>
+            <li>Expón los filtros como scripts npm, como hace este repo (<code>test:e2e:smoke</code>,
+                <code>test:e2e:regression</code>), para que CI y humanos usen los mismos comandos.</li>
+        </ul>
+        <h4>⚠️ Errores comunes</h4>
+        <ul>
+            <li>Escribir el tag con typo (<code>&#64;somke</code>): el grep simplemente no lo encuentra y el test deja de
+                correr sin aviso. Revisa el conteo de tests ejecutados.</li>
+            <li>Meter todo en &#64;smoke "porque es importante": el set pierde su valor de feedback rápido.</li>
+            <li>Usar grep sobre títulos libres en vez de tags consistentes: los filtros se vuelven frágiles.</li>
+        </ul>
+        <h4>🎤 Preguntas de entrevista</h4>
+        <ul>
+            <li><strong>¿Cómo estructurarías la ejecución de E2E en un pipeline?</strong> Smoke en cada PR (rápido,
+                bloqueante), regression completa nightly o pre-release, con sharding si crece.</li>
+            <li><strong>¿Cómo excluyes tests lentos de un run?</strong> Tagéalos (&#64;slow) y usa
+                <code>--grep-invert &#64;slow</code>, o sepáralos en un project propio.</li>
+        </ul>
+        <p class="code-ref">📁 Código real: <code>tests/integration.spec.ts</code>,
+            <code>tests/accessibility-performance.spec.ts</code>, scripts en <code>package.json</code></p>
     </div>
 
     <div class="card" id="cicd">
