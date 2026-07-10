@@ -2,11 +2,10 @@
 
   <!-- Ejercicio 1 -->
   <div class="card">
-    <h3>1 · Shell + remote con Native Federation</h3>
+    <h3>1 · Shell + remote con Native Federation (desde 0)</h3>
     <p>
-      Crea dos apps Angular (<code>shell</code> en el puerto 4200 y <code>catalogo</code> en el 4201)
-      con <code>ng add &#64;angular-architects/native-federation</code>. El remote debe exponer sus
-      rutas y el shell cargarlas de forma lazy en <code>/catalogo</code>.
+      Crea dos apps Angular (<code>shell</code> en el puerto 4200 y <code>catalogo</code> en el 4201).
+      El remote debe exponer sus rutas y el shell cargarlas de forma lazy en <code>/catalogo</code>.
     </p>
     <ul class="criteria">
       <li>El remote expone './routes' en federation.config.js</li>
@@ -15,13 +14,85 @@
     </ul>
     <div class="tip">Arranca primero el remote: el shell falla al resolver el manifest si el remoteEntry.json no responde</div>
     <details class="solution">
-      <summary>Ver guía de solución</summary>
-      <ul>
-        <li>Remote: <code>ng add &#64;angular-architects/native-federation --project catalogo --type remote --port 4201</code></li>
-        <li>En federation.config.js del remote: <code ngNonBindable>exposes: &#123; './routes': './src/app/catalogo.routes.ts' &#125;</code></li>
-        <li>Shell: en app.routes.ts, <code ngNonBindable>loadChildren: () =&gt; loadRemoteModule('catalogo', './routes').then(m =&gt; m.CATALOGO_ROUTES)</code></li>
-        <li>Registra el remote en assets/federation.manifest.json del shell</li>
-      </ul>
+      <summary>Ver solución paso a paso</summary>
+      <ol class="steps">
+        <li>
+          <strong>Crea el workspace con las dos aplicaciones</strong>
+          <pre ngNonBindable><code>npm i -g &#64;angular/cli
+ng new mfe-workspace --create-application=false
+cd mfe-workspace
+ng generate application shell --routing --style=scss
+ng generate application catalogo --routing --style=scss</code></pre>
+        </li>
+        <li>
+          <strong>Instala Native Federation en cada app con su rol</strong>
+          <pre ngNonBindable><code>ng add &#64;angular-architects/native-federation --project shell --type dynamic-host --port 4200
+ng add &#64;angular-architects/native-federation --project catalogo --type remote --port 4201</code></pre>
+          El schematic crea <code>federation.config.js</code> por proyecto, divide el arranque en
+          <code>main.ts</code> + <code>bootstrap.ts</code> y cambia el builder en <code>angular.json</code>.
+        </li>
+        <li>
+          <strong>Crea el feature del remote con sus rutas</strong>
+          <pre ngNonBindable><code>ng generate component catalogo-home --project catalogo</code></pre>
+          <pre ngNonBindable><code>// projects/catalogo/src/app/catalogo.routes.ts
+import &#123; Routes &#125; from '&#64;angular/router';
+import &#123; CatalogoHome &#125; from './catalogo-home/catalogo-home';
+
+export const CATALOGO_ROUTES: Routes = [
+  &#123; path: '', component: CatalogoHome &#125;,
+];</code></pre>
+        </li>
+        <li>
+          <strong>Expón las rutas en el federation.config.js del remote</strong>
+          <pre ngNonBindable><code>// projects/catalogo/federation.config.js
+const &#123; withNativeFederation, shareAll &#125; = require('&#64;angular-architects/native-federation/config');
+
+module.exports = withNativeFederation(&#123;
+  name: 'catalogo',
+  exposes: &#123;
+    './routes': './projects/catalogo/src/app/catalogo.routes.ts',
+  &#125;,
+  shared: &#123;
+    ...shareAll(&#123; singleton: true, strictVersion: true, requiredVersion: 'auto' &#125;),
+  &#125;,
+&#125;);</code></pre>
+        </li>
+        <li>
+          <strong>Registra el remote en el manifest del shell</strong>
+          <pre ngNonBindable><code>// projects/shell/src/assets/federation.manifest.json
+&#123;
+  "catalogo": "http://localhost:4201/remoteEntry.json"
+&#125;</code></pre>
+          El <code>main.ts</code> del shell (generado por el schematic) ya carga este manifest con
+          <code>initFederation('/assets/federation.manifest.json')</code> antes de importar
+          <code>bootstrap.ts</code> — revísalo para entender el orden de arranque.
+        </li>
+        <li>
+          <strong>Crea la ruta lazy en el shell</strong>
+          <pre ngNonBindable><code>// projects/shell/src/app/app.routes.ts
+import &#123; Routes &#125; from '&#64;angular/router';
+import &#123; loadRemoteModule &#125; from '&#64;angular-architects/native-federation';
+
+export const routes: Routes = [
+  &#123;
+    path: 'catalogo',
+    loadChildren: () =&gt;
+      loadRemoteModule('catalogo', './routes').then(m =&gt; m.CATALOGO_ROUTES),
+  &#125;,
+];</code></pre>
+          Y agrega un enlace en el template del shell:
+          <pre ngNonBindable><code>&lt;a routerLink="/catalogo"&gt;Catálogo&lt;/a&gt;
+&lt;router-outlet /&gt;</code></pre>
+        </li>
+        <li>
+          <strong>Arranca ambas apps (remote primero) en dos terminales</strong>
+          <pre ngNonBindable><code>ng serve catalogo   # terminal 1 → http://localhost:4201
+ng serve shell      # terminal 2 → http://localhost:4200</code></pre>
+          <div class="check">abre http://localhost:4201/remoteEntry.json (debe responder el metadata del remote)
+          y luego http://localhost:4200/catalogo — el shell debe renderizar el componente del catálogo.
+          En la pestaña Network verás que el código del catálogo se descarga desde el puerto 4201.</div>
+        </li>
+      </ol>
     </details>
   </div>
 
@@ -30,8 +101,8 @@
     <h3>2 · Dependencias compartidas y versiones</h3>
     <p>
       Con el setup del ejercicio 1, experimenta con <code>shared</code>: marca Angular y RxJS como
-      singleton, luego provoca un conflicto instalando una versión distinta de una librería en el
-      remote y observa qué pasa con <code>strictVersion: true</code> vs <code>false</code>.
+      singleton, provoca un conflicto de versiones y observa qué pasa con
+      <code>strictVersion: true</code> vs <code>false</code>.
     </p>
     <ul class="criteria">
       <li>&#64;angular/* y rxjs configurados como singleton en ambos lados</li>
@@ -40,12 +111,50 @@
     </ul>
     <div class="tip">Mira la pestaña Network: con shared bien configurado, Angular se descarga UNA vez aunque cargues varios remotes</div>
     <details class="solution">
-      <summary>Ver guía de solución</summary>
-      <ul>
-        <li>Con <code>strictVersion: true</code> la carga del remote lanza un error explícito al detectar la versión incompatible</li>
-        <li>Con <code>false</code> puede cargar dos copias (bundle más pesado y bugs sutiles con dos runtimes)</li>
-        <li>En producción: singleton + strictVersion para el framework; versiones alineadas vía renovate/nx en todos los MFEs</li>
-      </ul>
+      <summary>Ver solución paso a paso</summary>
+      <ol class="steps">
+        <li>
+          <strong>Observa la línea base</strong>
+          <p>Con ambas apps corriendo, abre DevTools → Network en el shell, filtra por JS y entra a
+          <code>/catalogo</code>. Anota cuántos bundles llegan desde el puerto 4201: solo debe llegar
+          el código del feature, no otra copia de Angular (eso es el <code>shared</code> con
+          <code>shareAll(&#123; singleton: true &#125;)</code> funcionando).</p>
+        </li>
+        <li>
+          <strong>Provoca el conflicto de versiones</strong>
+          <p>El truco más simple sin segundo workspace: edita a mano la versión que el remote declara
+          compartir y reconstruye. En <code>projects/catalogo/package.json</code> (o el package.json raíz
+          si es workspace único) baja una dependencia compartida, por ejemplo:</p>
+          <pre ngNonBindable><code>// package.json del remote (solo para el experimento)
+"rxjs": "~7.5.0"   // el shell sigue en ~7.8.0</code></pre>
+          <pre ngNonBindable><code>npm install
+ng serve catalogo</code></pre>
+        </li>
+        <li>
+          <strong>Observa el fallo con strictVersion: true</strong>
+          <p>Recarga el shell y entra a <code>/catalogo</code>. En consola verás un error del tipo:</p>
+          <pre ngNonBindable><code>Unsatisfied version 7.5.0 of shared singleton module rxjs (required ~7.8.0)</code></pre>
+          <div class="check">la carga del remote falla de forma explícita y temprana — este es el
+          comportamiento que quieres en producción: un error claro en vez de dos runtimes conviviendo.</div>
+        </li>
+        <li>
+          <strong>Relaja la validación y compara</strong>
+          <pre ngNonBindable><code>// federation.config.js (ambos lados, solo para comparar)
+...shareAll(&#123; singleton: true, strictVersion: false, requiredVersion: 'auto' &#125;)</code></pre>
+          <p>Reconstruye y recarga: ahora carga, pero con warning en consola y riesgo real — si la API
+          de la librería cambió entre versiones, el bug aparece en runtime, lejos de la causa.</p>
+        </li>
+        <li>
+          <strong>Restaura y documenta la política</strong>
+          <p>Vuelve a <code>~7.8.0</code> y a <code>strictVersion: true</code>. Política recomendada para
+          producción:</p>
+          <ul>
+            <li><code>singleton + strictVersion: true</code> para &#64;angular/*, rxjs y librerías con estado global (router, store).</li>
+            <li>Versiones alineadas entre MFEs con tooling (renovate, Nx, un solo lockfile en monorepo).</li>
+            <li>Librerías utilitarias sin estado (date-fns, lodash-es) pueden no compartirse: duplicar unos KB es más barato que acoplar upgrades.</li>
+          </ul>
+        </li>
+      </ol>
     </details>
   </div>
 
@@ -54,8 +163,8 @@
     <h3>3 · Comunicación por eventos con contrato versionado</h3>
     <p>
       Implementa el flujo "agregar al carrito": el MFE catálogo publica un
-      <code>CustomEvent('cart:item-added:v1')</code> y el MFE carrito (u otro componente del shell)
-      se suscribe, actualiza un contador y limpia el listener al destruirse.
+      <code>CustomEvent('cart:item-added:v1')</code> y el shell (o el MFE carrito) se suscribe,
+      actualiza un contador y limpia el listener al destruirse.
     </p>
     <ul class="criteria">
       <li>Interfaz TypeScript compartida para el detail del evento</li>
@@ -64,12 +173,84 @@
     </ul>
     <div class="tip">Si necesitas comunicar pestañas distintas del navegador, cambia window.dispatchEvent por BroadcastChannel</div>
     <details class="solution">
-      <summary>Ver guía de solución</summary>
-      <ul>
-        <li>Define <code>CartItemAddedV1</code> en un paquete de contratos (o un .d.ts duplicado conscientemente)</li>
-        <li>Publica con <code ngNonBindable>window.dispatchEvent(new CustomEvent('cart:item-added:v1', &#123; detail &#125;))</code></li>
-        <li>Suscribe en el constructor del servicio del carrito y registra la limpieza con <code>inject(DestroyRef).onDestroy(...)</code></li>
-      </ul>
+      <summary>Ver solución paso a paso</summary>
+      <ol class="steps">
+        <li>
+          <strong>Define el contrato del evento</strong>
+          <p>En un paquete de contratos compartido — o, si aún no lo tienes, un archivo duplicado
+          conscientemente en cada MFE (el contrato es el nombre + shape, no el archivo):</p>
+          <pre ngNonBindable><code>// shared-contracts/cart-events.ts
+export const CART_ITEM_ADDED_V1 = 'cart:item-added:v1';
+
+export interface CartItemAddedV1 &#123;
+  productId: string;
+  quantity: number;
+&#125;</code></pre>
+        </li>
+        <li>
+          <strong>Publica el evento desde el catálogo</strong>
+          <pre ngNonBindable><code>// projects/catalogo/src/app/catalogo-home/catalogo-home.ts
+import &#123; Component &#125; from '&#64;angular/core';
+import &#123; CART_ITEM_ADDED_V1, CartItemAddedV1 &#125; from '../cart-events';
+
+&#64;Component(&#123;
+  selector: 'app-catalogo-home',
+  template: `
+    &lt;h2&gt;Catálogo&lt;/h2&gt;
+    &lt;button (click)="addToCart('p-42')"&gt;Agregar producto 42&lt;/button&gt;
+  `,
+&#125;)
+export class CatalogoHome &#123;
+  addToCart(productId: string) &#123;
+    const detail: CartItemAddedV1 = &#123; productId, quantity: 1 &#125;;
+    window.dispatchEvent(new CustomEvent(CART_ITEM_ADDED_V1, &#123; detail &#125;));
+  &#125;
+&#125;</code></pre>
+        </li>
+        <li>
+          <strong>Suscríbete en el shell con limpieza automática</strong>
+          <pre ngNonBindable><code>// projects/shell/src/app/cart-badge.ts
+import &#123; Component, DestroyRef, NgZone, inject, signal &#125; from '&#64;angular/core';
+import &#123; CART_ITEM_ADDED_V1, CartItemAddedV1 &#125; from './cart-events';
+
+&#64;Component(&#123;
+  selector: 'app-cart-badge',
+  template: `&lt;span&gt;🛒 &#64;if (count()) &#123; (&#123;&#123; count() &#125;&#125;) &#125;&lt;/span&gt;`,
+&#125;)
+export class CartBadge &#123;
+  count = signal(0);
+  private zone = inject(NgZone);
+
+  constructor() &#123;
+    const handler = (e: Event) =&gt; &#123;
+      const detail = (e as CustomEvent&lt;CartItemAddedV1&gt;).detail;
+      // el evento nace fuera de Angular: re-entra a la zona para que la UI se actualice
+      this.zone.run(() =&gt; this.count.update(c =&gt; c + detail.quantity));
+    &#125;;
+    window.addEventListener(CART_ITEM_ADDED_V1, handler);
+    inject(DestroyRef).onDestroy(() =&gt;
+      window.removeEventListener(CART_ITEM_ADDED_V1, handler));
+  &#125;
+&#125;</code></pre>
+        </li>
+        <li>
+          <strong>Monta el badge en el layout del shell</strong>
+          <pre ngNonBindable><code>&lt;header&gt;
+  &lt;a routerLink="/catalogo"&gt;Catálogo&lt;/a&gt;
+  &lt;app-cart-badge /&gt;
+&lt;/header&gt;
+&lt;router-outlet /&gt;</code></pre>
+          <div class="check">haz clic en "Agregar producto 42" dentro del MFE catálogo: el contador del
+          shell sube sin que el catálogo importe nada del shell. Navega fuera y de vuelta: no se
+          acumulan listeners duplicados (gracias a DestroyRef).</div>
+        </li>
+        <li>
+          <strong>Evoluciona el contrato sin romper consumidores</strong>
+          <p>Si mañana necesitas enviar también el precio, NO cambies el shape de
+          <code>:v1</code>: publica <code>cart:item-added:v2</code> con el campo nuevo y emite ambos
+          eventos durante la transición. Cuando todos los consumidores migren a v2, retira v1.</p>
+        </li>
+      </ol>
     </details>
   </div>
 
@@ -77,22 +258,99 @@
   <div class="card">
     <h3>4 · Widget como Angular Element</h3>
     <p>
-      Convierte un componente (por ejemplo un mini-carrito con contador) en un Web Component con
+      Convierte un componente (un mini-carrito con contador) en un Web Component con
       <code>createCustomElement</code> y consúmelo desde una página HTML plana sin Angular.
     </p>
     <ul class="criteria">
       <li>customElements.define registra la etiqueta mfe-mini-cart</li>
-      <li>Un &#64;Input() se controla vía atributo HTML</li>
-      <li>Un &#64;Output() se recibe como CustomEvent con addEventListener</li>
+      <li>Un input se controla vía atributo HTML</li>
+      <li>Un output se recibe como CustomEvent con addEventListener</li>
     </ul>
     <div class="tip">Usa createApplication() (standalone) en vez de un NgModule: es el enfoque moderno para Elements</div>
     <details class="solution">
-      <summary>Ver guía de solución</summary>
-      <ul>
-        <li>Instala <code>&#64;angular/elements</code> y registra el elemento en main.ts (ver pestaña Ejemplos 💡)</li>
-        <li>Compila con un solo bundle (esbuild) y cárgalo con una etiqueta &lt;script&gt; en un index.html plano</li>
-        <li>Prueba <code ngNonBindable>document.querySelector('mfe-mini-cart').setAttribute('user-id', '42')</code></li>
-      </ul>
+      <summary>Ver solución paso a paso</summary>
+      <ol class="steps">
+        <li>
+          <strong>Crea el proyecto e instala &#64;angular/elements</strong>
+          <pre ngNonBindable><code>ng new mini-cart-element --routing=false --style=css
+cd mini-cart-element
+npm i &#64;angular/elements</code></pre>
+        </li>
+        <li>
+          <strong>Crea el componente con input y output clásicos</strong>
+          <p>Para Elements usa <code>&#64;Input()/&#64;Output()</code>: se mapean a atributos del custom
+          element y a CustomEvents del DOM.</p>
+          <pre ngNonBindable><code>// src/app/mini-cart.ts
+import &#123; Component, EventEmitter, Input, Output, signal &#125; from '&#64;angular/core';
+
+&#64;Component(&#123;
+  selector: 'app-mini-cart',
+  template: `
+    &lt;div class="cart"&gt;
+      🛒 &#123;&#123; count() &#125;&#125; — usuario: &#123;&#123; userId &#125;&#125;
+      &lt;button (click)="add()"&gt;+&lt;/button&gt;
+    &lt;/div&gt;
+  `,
+  styles: [`.cart &#123; font-family: sans-serif; border: 1px solid #ccc; padding: 8px; border-radius: 6px; &#125;`],
+&#125;)
+export class MiniCart &#123;
+  &#64;Input() userId = '';
+  &#64;Output() itemAdded = new EventEmitter&lt;number&gt;();
+  count = signal(0);
+
+  add() &#123;
+    this.count.update(c =&gt; c + 1);
+    this.itemAdded.emit(this.count());
+  &#125;
+&#125;</code></pre>
+        </li>
+        <li>
+          <strong>Reemplaza el bootstrap por el registro del elemento</strong>
+          <pre ngNonBindable><code>// src/main.ts
+import &#123; createApplication &#125; from '&#64;angular/platform-browser';
+import &#123; createCustomElement &#125; from '&#64;angular/elements';
+import &#123; MiniCart &#125; from './app/mini-cart';
+
+(async () =&gt; &#123;
+  const app = await createApplication(&#123; providers: [] &#125;);
+  const element = createCustomElement(MiniCart, &#123; injector: app.injector &#125;);
+  customElements.define('mfe-mini-cart', element);
+&#125;)();</code></pre>
+        </li>
+        <li>
+          <strong>Compila a un solo bundle</strong>
+          <pre ngNonBindable><code>ng build --output-hashing=none</code></pre>
+          <p>En <code>dist/mini-cart-element/browser/</code> quedan <code>main.js</code> y
+          <code>polyfills.js</code> con nombres estables (sin hash), listos para servirse desde un CDN.</p>
+        </li>
+        <li>
+          <strong>Consúmelo desde HTML plano</strong>
+          <pre ngNonBindable><code>&lt;!-- demo.html (fuera de Angular) --&gt;
+&lt;!DOCTYPE html&gt;
+&lt;html&gt;
+&lt;body&gt;
+  &lt;h1&gt;Página sin Angular&lt;/h1&gt;
+
+  &lt;mfe-mini-cart user-id="42"&gt;&lt;/mfe-mini-cart&gt;
+
+  &lt;script src="dist/mini-cart-element/browser/polyfills.js" type="module"&gt;&lt;/script&gt;
+  &lt;script src="dist/mini-cart-element/browser/main.js" type="module"&gt;&lt;/script&gt;
+  &lt;script&gt;
+    const cart = document.querySelector('mfe-mini-cart');
+    cart.addEventListener('itemAdded', (e) =&gt; &#123;
+      console.log('items en el carrito:', e.detail);
+    &#125;);
+  &lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;</code></pre>
+          <p>Sírvelo con cualquier servidor estático:</p>
+          <pre ngNonBindable><code>npx http-server . -p 8080
+# abre http://localhost:8080/demo.html</code></pre>
+          <div class="check">el widget renderiza, el atributo kebab-case <code>user-id</code> llena el
+          &#64;Input() camelCase <code>userId</code>, y cada clic en "+" dispara el CustomEvent
+          <code>itemAdded</code> que ves en la consola del navegador.</div>
+        </li>
+      </ol>
     </details>
   </div>
 
@@ -110,12 +368,65 @@
     </ul>
     <div class="tip">El remote nunca debe conocer su prefijo: el shell decide dónde montarlo — así puedes moverlo de /catalogo a /tienda sin tocar el remote</div>
     <details class="solution">
-      <summary>Ver guía de solución</summary>
-      <ul>
-        <li>En el remote exporta rutas con paths relativos: <code ngNonBindable>[&#123; path: '', component: Lista &#125;, &#123; path: 'producto/:id', component: Detalle &#125;]</code></li>
-        <li>El prefijo lo aporta la ruta lazy del shell (<code>path: 'catalogo'</code>)</li>
-        <li>Configura el servidor (nginx/Pages) con fallback a index.html para rutas desconocidas</li>
-      </ul>
+      <summary>Ver solución paso a paso</summary>
+      <ol class="steps">
+        <li>
+          <strong>Agrega una ruta con parámetro al remote (siempre relativa)</strong>
+          <pre ngNonBindable><code>ng generate component producto-detalle --project catalogo</code></pre>
+          <pre ngNonBindable><code>// projects/catalogo/src/app/catalogo.routes.ts
+export const CATALOGO_ROUTES: Routes = [
+  &#123; path: '', component: CatalogoHome &#125;,
+  &#123; path: 'producto/:id', component: ProductoDetalle &#125;,  // SIN prefijo /catalogo
+];</code></pre>
+        </li>
+        <li>
+          <strong>Lee el parámetro con input binding del router</strong>
+          <pre ngNonBindable><code>// projects/catalogo/src/app/producto-detalle/producto-detalle.ts
+import &#123; Component, input &#125; from '&#64;angular/core';
+
+&#64;Component(&#123;
+  selector: 'app-producto-detalle',
+  template: `&lt;h2&gt;Producto &#123;&#123; id() &#125;&#125;&lt;/h2&gt;`,
+&#125;)
+export class ProductoDetalle &#123;
+  id = input.required&lt;string&gt;();   // llega desde :id
+&#125;</code></pre>
+          <p>Activa el binding en la config del shell (quien crea el router):</p>
+          <pre ngNonBindable><code>// projects/shell/src/app/app.config.ts
+provideRouter(routes, withComponentInputBinding())</code></pre>
+        </li>
+        <li>
+          <strong>Navega dentro del remote con rutas relativas</strong>
+          <pre ngNonBindable><code>&lt;!-- catalogo-home.html --&gt;
+&lt;a [routerLink]="['producto', '42']"&gt;Ver producto 42&lt;/a&gt;</code></pre>
+          <p>Al ser relativa, la URL final es <code>/catalogo/producto/42</code> porque el shell montó
+          el remote bajo <code>catalogo</code> — si mañana lo monta en <code>tienda</code>, nada del
+          remote cambia.</p>
+        </li>
+        <li>
+          <strong>Prueba el deep linking en dev</strong>
+          <div class="check">pega http://localhost:4200/catalogo/producto/42 directo en el navegador y
+          recarga. ng serve ya hace fallback a index.html, así que debe restaurar la vista exacta:
+          initFederation carga el manifest → el router resuelve /catalogo → loadRemoteModule trae las
+          rutas → se renderiza producto/42.</div>
+        </li>
+        <li>
+          <strong>Configura el fallback en el servidor real</strong>
+          <p>En producción el servidor debe devolver index.html para cualquier ruta desconocida:</p>
+          <pre ngNonBindable><code># nginx
+location / &#123;
+  try_files $uri $uri/ /index.html;
+&#125;</code></pre>
+          <p>En GitHub Pages el equivalente es el truco del <code>404.html</code> que redirige al
+          index (este mismo repo lo usa en <code>public/404.html</code>).</p>
+        </li>
+        <li>
+          <strong>Verifica que navegar entre MFEs es SPA pura</strong>
+          <div class="check">con DevTools → Network abierto y "Preserve log" activado, navega
+          dashboard → catálogo → producto → atrás. No debe aparecer ningún document request nuevo:
+          solo chunks JS lazy. Si ves recargas completas, algún enlace usa href en vez de routerLink.</div>
+        </li>
+      </ol>
     </details>
   </div>
 
@@ -123,8 +434,8 @@
   <div class="card">
     <h3>6 · Pipeline de deploy independiente</h3>
     <p>
-      Diseña (en un diagrama o YAML) el CI/CD para shell + 2 remotes: cada repo despliega su propio
-      bundle a un CDN y el shell resuelve las URLs vía manifest por entorno, sin recompilarse.
+      Diseña el CI/CD para shell + 2 remotes: cada repo despliega su propio bundle a un CDN y el
+      shell resuelve las URLs vía manifest por entorno, sin recompilarse.
     </p>
     <ul class="criteria">
       <li>Cada MFE tiene pipeline propio (build, test, deploy a su carpeta del CDN)</li>
@@ -133,12 +444,84 @@
     </ul>
     <div class="tip">Publica cada versión del remote en una ruta inmutable (p. ej. /catalogo/1.4.2/remoteEntry.json) y haz que el manifest sea lo único mutable</div>
     <details class="solution">
-      <summary>Ver guía de solución</summary>
-      <ul>
-        <li>Remote: pipeline sube dist/ a <code>cdn.com/catalogo/&lt;version&gt;/</code> y actualiza el manifest del entorno</li>
-        <li>Shell: se construye una sola vez; en cada entorno lee su federation.manifest.json</li>
-        <li>Rollback = editar el manifest para apuntar a la versión anterior (segundos, sin build)</li>
-      </ul>
+      <summary>Ver solución paso a paso</summary>
+      <ol class="steps">
+        <li>
+          <strong>Define el layout del CDN (rutas inmutables por versión)</strong>
+          <pre ngNonBindable><code>cdn.miapp.com/
+├── shell/                        # se sirve como sitio raíz
+├── catalogo/1.4.1/remoteEntry.json
+├── catalogo/1.4.2/remoteEntry.json   ← versión nueva, conviven ambas
+├── carrito/2.0.0/remoteEntry.json
+└── config/
+    ├── staging.manifest.json     # lo ÚNICO mutable
+    └── prod.manifest.json</code></pre>
+        </li>
+        <li>
+          <strong>Pipeline de cada remote (uno por repo/equipo)</strong>
+          <pre ngNonBindable><code># .github/workflows/deploy-catalogo.yml
+name: Deploy catalogo
+on:
+  push:
+    tags: ['v*']          # deploy por tag semver → versión inmutable
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout&#64;v4
+      - uses: actions/setup-node&#64;v4
+        with: &#123; node-version: 'lts/*' &#125;
+      - run: npm ci
+      - run: npm test
+      - run: npx ng build catalogo
+      - name: Upload versión inmutable al CDN
+        run: |
+          VERSION=$&#123;GITHUB_REF_NAME#v&#125;
+          aws s3 sync dist/catalogo/browser \
+            s3://cdn-miapp/catalogo/$VERSION/ --cache-control "public,max-age=31536000,immutable"</code></pre>
+        </li>
+        <li>
+          <strong>Promoción a un entorno = editar solo el manifest</strong>
+          <pre ngNonBindable><code># config/staging.manifest.json (staging prueba la 1.4.2)
+&#123;
+  "catalogo": "https://cdn.miapp.com/catalogo/1.4.2/remoteEntry.json",
+  "carrito":  "https://cdn.miapp.com/carrito/2.0.0/remoteEntry.json"
+&#125;
+
+# config/prod.manifest.json (prod sigue en 1.4.1 hasta validar)
+&#123;
+  "catalogo": "https://cdn.miapp.com/catalogo/1.4.1/remoteEntry.json",
+  "carrito":  "https://cdn.miapp.com/carrito/2.0.0/remoteEntry.json"
+&#125;</code></pre>
+          <p>La promoción puede ser un job manual (workflow_dispatch) que sobreescribe el manifest del
+          entorno con la versión aprobada — con <code>max-age</code> corto o no-cache en ese archivo.</p>
+        </li>
+        <li>
+          <strong>El shell se construye UNA vez y lee el manifest de su entorno</strong>
+          <pre ngNonBindable><code>// main.ts del shell
+const env = (window as any).ENV ?? 'prod';   // inyectado por el server o meta tag
+initFederation(`https://cdn.miapp.com/config/$&#123;env&#125;.manifest.json`)
+  .then(() =&gt; import('./bootstrap'));</code></pre>
+          <p>Así el mismo artefacto del shell corre en staging y prod: cero rebuilds para promover
+          remotes.</p>
+        </li>
+        <li>
+          <strong>Rollback en segundos</strong>
+          <pre ngNonBindable><code># catalogo 1.4.2 rompió prod → revertir = apuntar el manifest a la anterior
+"catalogo": "https://cdn.miapp.com/catalogo/1.4.1/remoteEntry.json"</code></pre>
+          <div class="check">el rollback no compila ni despliega nada: es un cambio de un JSON. Las
+          versiones anteriores siguen en el CDN porque las rutas son inmutables. Mide el tiempo total:
+          debe ser menor a 1 minuto incluyendo la invalidación de caché del manifest.</div>
+        </li>
+        <li>
+          <strong>Guardas de calidad antes de promover</strong>
+          <ul>
+            <li>Smoke E2E del shell en staging apuntando a la versión candidata (contract testing cross-MFE).</li>
+            <li>El manifest de prod solo lo modifica el pipeline de promoción (nunca a mano) — queda auditado en git.</li>
+            <li>Alerta si un remote en prod tiene más de N versiones de distancia con main.</li>
+          </ul>
+        </li>
+      </ol>
     </details>
   </div>
 

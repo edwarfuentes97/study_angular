@@ -12,3 +12,12 @@ details.solution { border: 1px solid var(--border); border-radius: 6px; padding:
 details.solution summary { cursor: pointer; font-weight: 600; font-size: 0.9rem; }
 details.solution p, details.solution ul { margin: 0.5rem 0 0.2rem; color: var(--text-muted); font-size: 0.9rem; line-height: 1.6; }
 details.solution ul { padding-left: 1.3rem; }
+.steps { counter-reset: step; list-style: none; padding: 0; margin: 0.6rem 0 0.2rem; }
+.steps > li { counter-increment: step; position: relative; padding: 0.4rem 0 0.6rem 2.2rem; color: var(--text-muted); font-size: 0.9rem; line-height: 1.6; }
+.steps > li::before { content: counter(step); position: absolute; left: 0; top: 0.45rem; width: 1.5rem; height: 1.5rem; border-radius: 50%; background: var(--accent-purple, #a371f7); color: #fff; font-size: 0.78rem; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+.steps > li strong { color: var(--text); display: block; margin-bottom: 0.2rem; }
+.steps pre { margin: 0.4rem 0 0.2rem; }
+pre { background: var(--bg-code, #161b22); border: 1px solid var(--border); border-radius: 6px; padding: 0.8rem; overflow-x: auto; font-size: 0.83rem; line-height: 1.5; }
+code { color: var(--text); }
+.check { border-left: 3px solid #58a6ff; background: rgba(88,166,255,0.08); padding: 0.5rem 0.8rem; border-radius: 0 6px 6px 0; font-size: 0.86rem; color: var(--text-muted); margin: 0.4rem 0 0.2rem; }
+.check::before { content: '🔎 Verifica: '; font-weight: 600; color: var(--text); }
