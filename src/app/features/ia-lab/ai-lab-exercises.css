@@ -1,0 +1,71 @@
+.exercises-page {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 1rem 0;
+}
+.page-title {
+  font-size: 1.3rem;
+  margin-bottom: 0.4rem;
+  color: var(--text);
+}
+.page-desc {
+  color: var(--text-muted);
+  margin-bottom: 1.2rem;
+  font-size: 0.9rem;
+}
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1.4rem;
+  margin-bottom: 1rem;
+}
+.card h3 {
+  font-size: 1.05rem;
+  margin-bottom: 0.7rem;
+  color: var(--accent-blue);
+}
+.card p {
+  color: var(--text);
+  line-height: 1.6;
+  margin-bottom: 0.7rem;
+}
+.card code {
+  background: var(--bg-code, rgba(110,118,129,0.15));
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  font-size: 0.84rem;
+}
+.criteria {
+  background: rgba(88,166,255,0.06);
+  border: 1px solid rgba(88,166,255,0.15);
+  border-radius: 8px;
+  padding: 0.8rem 1rem;
+  margin: 0.7rem 0;
+}
+.criteria h4 {
+  font-size: 0.9rem;
+  margin-bottom: 0.5rem;
+  color: var(--accent-blue);
+}
+.criteria ul {
+  padding-left: 1.2rem;
+  color: var(--text);
+  font-size: 0.88rem;
+  line-height: 1.7;
+}
+.criteria li { margin-bottom: 0.2rem; }
+.hint {
+  background: rgba(63,185,80,0.08);
+  border-left: 3px solid var(--accent-green, #3fb950);
+  border-radius: 0 8px 8px 0;
+  padding: 0.7rem 1rem;
+  margin-top: 0.7rem;
+  color: var(--text);
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+.hint strong { color: var(--accent-green, #3fb950); }
+@media (max-width: 600px) {
+  .card { padding: 1rem; }
+}

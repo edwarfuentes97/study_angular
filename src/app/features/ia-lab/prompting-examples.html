@@ -1,0 +1,20 @@
+<div class="lab-header">
+  <h2>⚙️ Ejemplos prácticos de IA</h2>
+  <p>Estos ejemplos te ayudan a pasar de la teoría a aplicaciones reales y útiles.</p>
+  <nav class="lab-nav">
+    <a routerLink="/lab/ia" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Inicio</a>
+    <a routerLink="/lab/ia/concepts" routerLinkActive="active">Conceptos</a>
+    <a routerLink="/lab/ia/examples" routerLinkActive="active">Ejemplos</a>
+    <a routerLink="/lab/ia/lab" routerLinkActive="active">Labs</a>
+  </nav>
+</div>
+
+<div class="columns">
+  @for (example of examples(); track example.title) {
+    <div class="column card">
+      <h3>{{ example.title }}</h3>
+      <p class="description">{{ example.description }}</p>
+      <pre><code>{{ example.snippet }}</code></pre>
+    </div>
+  }
+</div>

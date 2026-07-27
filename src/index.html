@@ -21,7 +21,7 @@
       window.history.replaceState(
         null,
         '',
-        `${location.pathname.replace(/\\/$/, '')}${decoded}${location.hash}`,
+        `${location.pathname.replace(/\/$/, '')}${decoded}${location.hash}`,
       );
     })(window.location);
   </script>

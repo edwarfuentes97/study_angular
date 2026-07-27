@@ -1,0 +1,99 @@
+.container {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+h1 {
+  color: #fff;
+  font-size: 2.5rem;
+  text-align: center;
+  margin-bottom: 0.5rem;
+}
+
+.subtitle {
+  text-align: center;
+  color: #94a3b8;
+  margin-bottom: 3rem;
+  font-size: 1.1rem;
+}
+
+.phase-card {
+  background-color: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.phase-title {
+  color: var(--accent-color);
+  font-size: 1.5rem;
+  margin-top: 0;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.phase-duration {
+  font-size: 0.9rem;
+  background: var(--border-color);
+  padding: 4px 12px;
+  border-radius: 20px;
+  color: #cbd5e1;
+}
+
+ul {
+  list-style-type: none;
+  padding: 0;
+  margin: 0;
+}
+
+li {
+  margin-bottom: 1.2rem;
+  padding-left: 1.5rem;
+  position: relative;
+}
+
+li::before {
+  content: '▹';
+  position: absolute;
+  left: 0;
+  color: var(--accent-color);
+  font-weight: bold;
+}
+
+strong {
+  color: #fff;
+}
+
+.keyword {
+  background: #334155;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.85em;
+  color: #fbbf24;
+  font-family: monospace;
+}
+
+.lab-section {
+  margin-top: 1.5rem;
+  padding: 1rem 1.5rem;
+  background-color: var(--lab-bg);
+  border-left: 4px solid var(--lab-border);
+  border-radius: 0 8px 8px 0;
+}
+
+.lab-title {
+  color: #34d399;
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+  font-size: 1.1rem;
+}
+
+.lab-content {
+  font-size: 0.95rem;
+  color: #d1fae5;
+  margin: 0;
+}

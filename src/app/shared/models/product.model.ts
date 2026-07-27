@@ -16,7 +16,7 @@ export interface AsyncState<T> {
 export type TopicId =
   | 'ngrx' | 'rxjs' | 'angular-core' | 'typescript'
   | 'architecture' | 'performance' | 'testing' | 'playwright'
-  | 'fundamentals' | 'microfrontends' | 'behavioral';
+  | 'fundamentals' | 'microfrontends' | 'behavioral' | 'IA';
 
 export interface StudyTopic {
   id: TopicId;

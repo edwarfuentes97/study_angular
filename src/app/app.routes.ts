@@ -45,5 +45,9 @@ export const routes: Routes = [
     path: 'lab/microfrontends',
     loadChildren: () => import('./features/microfrontends-lab/mfe-lab.routes').then(m => m.MFE_LAB_ROUTES)
   },
+  {
+    path: 'lab/ia',
+    loadChildren: () => import('./features/ia-lab/ia-lab.routes').then(m => m.IA_LAB_ROUTES)
+  },
   { path: '**', redirectTo: '' }
 ];

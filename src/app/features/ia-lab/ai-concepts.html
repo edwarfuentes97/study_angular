@@ -1,0 +1,19 @@
+<div class="lab-header">
+  <h2>� Conceptos clave de IA</h2>
+  <p>Comprende los bloques esenciales antes de trabajar con modelos locales, agentes o flujos de producción.</p>
+  <nav class="lab-nav">
+    <a routerLink="/lab/ia" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Inicio</a>
+    <a routerLink="/lab/ia/concepts" routerLinkActive="active">Conceptos</a>
+    <a routerLink="/lab/ia/examples" routerLinkActive="active">Ejemplos</a>
+    <a routerLink="/lab/ia/lab" routerLinkActive="active">Labs</a>
+  </nav>
+</div>
+
+<div class="columns">
+  @for (item of concepts(); track item.title) {
+    <div class="column card">
+      <h3>{{ item.title }}</h3>
+      <p class="description">{{ item.description }}</p>
+    </div>
+  }
+</div>

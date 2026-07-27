@@ -13,59 +13,149 @@ const STORAGE_KEY = 'study-angular-progress';
 
 export const STUDY_TOPICS: StudyTopic[] = [
   {
-    id: 'ngrx', title: 'NgRx — State Management', icon: '🔴',
-    level: 'critical', route: '/lab/ngrx',
-    subtopics: ['Store & Actions', 'Reducers & EntityAdapter', 'Effects & HTTP', 'Selectors', 'Standalone Integration']
+    id: 'ngrx',
+    title: 'NgRx — State Management',
+    icon: '🔴',
+    level: 'critical',
+    route: '/lab/ngrx',
+    subtopics: [
+      'Store & Actions',
+      'Reducers & EntityAdapter',
+      'Effects & HTTP',
+      'Selectors',
+      'Standalone Integration',
+    ],
   },
   {
-    id: 'rxjs', title: 'RxJS — Programación Reactiva', icon: '🔴',
-    level: 'critical', route: '/lab/rxjs',
-    subtopics: ['Observable Types', 'Flattening Operators', 'Search Typeahead', 'Combining Operators', 'Memory Leaks']
+    id: 'rxjs',
+    title: 'RxJS — Programación Reactiva',
+    icon: '🔴',
+    level: 'critical',
+    route: '/lab/rxjs',
+    subtopics: [
+      'Observable Types',
+      'Flattening Operators',
+      'Search Typeahead',
+      'Combining Operators',
+      'Memory Leaks',
+    ],
   },
   {
-    id: 'angular-core', title: 'Angular Core Avanzado', icon: '🔴',
-    level: 'critical', route: '/lab/angular',
-    subtopics: ['Change Detection', 'Signals', 'Reactive Forms', 'Lazy Loading', 'Interceptors & Guards']
+    id: 'angular-core',
+    title: 'Angular Core Avanzado',
+    icon: '🔴',
+    level: 'critical',
+    route: '/lab/angular',
+    subtopics: [
+      'Change Detection',
+      'Signals',
+      'Reactive Forms',
+      'Lazy Loading',
+      'Interceptors & Guards',
+    ],
   },
   {
-    id: 'typescript', title: 'TypeScript Avanzado', icon: '🔴',
-    level: 'critical', route: '/lab/typescript',
-    subtopics: ['Generics', 'Type Guards', 'Discriminated Unions', 'Utility Types']
+    id: 'typescript',
+    title: 'TypeScript Avanzado',
+    icon: '🔴',
+    level: 'critical',
+    route: '/lab/typescript',
+    subtopics: ['Generics', 'Type Guards', 'Discriminated Unions', 'Utility Types'],
   },
   {
-    id: 'architecture', title: 'Arquitectura', icon: '🟠',
-    level: 'high', route: '/lab/architecture',
-    subtopics: ['Smart/Dumb Components', 'Component Communication', 'Enterprise Structure']
+    id: 'architecture',
+    title: 'Arquitectura',
+    icon: '🟠',
+    level: 'high',
+    route: '/lab/architecture',
+    subtopics: ['Smart/Dumb Components', 'Component Communication', 'Enterprise Structure'],
   },
   {
-    id: 'performance', title: 'Performance', icon: '🟠',
-    level: 'high', route: '/lab/performance',
-    subtopics: ['@defer Blocks', 'trackBy', 'Virtual Scrolling', 'OnPush Strategy']
+    id: 'performance',
+    title: 'Performance',
+    icon: '🟠',
+    level: 'high',
+    route: '/lab/performance',
+    subtopics: ['@defer Blocks', 'trackBy', 'Virtual Scrolling', 'OnPush Strategy'],
   },
   {
-    id: 'testing', title: 'Testing', icon: '🟠',
-    level: 'high', route: '/lab/testing',
-    subtopics: ['Component Tests', 'NgRx Tests', 'Service Tests']
+    id: 'testing',
+    title: 'Testing',
+    icon: '🟠',
+    level: 'high',
+    route: '/lab/testing',
+    subtopics: ['Component Tests', 'NgRx Tests', 'Service Tests'],
   },
   {
-    id: 'playwright' as TopicId, title: 'Playwright E2E Testing', icon: '🧪',
-    level: 'high', route: '/lab/playwright',
-    subtopics: ['Instalación & Configuración', 'Page Object Model', 'Fixtures & Auth', 'Inspector y Debug', 'CI/CD y Paralelismo']
+    id: 'playwright' as TopicId,
+    title: 'Playwright E2E Testing',
+    icon: '🧪',
+    level: 'high',
+    route: '/lab/playwright',
+    subtopics: [
+      'Instalación & Configuración',
+      'Page Object Model',
+      'Fixtures & Auth',
+      'Inspector y Debug',
+      'CI/CD y Paralelismo',
+    ],
   },
   {
-    id: 'fundamentals' as TopicId, title: 'Angular Fundamentals', icon: '🟢',
-    level: 'critical', route: '/lab/fundamentals',
-    subtopics: ['Directivas', 'Pipes', 'Lifecycle Hooks', 'Content Projection', 'ViewEncapsulation', 'HttpClient & API', 'Dependency Injection', 'Template Refs & ViewChild', 'Routing Avanzado', 'Modules vs Standalone', 'Decoradores']
+    id: 'fundamentals' as TopicId,
+    title: 'Angular Fundamentals',
+    icon: '🟢',
+    level: 'critical',
+    route: '/lab/fundamentals',
+    subtopics: [
+      'Directivas',
+      'Pipes',
+      'Lifecycle Hooks',
+      'Content Projection',
+      'ViewEncapsulation',
+      'HttpClient & API',
+      'Dependency Injection',
+      'Template Refs & ViewChild',
+      'Routing Avanzado',
+      'Modules vs Standalone',
+      'Decoradores',
+    ],
   },
   {
-    id: 'microfrontends', title: 'Microfrontends', icon: '🧩',
-    level: 'high', route: '/lab/microfrontends',
-    subtopics: ['Module Federation', 'Native Federation', 'Angular Elements', 'Comunicación entre MFEs', 'Deploy Independiente']
+    id: 'microfrontends',
+    title: 'Microfrontends',
+    icon: '🧩',
+    level: 'high',
+    route: '/lab/microfrontends',
+    subtopics: [
+      'Module Federation',
+      'Native Federation',
+      'Angular Elements',
+      'Comunicación entre MFEs',
+      'Deploy Independiente',
+    ],
   },
   {
-    id: 'behavioral', title: 'Behavioral & System Design', icon: '💬',
-    level: 'complementary', route: '/guide',
-    subtopics: ['STAR Method', 'System Design', 'Cultural Fit']
+    id: 'behavioral',
+    title: 'Behavioral & System Design',
+    icon: '💬',
+    level: 'complementary',
+    route: '/guide',
+    subtopics: ['STAR Method', 'System Design', 'Cultural Fit'],
+  },
+  {
+    id: 'IA',
+    title: 'Artificial Intelligence',
+    icon: '🤖',
+    level: 'critical',
+    route: '/lab/ia',
+    subtopics: [
+      'Fundamentes y entorno Local',
+      'Desarrollo y Proxying',
+      'Integración en codigo y Casos de Uso Reeales',
+      'Conexion con el mundo Real',
+      'Autonomia y Agentes',
+      'Produccion y Mantenimiento',
+    ],
   },
 ];
 
@@ -77,7 +167,8 @@ export class ProgressService {
 
   readonly overallPercent = computed(() => {
     const p = this._progress();
-    let total = 0, done = 0;
+    let total = 0,
+      done = 0;
     for (const topic of STUDY_TOPICS) {
       for (const sub of topic.subtopics) {
         total++;
@@ -92,7 +183,7 @@ export class ProgressService {
     const result: Record<string, number> = {};
     for (const topic of STUDY_TOPICS) {
       const total = topic.subtopics.length;
-      const done = topic.subtopics.filter(s => p[topic.id]?.subtopics[s]?.completed).length;
+      const done = topic.subtopics.filter((s) => p[topic.id]?.subtopics[s]?.completed).length;
       result[topic.id] = total === 0 ? 0 : Math.round((done / total) * 100);
     }
     return result;
@@ -108,8 +199,8 @@ export class ProgressService {
       ...current[topicId],
       subtopics: {
         ...current[topicId].subtopics,
-        [subtopic]: { completed: !sub?.completed }
-      }
+        [subtopic]: { completed: !sub?.completed },
+      },
     };
     this._progress.set(current);
     this.save(current);
@@ -122,7 +213,7 @@ export class ProgressService {
   private load(): Record<TopicId, TopicProgress> {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      return raw ? JSON.parse(raw) : {} as any;
+      return raw ? JSON.parse(raw) : ({} as any);
     } catch {
       return {} as any;
     }
