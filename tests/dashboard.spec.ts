@@ -15,7 +15,7 @@ test.describe('Dashboard', () => {
   });
 
   test('[@smoke] should display topic cards for each study topic', async ({ dashboardPage }) => {
-    await expect(dashboardPage.topicCards).toHaveCount(11);
+    await expect(dashboardPage.topicCards).toHaveCount(12);
     await expect(dashboardPage.topicCards.first()).toBeVisible();
   });
 
