@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>StudyAngular</title>
+  <script>
+    (function () {
+      var location = window.location;
+      var isGithubProjectPage = /\.github\.io$/i.test(location.hostname);
+      var segmentsToKeep = isGithubProjectPage ? 1 : 0;
+      var pathSegments = location.pathname.split('/').filter(Boolean);
+      var basePath = '/' + pathSegments.slice(0, segmentsToKeep).join('/');
+      var routePath = '/' + pathSegments.slice(segmentsToKeep).join('/');
+
+      var redirectUrl =
+        location.protocol +
+        '//' +
+        location.hostname +
+        (location.port ? ':' + location.port : '') +
+        (basePath === '/' ? '' : basePath) +
+        '/?' +
+        routePath.replace(/&/g, '~and~') +
+        (location.search ? '&' + location.search.slice(1).replace(/&/g, '~and~') : '') +
+        location.hash;
+
+      location.replace(redirectUrl);
+    })();
+  </script>
+</head>
+<body></body>
+</html>
